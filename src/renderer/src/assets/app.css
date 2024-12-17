@@ -8,3 +8,24 @@ body {
 a {
   color: var(--p-button-link-color);
 }
+
+.main-menu {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.p-menubar {
+  padding: 0.1rem !important;
+  border: none !important;
+}
+
+.p-menubar-item-link {
+  padding: 4px 8px !important;
+}
+
+.p-menubar-root-list {
+  gap: 0.1rem !important;
+}
+
+.p-menubar-root-list > .p-menubar-item > .p-menubar-item-content > .p-menubar-item-link > .p-menubar-submenu-icon {
+  display: none !important;
+}

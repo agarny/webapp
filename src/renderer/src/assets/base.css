@@ -1,6 +1,10 @@
 @tailwind base;
 @tailwind utilities;
 
+:root {
+  --border-color: var(--p-content-border-color);
+}
+
 body {
   margin: 0;
   font-family:
