@@ -224,6 +224,8 @@ export class MainWindow extends ApplicationWindow {
       y: mainWindowState.y,
       width: mainWindowState.width,
       height: mainWindowState.height,
+      minWidth: 640,
+      minHeight: 480,
       ...(platform.isMacOS ? {} : { icon: icon })
     })
 
