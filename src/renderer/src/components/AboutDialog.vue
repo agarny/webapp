@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog v-model:visible="visible" header=" " style="width: 36rem">
+  <BaseDialog header=" " style="width: 36rem">
     <div class="space-y-7">
       <div class="text-center">
         <div class="text-3xl font-bold">OpenCOR {{ version }}</div>
@@ -13,7 +13,7 @@
       </div>
     </div>
     <template #footer>
-      <Button label="OK" autofocus @click="closeAbout" />
+      <Button label="OK" autofocus @click="$emit('close')" />
     </template>
   </BaseDialog>
 </template>
@@ -21,28 +21,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-defineProps({
-  version: {
-    type: String,
-    required: true
-  },
-  copyright: {
-    type: String,
-    required: true
-  }
-})
+defineEmits(['close'])
 
-// @ts-ignore (window.electronAPI may or not be defined and that is why we test it)
-const electronAPI = window.electronAPI
-const visible = ref(false)
-
-if (electronAPI !== undefined) {
-  electronAPI.onAbout(() => {
-    visible.value = true
-  })
-}
-
-const closeAbout = () => {
-  visible.value = false
-}
+const version = ref(__APP_VERSION__)
+const currentYear = new Date().getFullYear()
+const copyright = ref(currentYear === 2024 ? '2024' : `2024-${currentYear}`)
 </script>
