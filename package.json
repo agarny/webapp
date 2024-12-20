@@ -45,7 +45,6 @@
     "@primevue/themes": "^4.1.0",
     "electron-settings": "^4.0.4",
     "electron-updater": "^6.3.4",
-    "libopencor": "https://opencor.ws/libopencor/downloads/libopencor-0.0.0.tgz",
     "primeicons": "^7.0.0",
     "primevue": "^4.1.0"
   },

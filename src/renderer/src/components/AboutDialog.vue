@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog header=" " style="width: 36rem">
+  <BaseDialog header=" " style="width: 39rem">
     <div class="space-y-7">
       <div class="text-center">
         <div class="text-3xl font-bold">OpenCOR {{ version }}</div>
@@ -12,7 +12,6 @@
           library that can be used to organise, edit, simulate, and analyse
           <a href="https://cellml.org/" target="_blank" rel="noopener">CellML</a> files.
         </div>
-
         <div class="space-y-0">
           <div>There are two versions of OpenCOR:</div>
 
@@ -30,7 +29,6 @@
             </li>
           </ol>
         </div>
-
         <div>
           The main difference between the two versions is that models in OpenCOR are, by default, compiled while they
           can only be interpreted in OpenCOR's Web app.
@@ -44,9 +42,13 @@
 </template>
 
 <script setup lang="ts">
+import * as oc from '../libOpenCOR'
+
 defineEmits(['close'])
 
 const version = __APP_VERSION__
 const currentYear = new Date().getFullYear()
 const copyright = currentYear === 2024 ? '2024' : `2024-${currentYear}`
+
+const ocVersion = oc.version()
 </script>
