@@ -13,23 +13,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Windows
-            os: windows-latest
+          - name: Windows (Intel)
+            os: windows-2022
             build: ON
-          - name: Linux
-            os: ubuntu-latest
+          - name: Windows (ARM)
+            os: windows-2022
+            build: ON
+          - name: Linux (Intel)
+            os: ubuntu-22.04
+            build: ON
+          - name: Linux (ARM)
+            os: ubuntu-22.04-arm
             build: ON
           - name: macOS (Intel)
             os: macos-13
             build: ON
           - name: macOS (ARM)
-            os: macos-latest
+            os: macos-14
             build: ON
           - name: Code formatting
-            os: ubuntu-latest
+            os: ubuntu-22.04
             build: OFF
           - name: Linting
-            os: ubuntu-latest
+            os: ubuntu-22.04
             build: OFF
     steps:
       - name: Check out OpenCOR

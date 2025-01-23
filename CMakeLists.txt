@@ -16,21 +16,20 @@ include_directories(${CMAKE_JS_INC})
 
 if(WIN32)
     set(PLATFORM Windows)
-    set(ARCHITECTURE Intel)
     set(EXTENSION .zip)
 elseif(APPLE)
     set(PLATFORM macOS)
     set(EXTENSION .zip)
-
-    if("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
-        set(ARCHITECTURE Intel)
-    else()
-        set(ARCHITECTURE ARM)
-    endif()
 else()
     set(PLATFORM Linux)
-    set(ARCHITECTURE Intel)
     set(EXTENSION .tar.gz)
+endif()
+
+if(   "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "AMD64"
+   OR "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
+    set(ARCHITECTURE Intel)
+else()
+    set(ARCHITECTURE ARM)
 endif()
 
 set(LIBOPENCOR_FILE_NAME_WE libOpenCOR-${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}-${PLATFORM}-${ARCHITECTURE}-Shared)
