@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import * as loc from '../../../libopencor/libOpenCOR'
+import * as locAPI from '../../../libopencor/locAPI'
 
 defineEmits(['close'])
 
@@ -50,5 +50,5 @@ const version = __APP_VERSION__
 const currentYear = new Date().getFullYear()
 const copyright = currentYear === 2024 ? '2024' : `2024-${currentYear.toString()}`
 
-const locVersion = loc.version()
+const locVersion = locAPI.version()
 </script>
