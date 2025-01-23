@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { electronAPI } from '../../electronapi'
+import { electronAPI } from '../../electronAPI'
 
 const aboutVisible = ref(false)
 

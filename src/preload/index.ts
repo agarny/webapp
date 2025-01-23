@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import loc from '../../out/libOpenCOR/Release/libOpenCOR.node'
 
 // Some bridging between our main process and renderer process.
-// Note: ../electronapi.ts needs to be in sync with this file.
+// Note: src/electronAPI.ts needs to be in sync with this file.
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Renderer process asking the main process to do something for it.
@@ -24,7 +24,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 })
 
 // Give our renderer process access to the C++ version of libOpenCOR.
+// Note: src/libopencor/locAPI.ts needs to be in sync with this file.
 
-contextBridge.exposeInMainWorld('libOpenCOR', {
+contextBridge.exposeInMainWorld('locAPI', {
   versionString: () => loc.version()
 })

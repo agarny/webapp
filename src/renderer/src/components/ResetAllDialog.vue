@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { useConfirm } from 'primevue/useconfirm'
-import { electronAPI } from '../../../electronapi'
+import { electronAPI } from '../../../electronAPI'
 
 const confirm = useConfirm()
 
