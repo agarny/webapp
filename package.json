@@ -42,7 +42,8 @@
     "electron-updater": "^6.3.9",
     "libopencor": "https://opencor.ws/libopencor/downloads/libopencor-0.0.0.tgz",
     "primeicons": "^7.0.0",
-    "primevue": "^4.2.5"
+    "primevue": "^4.2.5",
+    "systeminformation": "^5.25.11"
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",

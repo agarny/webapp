@@ -1,6 +1,10 @@
 interface ElectronAPI {
   // Note: src/preload/index.ts needs to be in sync with this file.
 
+  // Some general methods.
+
+  operatingSystem: () => string
+
   // Renderer process asking the main process to do something for it.
 
   resetAll: () => void

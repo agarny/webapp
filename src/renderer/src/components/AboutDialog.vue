@@ -3,7 +3,8 @@
     <div class="space-y-7">
       <div class="text-center">
         <div class="text-3xl font-bold">OpenCOR {{ version }}</div>
-        <div class="italic">Copyright {{ copyright }}</div>
+        <div v-if="electronAPI" class="text-xl italic font-bold">{{ electronAPI?.operatingSystem() }}</div>
+        <div class="text-sm italic">Copyright {{ copyright }}</div>
       </div>
       <div class="space-y-2">
         <div>
@@ -42,6 +43,7 @@
 </template>
 
 <script setup lang="ts">
+import { electronAPI } from '../../../electronAPI'
 import * as locAPI from '../../../libopencor/locAPI'
 
 defineEmits(['close'])
