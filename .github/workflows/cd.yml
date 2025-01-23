@@ -13,10 +13,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Windows
-            os: windows-latest
-          - name: Linux
-            os: ubuntu-latest
+          - name: Windows (Intel)
+            os: windows-2022
+          - name: Windows (ARM)
+            os: windows-2022
+          - name: Linux (Intel)
+            os: ubuntu-22.04
+          - name: Linux (ARM)
+            os: ubuntu-22.04-arm
           - name: macOS (Intel)
             os: macos-13
           - name: macOS (ARM)
