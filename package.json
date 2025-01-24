@@ -3,6 +3,9 @@
     "name": "Alan Garny",
     "email": "a.garny@auckland.ac.nz"
   },
+  "binary": {
+    "napi_versions": 7
+  },
   "bugs": {
     "url": "https://github.com/opencor/webapp/issues"
   },
