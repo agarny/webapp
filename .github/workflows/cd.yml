@@ -63,6 +63,11 @@ jobs:
           node-version: 'lts/*'
       - name: Install pnpm
         run: npm install -g pnpm
+      - name: Install libopenjp2-tools (Linux ARM only) # To get access to opj_decompress.
+        if: matrix.name == 'Linux (ARM)'
+        run: |
+          sudo apt update
+          sudo apt install libopenjp2-tools
       - name: Package OpenCOR
         run: |
           pnpm install
