@@ -8,6 +8,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Some common CMake policies.
+
+foreach(POLICY CMP0042 CMP0091)
+    cmake_policy(SET ${POLICY} NEW)
+endforeach()
+
 # Get access to cmake-js.
 
 include_directories(${CMAKE_JS_INC})
@@ -104,6 +110,12 @@ set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
                       PREFIX ""
                       SUFFIX ".node")
 
+# Generate node.lib.
+
+if(MSVC AND CMAKE_JS_NODELIB_DEF AND CMAKE_JS_NODELIB_TARGET)
+    execute_process(COMMAND ${CMAKE_AR} /def:${CMAKE_JS_NODELIB_DEF} /out:${CMAKE_JS_NODELIB_TARGET} ${CMAKE_STATIC_LINKER_FLAGS})
+endif()
+
 # Link cmake-js and libOpenCOR to our Node.js add-on.
 
 if(WIN32)
@@ -115,19 +127,6 @@ endif()
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
                       ${CMAKE_JS_LIB}
                       ${CMAKE_BINARY_DIR}/${LIBOPENCOR_FILE_NAME_WE}/lib/${LIBOPENCOR_FILENAME})
-
-# Include the Node-API wrappers.
-
-execute_process(COMMAND node -p "require('node-addon-api').include"
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                OUTPUT_VARIABLE NODE_ADDON_API_DIR)
-
-string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
-
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-                           ${NODE_ADDON_API_DIR})
-
-add_definitions(-DNAPI_VERSION=3)
 
 # Configure our splash screen.
 
