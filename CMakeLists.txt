@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(libOpenCOR
-        VERSION 0.0.0)
+project(libOpenCOR VERSION 0.0.0)
 
 # Enable C++20.
 
