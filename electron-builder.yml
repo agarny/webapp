@@ -3,9 +3,7 @@ productName: OpenCOR
 win:
   artifactName: ${productName}-${version}-Windows.${ext}
   extraFiles:
-    - from: 'out/libOpenCOR/libOpenCOR-0.0.0-Windows-Intel-Shared/bin/libOpenCOR.dll'
-      to: 'libOpenCOR.dll'
-    - from: 'out/libOpenCOR/libOpenCOR-0.0.0-Windows-ARM-Shared/bin/libOpenCOR.dll'
+    - from: 'out/libOpenCOR/Shared/bin/libOpenCOR.dll'
       to: 'libOpenCOR.dll'
   target:
     - nsis
@@ -17,9 +15,7 @@ linux:
   category: Utility
   executableName: OpenCOR
   extraFiles:
-    - from: 'out/libOpenCOR/libOpenCOR-0.0.0-Linux-Intel-Shared/lib/libOpenCOR.so.0.0.0'
-      to: 'libOpenCOR.so.0.0.0'
-    - from: 'out/libOpenCOR/libOpenCOR-0.0.0-Linux-ARM-Shared/lib/libOpenCOR.so.0.0.0'
+    - from: 'out/libOpenCOR/Shared/lib/libOpenCOR.so.0.0.0'
       to: 'libOpenCOR.so.0.0.0'
   target:
     - AppImage
@@ -37,9 +33,7 @@ mac:
   #    - APPLE_TEAM_ID: an id that can be found in the top right corner of https://developer.apple.com/account/resources/certificates/list.
   artifactName: ${productName}-${version}-macOS-${arch}.${ext}
   extraFiles:
-    - from: 'out/libOpenCOR/libOpenCOR-0.0.0-macOS-Intel-Shared/lib/libOpenCOR.0.0.0.dylib'
-      to: 'Frameworks/libOpenCOR.0.0.0.dylib'
-    - from: 'out/libOpenCOR/libOpenCOR-0.0.0-macOS-ARM-Shared/lib/libOpenCOR.0.0.0.dylib'
+    - from: 'out/libOpenCOR/Shared/lib/libOpenCOR.0.0.0.dylib'
       to: 'Frameworks/libOpenCOR.0.0.0.dylib'
   target:
     - dmg

@@ -25,12 +25,7 @@ export default defineConfig({
             viteStaticCopy({
               targets: [
                 {
-                  src: normalizePath(
-                    path.resolve(
-                      import.meta.dirname,
-                      'out/libOpenCOR/libOpenCOR-0.0.0-Windows-Intel-Shared/bin/libOpenCOR.dll'
-                    )
-                  ),
+                  src: normalizePath(path.resolve(import.meta.dirname, 'out/libOpenCOR/Shared/bin/libOpenCOR.dll')),
                   dest: 'chunks'
                 }
               ]

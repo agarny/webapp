@@ -15,16 +15,22 @@ jobs:
         include:
           - name: Windows (Intel)
             os: windows-2022
+            package_script: package
           - name: Windows (ARM)
             os: windows-2022
+            package_script: package:arm
           - name: Linux (Intel)
             os: ubuntu-22.04
+            package_script: package
           - name: Linux (ARM)
             os: ubuntu-22.04-arm
+            package_script: package
           - name: macOS (Intel)
             os: macos-13
+            package_script: package
           - name: macOS (ARM)
             os: macos-latest
+            package_script: package
     env:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -71,7 +77,7 @@ jobs:
       - name: Package OpenCOR
         run: |
           pnpm install
-          pnpm package
+          pnpm ${{ matrix.package_script }}
       - name: Remove blockmap files
         shell: bash
         run: find ./dist -name '*.blockmap' -delete

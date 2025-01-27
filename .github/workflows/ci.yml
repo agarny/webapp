@@ -15,31 +15,31 @@ jobs:
         include:
           - name: Windows (Intel)
             os: windows-2022
-            build: ON
+            build_script: build
           - name: Windows (ARM)
             os: windows-2022
-            build: ON
+            build_script: build:arm
           - name: Linux (Intel)
             os: ubuntu-22.04
-            build: ON
+            build_script: build
           - name: Linux (ARM)
             os: ubuntu-22.04-arm
-            build: ON
+            build_script: build
           - name: macOS (Intel)
             os: macos-13
-            build: ON
+            build_script: build
           - name: macOS (ARM)
             os: macos-14
-            build: ON
+            build_script: build
           - name: Code formatting
             os: ubuntu-22.04
-            build: OFF
           - name: Linting
             os: ubuntu-22.04
-            build: OFF
     steps:
       - name: Check out OpenCOR
         uses: actions/checkout@v4
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
@@ -49,10 +49,10 @@ jobs:
       - name: OpenCOR dependencies
         run: pnpm install
       - name: Build OpenCOR
-        if: matrix.build == 'ON'
-        run: pnpm build
+        if: matrix.build_script != null
+        run: pnpm ${{ matrix.build_script }}
       - name: Build OpenCOR's Web app
-        if: matrix.build == 'ON'
+        if: matrix.build_script != null
         run: pnpm build:web
       - name: Code formatting
         if: matrix.name == 'Code formatting'

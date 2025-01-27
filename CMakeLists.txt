@@ -31,14 +31,13 @@ else()
     set(EXTENSION .tar.gz)
 endif()
 
-if(   "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "AMD64"
-   OR "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
+if("${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "x64")
     set(ARCHITECTURE Intel)
 else()
     set(ARCHITECTURE ARM)
 endif()
 
-set(LIBOPENCOR_FILE_NAME_WE libOpenCOR-${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}-${PLATFORM}-${ARCHITECTURE}-Shared)
+set(LIBOPENCOR_FILE_NAME_WE ${CMAKE_PROJECT_NAME}-${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}-${PLATFORM}-${ARCHITECTURE}-Shared)
 set(LIBOPENCOR_FILE_NAME ${LIBOPENCOR_FILE_NAME_WE}${EXTENSION})
 
 file(DOWNLOAD https://opencor.ws/libopencor/downloads/${LIBOPENCOR_FILE_NAME}
@@ -48,10 +47,14 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E tar xvf ${CMAKE_BINARY_DIR}/${LIBOPE
                 WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
                 OUTPUT_QUIET)
 
+execute_process(COMMAND ${CMAKE_COMMAND} -E rename ${LIBOPENCOR_FILE_NAME_WE} Shared
+                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                OUTPUT_QUIET)
+
 file(REMOVE ${CMAKE_BINARY_DIR}/${LIBOPENCOR_FILE_NAME})
 
-include_directories(${CMAKE_BINARY_DIR}/${LIBOPENCOR_FILE_NAME_WE}/include
-                    ${CMAKE_BINARY_DIR}/${LIBOPENCOR_FILE_NAME_WE}/include/libopencor/module)
+include_directories(${CMAKE_BINARY_DIR}/Shared/include
+                    ${CMAKE_BINARY_DIR}/Shared/include/libopencor/module)
 
 # Use the appropriate C runtime library.
 
@@ -119,14 +122,14 @@ endif()
 # Link cmake-js and libOpenCOR to our Node.js add-on.
 
 if(WIN32)
-    set(LIBOPENCOR_FILENAME libOpenCOR${CMAKE_IMPORT_LIBRARY_SUFFIX})
+    set(LIBOPENCOR_FILENAME ${CMAKE_PROJECT_NAME}${CMAKE_IMPORT_LIBRARY_SUFFIX})
 else()
-    set(LIBOPENCOR_FILENAME libOpenCOR${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set(LIBOPENCOR_FILENAME ${CMAKE_PROJECT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 endif()
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
                       ${CMAKE_JS_LIB}
-                      ${CMAKE_BINARY_DIR}/${LIBOPENCOR_FILE_NAME_WE}/lib/${LIBOPENCOR_FILENAME})
+                      ${CMAKE_BINARY_DIR}/Shared/lib/${LIBOPENCOR_FILENAME})
 
 # Configure our splash screen.
 
