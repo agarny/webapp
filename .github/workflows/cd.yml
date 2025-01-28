@@ -17,7 +17,7 @@ jobs:
             os: windows-2022
             package_script: package
           - name: Windows (ARM)
-            os: windows-2022
+            os: windows-2019
             package_script: package:arm
           - name: Linux (Intel)
             os: ubuntu-22.04
