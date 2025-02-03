@@ -13,6 +13,7 @@ const items = [
     items: [
       {
         label: 'Home Page',
+        icon: 'fa-solid fa-globe',
         command: () => {
           window.open('https://opencor.ws/')
         }
@@ -20,6 +21,7 @@ const items = [
       { separator: true },
       {
         label: 'Report Issue',
+        icon: 'fa-solid fa-bug',
         command: () => {
           window.open('https://github.com/opencor/webapp/issues/new')
         }
@@ -27,6 +29,7 @@ const items = [
       { separator: true },
       {
         label: 'About OpenCOR',
+        icon: 'fa-solid fa-circle-info',
         command: () => {
           emit('about')
         }

@@ -1,4 +1,5 @@
 <template>
+  <FontAwesomeIcon icon="home" />
   <img class="logo" src="../assets/logo.svg" />
 </template>
 
