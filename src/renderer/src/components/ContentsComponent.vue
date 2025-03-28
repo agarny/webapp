@@ -25,45 +25,30 @@
     <TabPanels class="p-0!">
       <TabPanel v-for="fileTab in fileTabs" :key="'TabPanel_' + fileTab.value" :value="fileTab.value">
         <ScrollPanel class="scroll-panel">
-          <div class="panel-container">
-            <div v-if="fileTab.issues.length === 0">
-              <Fieldset legend="File path">
-                <p class="font-mono break-all">
-                  {{ fileTab.value }}
-                </p>
-              </Fieldset>
-              <Fieldset class="mt-4!" legend="Raw contents">
-                <p class="font-mono break-all">
-                  {{ fileTab.rawContents }}
-                </p>
-              </Fieldset>
-              <Fieldset class="mt-4!" legend="Uint8Array">
-                <p class="font-mono break-all">
-                  {{ fileTab.uint8Array }}
-                </p>
-              </Fieldset>
-              <Fieldset class="mt-4!" legend="Base64">
-                <p class="font-mono break-all">
-                  {{ fileTab.base64 }}
-                </p>
-              </Fieldset>
-            </div>
-            <div v-else>
-              <Fieldset legend="Issues">
-                <div
-                  v-for="(issue, index) in fileTab.issues"
-                  :key="'Issue_' + issue.type + '_' + issue.description"
-                  :class="index > 0 ? 'mt-4!' : ''"
-                >
-                  <Message v-if="issue.type === locAPI.IssueType.Error" severity="error" icon="pi pi-times-circle">
-                    {{ issue.description }}
-                  </Message>
-                  <Message v-else severity="warn" icon="pi pi-exclamation-triangle">
-                    {{ issue.description }}
-                  </Message>
-                </div>
-              </Fieldset>
-            </div>
+          <Splitter v-if="fileTab.issues.length === 0" class="border-none! h-full m-0" layout="vertical">
+            <SplitterPanel :size="89">
+              <Splitter>
+                <SplitterPanel class="flex items-center justify-center" :size="25"> Panel 1 </SplitterPanel>
+                <SplitterPanel class="flex items-center justify-center" :size="75"> Panel 2 </SplitterPanel>
+              </Splitter>
+            </SplitterPanel>
+            <SplitterPanel class="flex items-center justify-center" :size="11"> Panel 3 </SplitterPanel>
+          </Splitter>
+          <div v-else class="issues-container">
+            <Fieldset legend="Issues">
+              <div
+                v-for="(issue, index) in fileTab.issues"
+                :key="'Issue_' + issue.type + '_' + issue.description"
+                :class="index > 0 ? 'mt-4!' : ''"
+              >
+                <Message v-if="issue.type === locAPI.IssueType.Error" severity="error" icon="pi pi-times-circle">
+                  {{ issue.description }}
+                </Message>
+                <Message v-else severity="warn" icon="pi pi-exclamation-triangle">
+                  {{ issue.description }}
+                </Message>
+              </div>
+            </Fieldset>
           </div>
         </ScrollPanel>
       </TabPanel>
@@ -84,9 +69,6 @@ interface IFileTab {
   value: string
   title: string
   issues: locAPI.IIssue[]
-  uint8Array: string
-  base64: string
-  rawContents: string
 }
 
 const fileTabs = vue.ref<IFileTab[]>([])
@@ -105,15 +87,11 @@ export interface IContentsComponent {
 
 function openFile(file: locAPI.File): void {
   const filePath = file.path()
-  const fileContents = file.contents()
 
   fileTabs.value.splice(fileTabs.value.findIndex((fileTab) => fileTab.value === activeFile.value) + 1, 0, {
     value: filePath,
     title: filePath.split(/(\\|\/)/g).pop() ?? '',
-    issues: file.issues(),
-    uint8Array: String(fileContents),
-    base64: btoa(fileContents.reduce((data, byte) => data + String.fromCharCode(byte), '')),
-    rawContents: new TextDecoder().decode(fileContents)
+    issues: file.issues()
   })
 
   selectFile(filePath)
@@ -215,6 +193,10 @@ if (!common.isMobile()) {
   border-bottom: 1px solid var(--p-primary-color);
 }
 
+.issues-container {
+  padding: var(--p-tabs-tabpanel-padding);
+}
+
 .p-tab {
   padding: 0.25rem 0.5rem;
   border-right: 1px solid var(--p-content-border-color);
@@ -252,10 +234,6 @@ if (!common.isMobile()) {
 :deep(.p-tablist-next-button),
 :deep(.p-tabpanel) {
   outline: none !important;
-}
-
-.panel-container {
-  padding: var(--p-tabs-tabpanel-padding);
 }
 
 .remove-button {
