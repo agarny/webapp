@@ -113,7 +113,7 @@ export class File {
     if (modelCount !== 1) {
       this._issues.push({
         type: IssueType.Warning,
-        description: `Only SED-ML files with one model are currently supported.`
+        description: 'Only SED-ML files with one model are currently supported.'
       })
 
       return
@@ -126,7 +126,7 @@ export class File {
     if (simulationCount !== 1) {
       this._issues.push({
         type: IssueType.Warning,
-        description: `Only SED-ML files with one simulation are currently supported.`
+        description: 'Only SED-ML files with one simulation are currently supported.'
       })
 
       return
@@ -139,7 +139,7 @@ export class File {
     if (simulation.type() !== SEDSimulationType.UniformTimeCourse) {
       this._issues.push({
         type: IssueType.Warning,
-        description: `Only uniform time course simulations are currently supported.`
+        description: 'Only uniform time course simulations are currently supported.'
       })
     }
   }
