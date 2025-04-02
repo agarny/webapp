@@ -1,7 +1,7 @@
 <template>
   <Fieldset :legend="name">
-    <DataTable showGridlines removableSort size="small" :value="properties">
-      <Column field="property" header="Property" sortable></Column>
+    <DataTable showGridlines size="small" :value="properties">
+      <Column field="property" header="Property"></Column>
       <Column field="value" header="Value"></Column>
       <Column v-if="hasUnits" field="unit" header="Unit"></Column>
     </DataTable>
