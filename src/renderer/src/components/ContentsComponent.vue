@@ -23,7 +23,7 @@
             <SplitterPanel :size="89">
               <Splitter>
                 <SplitterPanel class="ml-4 mr-4 mb-4" :size="25">
-                  <SimulationPropertyEditorComponent :file="file" />
+                  <SimulationPropertyEditorComponent :file="vue.toRaw(file)" />
                   <!--
                   <SolversPropertyEditorComponent />
                   <GraphsPropertyEditorComponent />
