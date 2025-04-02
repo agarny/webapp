@@ -5,6 +5,7 @@ import {
   IssueType,
   SEDDocument,
   SEDSimulationType,
+  SEDSimulationUniformTimeCourse,
   wasmIssuesToIssues,
   type IIssue,
   type IWasmIssues
@@ -134,12 +135,43 @@ export class File {
 
     // Make sure that the simulation is a uniform time course simulation.
 
-    const simulation = this._sedDocument.simulation(0)
+    const simulation = this._sedDocument.simulation(0) as SEDSimulationUniformTimeCourse
 
     if (simulation.type() !== SEDSimulationType.UniformTimeCourse) {
       this._issues.push({
         type: IssueType.Warning,
         description: 'Only uniform time course simulations are currently supported.'
+      })
+
+      return
+    }
+
+    // Make sure that the initial time and output start time are the same, that the output start time and output end
+    // time are different, and that the number of steps is greater than zero.
+
+    const initialTime = simulation.initialTime()
+    const outputStartTime = simulation.outputStartTime()
+    const outputEndTime = simulation.outputEndTime()
+    const numberOfSteps = simulation.numberOfSteps()
+
+    if (initialTime !== outputStartTime) {
+      this._issues.push({
+        type: IssueType.Warning,
+        description: `Only uniform time course simulations with the same values for 'initialTime' (${initialTime.toString()}) and 'outputStartTime' (${outputStartTime.toString()}) are currently supported.`
+      })
+    }
+
+    if (outputStartTime === outputEndTime) {
+      this._issues.push({
+        type: IssueType.Error,
+        description: `The uniform time course simulation must have different values for 'outputStartTime' (${outputStartTime.toString()}) and 'outputEndTime' (${outputEndTime.toString()}).`
+      })
+    }
+
+    if (numberOfSteps <= 0) {
+      this._issues.push({
+        type: IssueType.Error,
+        description: `The uniform time course simulation must have a positive value for 'numberOfSteps' (${numberOfSteps.toString()}).`
       })
     }
   }
