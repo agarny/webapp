@@ -68,18 +68,18 @@ export class SEDDocument {
     }
 
     if (type === SEDSimulationType.Analysis) {
-      return new SEDSimulationAnalysis(type, this._filePath, this._sedDocument, index)
+      return new SEDSimulationAnalysis(this._filePath, index, this._sedDocument, type)
     }
 
     if (type === SEDSimulationType.SteadyState) {
-      return new SEDSimulationSteadyState(type, this._filePath, this._sedDocument, index)
+      return new SEDSimulationSteadyState(this._filePath, index, this._sedDocument, type)
     }
 
     if (type === SEDSimulationType.OneStep) {
-      return new SEDSimulationOneStep(type, this._filePath, this._sedDocument, index)
+      return new SEDSimulationOneStep(this._filePath, index, this._sedDocument, type)
     }
 
-    return new SEDSimulationUniformTimeCourse(type, this._filePath, this._sedDocument, index)
+    return new SEDSimulationUniformTimeCourse(this._filePath, index, this._sedDocument, type)
   }
 }
 
@@ -99,10 +99,10 @@ export class SEDSimulation {
   protected _index: number
   private _type: SEDSimulationType
 
-  constructor(type: SEDSimulationType, filePath: string, _sedDocument: IWasmSEDDocument, index: number) {
-    this._type = type
+  constructor(filePath: string, index: number, _sedDocument: IWasmSEDDocument, type: SEDSimulationType) {
     this._filePath = filePath
     this._index = index
+    this._type = type
   }
 
   type(): SEDSimulationType {
@@ -121,8 +121,8 @@ interface IWasmSEDSimulationOneStep extends IWasmSEDSimulation {
 export class SEDSimulationOneStep extends SEDSimulation {
   private _wasmSEDSimulationOneStep: IWasmSEDSimulationOneStep = {} as IWasmSEDSimulationOneStep
 
-  constructor(type: SEDSimulationType, filePath: string, sedDocument: IWasmSEDDocument, index: number) {
-    super(type, filePath, sedDocument, index)
+  constructor(filePath: string, index: number, sedDocument: IWasmSEDDocument, type: SEDSimulationType) {
+    super(filePath, index, sedDocument, type)
 
     if (wasmVersion()) {
       this._wasmSEDSimulationOneStep = sedDocument.simulation(index) as IWasmSEDSimulationOneStep
@@ -147,8 +147,8 @@ export class SEDSimulationUniformTimeCourse extends SEDSimulation {
   private _wasmSEDSimulationUniformTimeCourse: IWasmSEDSimulationUniformTimeCourse =
     {} as IWasmSEDSimulationUniformTimeCourse
 
-  constructor(type: SEDSimulationType, filePath: string, sedDocument: IWasmSEDDocument, index: number) {
-    super(type, filePath, sedDocument, index)
+  constructor(filePath: string, index: number, sedDocument: IWasmSEDDocument, type: SEDSimulationType) {
+    super(filePath, index, sedDocument, type)
 
     if (wasmVersion()) {
       this._wasmSEDSimulationUniformTimeCourse = sedDocument.simulation(index) as IWasmSEDSimulationUniformTimeCourse
