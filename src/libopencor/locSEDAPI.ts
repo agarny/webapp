@@ -99,7 +99,7 @@ export class SEDSimulation {
   protected _index: number
   private _type: SEDSimulationType
 
-  constructor(type: SEDSimulationType, filePath: string, sedDocument: IWasmSEDDocument, index: number) {
+  constructor(type: SEDSimulationType, filePath: string, _sedDocument: IWasmSEDDocument, index: number) {
     this._type = type
     this._filePath = filePath
     this._index = index
