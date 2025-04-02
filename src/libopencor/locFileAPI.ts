@@ -105,6 +105,19 @@ export class File {
     //---OPENCOR---
     // At this point, we only support a limited subset of SED-ML, so we need to check a few more things.
 
+    // Make sure that there is only one model.
+
+    const modelCount = this._sedDocument.modelCount()
+
+    if (modelCount !== 1) {
+      this._issues.push({
+        type: IssueType.Warning,
+        description: `Only SED-ML files with one model are currently supported.`
+      })
+
+      return
+    }
+
     // Make sure that the SED-ML file has only one simulation.
 
     const simulationCount = this._sedDocument.simulationCount()

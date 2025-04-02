@@ -12,6 +12,7 @@ import {
 
 interface IWasmSEDDocument {
   issues: IWasmIssues
+  modelCount: number
   simulationCount: number
   simulation(index: number): IWasmSEDSimulation
 }
@@ -32,6 +33,10 @@ export class SEDDocument {
 
   issues(): IIssue[] {
     return cppVersion() ? _locAPI.sedDocumentIssues(this._filePath) : wasmIssuesToIssues(this._sedDocument.issues)
+  }
+
+  modelCount(): number {
+    return cppVersion() ? _locAPI.sedDocumentModelCount(this._filePath) : this._sedDocument.modelCount
   }
 
   simulationCount(): number {
