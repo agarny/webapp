@@ -8,7 +8,7 @@ export { _locAPI, fileManager, File, FileType, type IWasmFile } from './locFileA
 
 // SED API.
 
-export { SEDDocument, SEDSimulationType } from './locSEDAPI'
+export { SEDDocument, SEDSimulationUniformTimeCourse, SEDSimulationType } from './locSEDAPI'
 
 // Version API.
 

@@ -9,7 +9,6 @@ import {
   type IIssue,
   type IWasmIssues
 } from './locAPI'
-import type { SEDSimulationUniformTimeCourse } from './locSEDAPI'
 
 // @ts-expect-error (window.locAPI may or may not be defined and that is why we test it)
 export const _locAPI = window.locAPI ?? (await libOpenCOR())
@@ -128,18 +127,7 @@ export class File {
         type: IssueType.Warning,
         description: `Only uniform time course simulations are currently supported.`
       })
-
-      return
     }
-
-    // Retrieve some information about the uniform time course simulation.
-
-    const simulationUniformTimeCourse = simulation as SEDSimulationUniformTimeCourse
-
-    console.log('simulation.initialTime:', simulationUniformTimeCourse.initialTime())
-    console.log('simulation.outputStartTime:', simulationUniformTimeCourse.outputStartTime())
-    console.log('simulation.outputEndTime:', simulationUniformTimeCourse.outputEndTime())
-    console.log('simulation.numberOfSteps:', simulationUniformTimeCourse.numberOfSteps())
   }
 
   type(): FileType {
@@ -156,5 +144,9 @@ export class File {
 
   contents(): Uint8Array {
     return cppVersion() ? _locAPI.fileContents(this._path) : this._wasmFile.contents()
+  }
+
+  sedDocument(): SEDDocument {
+    return this._sedDocument
   }
 }
