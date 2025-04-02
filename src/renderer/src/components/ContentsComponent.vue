@@ -24,9 +24,11 @@
               <Splitter>
                 <SplitterPanel class="ml-4 mr-4 mb-4" :size="25">
                   <SimulationPropertyEditorComponent :file="file" />
+                  <!--
                   <SolversPropertyEditorComponent />
                   <GraphsPropertyEditorComponent />
                   <ParametersPropertyEditorComponent />
+                  -->
                 </SplitterPanel>
                 <SplitterPanel class="flex items-center justify-center" :size="75"> Panel 2 </SplitterPanel>
               </Splitter>
