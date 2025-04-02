@@ -1,7 +1,7 @@
 <template>
   <Fieldset :legend="name">
-    <DataTable>
-      <Column field="property" header="Property"></Column>
+    <DataTable showGridlines removableSort size="small" :value="properties">
+      <Column field="property" header="Property" sortable></Column>
       <Column field="value" header="Value"></Column>
       <Column v-if="hasUnits" field="unit" header="Unit"></Column>
     </DataTable>
@@ -12,6 +12,11 @@
 interface Props {
   name: string
   hasUnits?: boolean
+  properties: {
+    property: string
+    value: number
+    unit?: string
+  }[]
 }
 
 const { hasUnits = true } = defineProps<Props>()
