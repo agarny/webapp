@@ -1,9 +1,9 @@
 <template>
   <Fieldset :legend="name">
-    <DataTable showGridlines size="small" :value="properties">
-      <Column field="property" header="Property" />
-      <Column field="value" header="Value" />
-      <Column v-if="hasUnits" field="unit" header="Unit" />
+    <DataTable resizableColumns showGridlines size="small" :value="properties">
+      <Column field="property" header="Property" :style="columnWidth" />
+      <Column field="value" header="Value" :style="columnWidth" />
+      <Column v-if="hasUnits" field="unit" header="Unit" :style="columnWidth" />
     </DataTable>
   </Fieldset>
 </template>
@@ -20,4 +20,5 @@ interface Props {
 }
 
 const { hasUnits = true } = defineProps<Props>()
+const columnWidth = 'width: calc(100% / ' + (hasUnits ? '3' : '2') + ')'
 </script>
