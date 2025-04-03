@@ -1,3 +1,3 @@
 <template>
-  <PropertyEditorComponent name="Parameters" />
+  <PropertyEditorComponent name="Parameters" :properties="[]" />
 </template>
