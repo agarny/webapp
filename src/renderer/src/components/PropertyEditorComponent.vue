@@ -1,9 +1,9 @@
 <template>
   <Fieldset :legend="name">
     <DataTable showGridlines size="small" :value="properties">
-      <Column field="property" header="Property"></Column>
-      <Column field="value" header="Value"></Column>
-      <Column v-if="hasUnits" field="unit" header="Unit"></Column>
+      <Column field="property" header="Property" />
+      <Column field="value" header="Value" />
+      <Column v-if="hasUnits" field="unit" header="Unit" />
     </DataTable>
   </Fieldset>
 </template>
