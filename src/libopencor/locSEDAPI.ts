@@ -15,6 +15,7 @@ interface IWasmSEDDocument {
   modelCount: number
   simulationCount: number
   simulation(index: number): IWasmSEDSimulation
+  instantiate(): IWasmSEDInstance
 }
 
 export class SEDDocument {
@@ -80,6 +81,10 @@ export class SEDDocument {
     }
 
     return new SEDSimulationUniformTimeCourse(this._filePath, index, this._wasmSEDDocument, type)
+  }
+
+  instantiate(): SEDInstance {
+    return new SEDInstance(this._filePath, this._wasmSEDDocument)
   }
 }
 
@@ -179,5 +184,58 @@ export class SEDSimulationUniformTimeCourse extends SEDSimulation {
     return cppVersion()
       ? _locAPI.sedDocumentSimulationUniformTimeCourseNumberOfSteps(this._filePath, this._index)
       : this._wasmSEDSimulationUniformTimeCourse.numberOfSteps
+  }
+}
+
+interface IWasmSEDInstance {
+  issues: IWasmIssues
+  task(index: number): IWasmSEDInstanceTask
+}
+
+export class SEDInstance {
+  private _filePath: string
+  private _wasmSEDInstance: IWasmSEDInstance = {} as IWasmSEDInstance
+
+  constructor(filePath: string, wasmSEDDocument: IWasmSEDDocument) {
+    this._filePath = filePath
+
+    if (cppVersion()) {
+      _locAPI.sedDocumentInstantiate(this._filePath)
+    } else {
+      this._wasmSEDInstance = wasmSEDDocument.instantiate()
+    }
+  }
+
+  issues(): IIssue[] {
+    return cppVersion() ? _locAPI.sedInstanceIssues(this._filePath) : wasmIssuesToIssues(this._wasmSEDInstance.issues)
+  }
+
+  task(index: number): SEDInstanceTask {
+    return new SEDInstanceTask(this._filePath, index, this._wasmSEDInstance)
+  }
+}
+
+interface IWasmSEDInstanceTask {
+  voiUnit: string
+}
+
+export class SEDInstanceTask {
+  private _filePath: string
+  private _index: number
+  private _wasmSEDInstanceTask: IWasmSEDInstanceTask = {} as IWasmSEDInstanceTask
+
+  constructor(filePath: string, index: number, wasmSEDInstance: IWasmSEDInstance) {
+    this._filePath = filePath
+    this._index = index
+
+    if (wasmVersion()) {
+      this._wasmSEDInstanceTask = wasmSEDInstance.task(index)
+    }
+  }
+
+  voiUnit(): string {
+    return cppVersion()
+      ? _locAPI.sedInstanceTaskVoiUnit(this._filePath, this._index)
+      : this._wasmSEDInstanceTask.voiUnit
   }
 }

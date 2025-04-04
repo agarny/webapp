@@ -13,6 +13,14 @@ void sedDocumentCreate(const Napi::CallbackInfo &pInfo)
     fileData[file].sedDocument = sedDocument;
 }
 
+void sedDocumentInstantiate(const Napi::CallbackInfo &pInfo)
+{
+    auto file = valueToFile(pInfo[0]);
+    auto sedDocument = valueToSedDocument(pInfo[0]);
+
+    fileData[file].sedInstance = sedDocument->instantiate();
+}
+
 napi_value sedDocumentIssues(const Napi::CallbackInfo &pInfo)
 {
     return issues(pInfo, valueToSedDocument(pInfo[0])->issues());
@@ -91,4 +99,21 @@ napi_value sedDocumentSimulationUniformTimeCourseNumberOfSteps(const Napi::Callb
     auto uniformTimeCourse = std::dynamic_pointer_cast<libOpenCOR::SedUniformTimeCourse>(simulation);
 
     return Napi::Number::New(pInfo.Env(), uniformTimeCourse->numberOfSteps());
+}
+
+// SedInstance API.
+
+napi_value sedInstanceIssues(const Napi::CallbackInfo &pInfo)
+{
+    return issues(pInfo, valueToSedInstance(pInfo[0])->issues());
+}
+
+// SedInstanceTask API.
+
+napi_value sedInstanceTaskVoiUnit(const Napi::CallbackInfo &pInfo)
+{
+    auto sedInstance = valueToSedInstance(pInfo[0]);
+    auto task = sedInstance->task(valueToInt32(pInfo[1]));
+
+    return Napi::String::New(pInfo.Env(), task->voiUnit());
 }

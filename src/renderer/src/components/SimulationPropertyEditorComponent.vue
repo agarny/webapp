@@ -11,23 +11,26 @@ const props = defineProps<{
   file: locAPI.File
 }>()
 
-const sedDocument = props.file.sedDocument()
-const sedSimulationUniformTimeCourse = sedDocument.simulation(0) as locAPI.SEDSimulationUniformTimeCourse
+const sedSimulationUniformTimeCourse = props.file.sedDocument().simulation(0) as locAPI.SEDSimulationUniformTimeCourse
+const voiUnit = props.file.sedInstance().task(0).voiUnit()
 
 const properties = vue.ref([
   {
     property: 'Starting point',
-    value: sedSimulationUniformTimeCourse.outputStartTime()
+    value: sedSimulationUniformTimeCourse.outputStartTime(),
+    unit: voiUnit
   },
   {
     property: 'Ending point',
-    value: sedSimulationUniformTimeCourse.outputEndTime()
+    value: sedSimulationUniformTimeCourse.outputEndTime(),
+    unit: voiUnit
   },
   {
     property: 'Point interval',
     value:
       (sedSimulationUniformTimeCourse.outputEndTime() - sedSimulationUniformTimeCourse.outputStartTime()) /
-      sedSimulationUniformTimeCourse.numberOfSteps()
+      sedSimulationUniformTimeCourse.numberOfSteps(),
+    unit: voiUnit
   }
 ])
 </script>

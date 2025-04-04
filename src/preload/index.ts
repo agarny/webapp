@@ -98,9 +98,10 @@ electron.contextBridge.exposeInMainWorld('locAPI', {
   fileIssues: (path: string) => loc.fileIssues(path),
   fileType: (path: string) => loc.fileType(path),
 
-  // SED API.
+  // SedDocument API.
 
   sedDocumentCreate: (path: string) => loc.sedDocumentCreate(path),
+  sedDocumentInstantiate: (path: string) => loc.sedDocumentInstantiate(path),
   sedDocumentIssues: (path: string) => loc.sedDocumentIssues(path),
   sedDocumentModelCount: (path: string) => loc.sedDocumentModelCount(path),
   sedDocumentSimulationCount: (path: string) => loc.sedDocumentSimulationCount(path),
@@ -113,5 +114,13 @@ electron.contextBridge.exposeInMainWorld('locAPI', {
   sedDocumentSimulationUniformTimeCourseOutputEndTime: (path: string, index: number) =>
     loc.sedDocumentSimulationUniformTimeCourseOutputEndTime(path, index),
   sedDocumentSimulationUniformTimeCourseNumberOfSteps: (path: string, index: number) =>
-    loc.sedDocumentSimulationUniformTimeCourseNumberOfSteps(path, index)
+    loc.sedDocumentSimulationUniformTimeCourseNumberOfSteps(path, index),
+
+  // SedInstance API.
+
+  sedInstanceIssues: (path: string) => loc.sedInstanceIssues(path),
+
+  // SedInstanceTask API.
+
+  sedInstanceTaskVoiUnit: (path: string, index: number) => loc.sedInstanceTaskVoiUnit(path, index)
 })

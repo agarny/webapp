@@ -4,6 +4,7 @@ import {
   cppVersion,
   IssueType,
   SEDDocument,
+  SEDInstance,
   SEDSimulationType,
   SEDSimulationUniformTimeCourse,
   wasmIssuesToIssues,
@@ -61,6 +62,7 @@ export class File {
   private _path: string
   private _wasmFile: IWasmFile = {} as IWasmFile
   private _sedDocument: SEDDocument = {} as SEDDocument
+  private _sedInstance: SEDInstance = {} as SEDInstance
   private _issues: IIssue[] = []
 
   constructor(path: string, contents: Uint8Array | undefined = undefined) {
@@ -174,6 +176,16 @@ export class File {
         description: `The uniform time course simulation must have a positive value for 'numberOfSteps' (${numberOfSteps.toString()}).`
       })
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (this._issues.length !== 0) {
+      return
+    }
+
+    // Retrieve an instance of the model.
+
+    this._sedInstance = this._sedDocument.instantiate()
+    this._issues = this._sedInstance.issues()
   }
 
   type(): FileType {
@@ -194,5 +206,9 @@ export class File {
 
   sedDocument(): SEDDocument {
     return this._sedDocument
+  }
+
+  sedInstance(): SEDInstance {
+    return this._sedInstance
   }
 }
