@@ -39,7 +39,13 @@
                 <SplitterPanel class="flex items-center justify-center" :size="75"> Panel 2 </SplitterPanel>
               </Splitter>
             </SplitterPanel>
-            <SplitterPanel class="flex items-center justify-center" :size="11"> Panel 3 </SplitterPanel>
+            <SplitterPanel :size="11">
+              <ScrollPanel class="h-full ml-1 mr-1 mb-1 text-sm">
+                <div class="leading-4">First entry...</div>
+                <div class="leading-4">Second entry...</div>
+                <div class="leading-4">Third entry...</div>
+              </ScrollPanel>
+            </SplitterPanel>
           </Splitter>
           <div v-else class="issues-container">
             <Fieldset legend="Issues">
