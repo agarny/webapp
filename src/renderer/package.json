@@ -18,10 +18,10 @@
   "type": "module",
   "version": "2025.04.11",
   "devDependencies": {
-    "@primeuix/themes": "^1.0.1",
+    "@primeuix/themes": "^1.0.3",
     "@primevue/auto-import-resolver": "^4.3.3",
     "primevue": "^4.3.3",
     "unplugin-vue-components": "^28.4.1",
-    "vite": "^6.2.5"
+    "vite": "^6.2.6"
   }
 }
