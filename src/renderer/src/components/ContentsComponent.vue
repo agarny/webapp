@@ -36,7 +36,9 @@
                   <ParametersPropertyEditorComponent />
                   -->
                 </SplitterPanel>
-                <SplitterPanel class="flex items-center justify-center" :size="75"> Panel 2 </SplitterPanel>
+                <SplitterPanel :size="75">
+                  <v-chart autoresize :option="option" :theme="theme" />
+                </SplitterPanel>
               </Splitter>
             </SplitterPanel>
             <SplitterPanel :size="11">
@@ -77,6 +79,13 @@ import * as vue from 'vue'
 import * as locAPI from '../../../libopencor/locAPI'
 
 import * as common from '../common'
+
+import * as echarts from 'echarts/core'
+import { GridComponent, GridComponentOption, DataZoomComponent, DataZoomComponentOption } from 'echarts/components'
+import { LineChart, LineSeriesOption } from 'echarts/charts'
+import { UniversalTransition } from 'echarts/features'
+import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
 
 const files = vue.ref<locAPI.File[]>([])
 const activeFile = vue.ref<string>('')
@@ -190,6 +199,87 @@ if (!common.isMobile()) {
     }
   })
 }
+
+// Add an ECharts object.
+
+const theme = vue.computed(() => {
+  return common.isLightMode.value ? 'macarons' : 'dark'
+})
+
+echarts.use([GridComponent, DataZoomComponent, LineChart, CanvasRenderer, UniversalTransition])
+
+type EChartsOption = echarts.ComposeOption<GridComponentOption | DataZoomComponentOption | LineSeriesOption>
+
+function func(x: number) {
+  x /= 10
+  return Math.sin(x) * Math.cos(x * 2 + 1) * Math.sin(x * 3 + 2) * 50
+}
+
+function generateData() {
+  const data: [number, number][] = []
+
+  for (let i = -200; i <= 200; i += 0.1) {
+    data.push([i, func(i)])
+  }
+
+  return data
+}
+
+const option = vue.ref<EChartsOption>({
+  animation: false,
+  grid: {
+    top: 40,
+    left: 50,
+    right: 40,
+    bottom: 50
+  },
+  xAxis: {
+    name: 'x',
+    minorTick: {
+      show: true
+    },
+    minorSplitLine: {
+      show: true
+    }
+  },
+  yAxis: {
+    name: 'y',
+    min: -100,
+    max: 100,
+    minorTick: {
+      show: true
+    },
+    minorSplitLine: {
+      show: true
+    }
+  },
+  dataZoom: [
+    {
+      show: true,
+      type: 'inside',
+      filterMode: 'none',
+      xAxisIndex: [0],
+      startValue: -20,
+      endValue: 20
+    },
+    {
+      show: true,
+      type: 'inside',
+      filterMode: 'none',
+      yAxisIndex: [0],
+      startValue: -20,
+      endValue: 20
+    }
+  ],
+  series: [
+    {
+      type: 'line',
+      showSymbol: false,
+      clip: true,
+      data: generateData()
+    }
+  ]
+})
 </script>
 
 <style scoped>
