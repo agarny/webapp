@@ -18,7 +18,7 @@
     </TabList>
     <TabPanels class="p-0!">
       <TabPanel v-for="file in files" :key="'tabPanel_' + file.path()" :value="file.path()">
-        <ScrollPanel class="scroll-panel">
+        <div class="tab-panel-container">
           <Splitter v-if="file.issues().length === 0" class="border-none! h-full m-0" layout="vertical">
             <SplitterPanel :size="89">
               <Splitter>
@@ -51,7 +51,7 @@
               </div>
             </Fieldset>
           </div>
-        </ScrollPanel>
+        </div>
       </TabPanel>
     </TabPanels>
   </Tabs>
@@ -244,7 +244,7 @@ if (!common.isMobile()) {
   }
 }
 
-.scroll-panel {
+.tab-panel-container {
   height: var(--available-viewport-height);
 }
 </style>
