@@ -24,6 +24,18 @@ export function isMobile(): boolean {
   return uaParser.getDevice().type === 'mobile'
 }
 
+// Some constants to know whether the operating system uses light mode or dark mode.
+
+const prefersColorScheme = window.matchMedia('(prefers-color-scheme: light)')
+
+export const isLightMode = vue.ref(prefersColorScheme.matches)
+export const isDarkMode = vue.ref(!prefersColorScheme.matches)
+
+prefersColorScheme.addEventListener('change', (event) => {
+  isLightMode.value = event.matches
+  isDarkMode.value = !event.matches
+})
+
 // A method to determine whether the Ctrl or Cmd key is pressed, depending on the operating system.
 
 export function isCtrlOrCmd(event: KeyboardEvent): boolean {
