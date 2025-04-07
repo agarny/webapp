@@ -19,6 +19,12 @@
     <TabPanels class="p-0!">
       <TabPanel v-for="file in files" :key="'tabPanel_' + file.path()" :value="file.path()">
         <div class="tab-panel-container">
+          <Toolbar id="fileTablistToolbar" class="p-1!">
+            <template #start>
+              <Button class="p-1!" icon="pi pi-play-circle" severity="secondary" text />
+              <Button class="p-1!" disabled icon="pi pi-stop-circle" severity="secondary" text />
+            </template>
+          </Toolbar>
           <Splitter v-if="file.issues().length === 0" class="border-none! h-full m-0" layout="vertical">
             <SplitterPanel :size="89">
               <Splitter>
@@ -154,9 +160,10 @@ function closeAllFiles(): void {
   }
 }
 
-// Track our number of file tablist.
+// Track our file tablist and toolbar.
 
 common.trackElementResizing('fileTablist')
+common.trackElementResizing('fileTablistToolbar')
 
 // Keyboard shortcuts.
 
@@ -186,6 +193,22 @@ if (!common.isMobile()) {
 
 .issues-container {
   padding: var(--p-tabs-tabpanel-padding);
+}
+
+:deep(.p-button) {
+  transition: none;
+}
+
+:deep(.p-button-icon) {
+  font-size: 1.5rem;
+}
+
+:deep(.p-button-icon-only) {
+  width: 2rem;
+}
+
+:deep(.p-button-label) {
+  height: 0;
 }
 
 .p-tab {
@@ -225,6 +248,12 @@ if (!common.isMobile()) {
 :deep(.p-tablist-next-button),
 :deep(.p-tabpanel) {
   outline: none !important;
+}
+
+.p-toolbar {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--p-content-border-color);
 }
 
 .remove-button {

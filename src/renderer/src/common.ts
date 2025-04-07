@@ -122,7 +122,13 @@ export function trackElementResizing(id: string): void {
 
         document.documentElement.style.setProperty(
           '--available-viewport-height',
-          'calc(100vh - ' + elementHeight('mainMenu') + ' - ' + elementHeight('fileTablist') + ')'
+          'calc(100vh - ' +
+            elementHeight('mainMenu') +
+            ' - ' +
+            elementHeight('fileTablist') +
+            ' - ' +
+            elementHeight('fileTablistToolbar') +
+            ')'
         )
       })
 
