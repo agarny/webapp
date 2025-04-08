@@ -4,7 +4,7 @@
       <MainMenu
         :hasFiles="hasFiles"
         @about="onAbout"
-        @open="($refs.filesRef as HTMLInputElement).click()"
+        @open="($refs.files as HTMLInputElement).click()"
         @openRemote="openRemoteVisible = true"
         @close="onClose"
         @closeAll="onCloseAll"
@@ -18,7 +18,7 @@
       <ProgressSpinner v-show="spinningWheelVisible" class="spinning-wheel" />
     </div>
   </div>
-  <input ref="filesRef" type="file" multiple style="display: none" @change="onChange" />
+  <input ref="files" type="file" multiple style="display: none" @change="onChange" />
   <OpenRemoteDialog v-model:visible="openRemoteVisible" @openRemote="onOpenRemote" @close="openRemoteVisible = false" />
   <ResetAllDialog v-model:visible="resetAllVisible" @resetAll="onResetAll" @close="resetAllVisible = false" />
   <AboutDialog v-model:visible="aboutVisible" @close="aboutVisible = false" />
