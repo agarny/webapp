@@ -119,6 +119,7 @@ electron.contextBridge.exposeInMainWorld('locAPI', {
   // SedInstance API.
 
   sedInstanceIssues: (path: string) => loc.sedInstanceIssues(path),
+  sedInstanceRun: (path: string) => loc.sedInstanceRun(path),
 
   // SedInstanceTask API.
 

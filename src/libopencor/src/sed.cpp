@@ -108,6 +108,13 @@ napi_value sedInstanceIssues(const Napi::CallbackInfo &pInfo)
     return issues(pInfo, valueToSedInstance(pInfo[0])->issues());
 }
 
+napi_value sedInstanceRun(const Napi::CallbackInfo &pInfo)
+{
+    auto sedInstance = valueToSedInstance(pInfo[0]);
+
+    return Napi::Number::New(pInfo.Env(), sedInstance->run());
+}
+
 // SedInstanceTask API.
 
 napi_value sedInstanceTaskVoiUnit(const Napi::CallbackInfo &pInfo)

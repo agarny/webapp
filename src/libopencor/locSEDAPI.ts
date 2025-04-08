@@ -1,3 +1,5 @@
+import * as vue from 'vue'
+
 import {
   _locAPI,
   cppVersion,
@@ -190,6 +192,7 @@ export class SEDSimulationUniformTimeCourse extends SEDSimulation {
 interface IWasmSEDInstance {
   issues: IWasmIssues
   task(index: number): IWasmSEDInstanceTask
+  run(): number
 }
 
 export class SEDInstance {
@@ -212,6 +215,10 @@ export class SEDInstance {
 
   task(index: number): SEDInstanceTask {
     return new SEDInstanceTask(this._filePath, index, this._wasmSEDInstance)
+  }
+
+  run(): number {
+    return cppVersion() ? _locAPI.sedInstanceRun(this._filePath) : vue.toRaw(this._wasmSEDInstance).run()
   }
 }
 

@@ -152,3 +152,36 @@ export function trackElementResizing(id: string): void {
     }
   })
 }
+
+// A method to format a given number of milliseconds into a string.
+
+export function formatTime(time: number): string {
+  const ms = Math.floor(time % 1000)
+  const s = Math.floor((time / 1000) % 60)
+  const m = Math.floor((time / (1000 * 60)) % 60)
+  const h = Math.floor((time / (1000 * 60 * 60)) % 24)
+  const d = Math.floor((time / (1000 * 60 * 60 * 24)) % 24)
+  let res = ''
+
+  if (d !== 0 || ((h !== 0 || m !== 0 || s !== 0 || ms !== 0) && res !== '')) {
+    res += (res === '' ? '' : ' ') + d.toString() + 'd'
+  }
+
+  if (h !== 0 || ((m !== 0 || s !== 0 || ms !== 0) && res !== '')) {
+    res += (res === '' ? '' : ' ') + h.toString() + 'h'
+  }
+
+  if (m !== 0 || ((s !== 0 || ms !== 0) && res !== '')) {
+    res += (res === '' ? '' : ' ') + m.toString() + 'm'
+  }
+
+  if (s !== 0 || (ms !== 0 && res !== '')) {
+    res += (res === '' ? '' : ' ') + s.toString() + 's'
+  }
+
+  if (ms !== 0 || res === '') {
+    res += (res === '' ? '' : ' ') + ms.toString() + 'ms'
+  }
+
+  return res
+}

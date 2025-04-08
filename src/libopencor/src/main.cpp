@@ -38,6 +38,7 @@ Napi::Object init(Napi::Env pEnv, Napi::Object pExports)
     // SedInstance API.
 
     pExports.Set(Napi::String::New(pEnv, "sedInstanceIssues"), Napi::Function::New(pEnv, sedInstanceIssues));
+    pExports.Set(Napi::String::New(pEnv, "sedInstanceRun"), Napi::Function::New(pEnv, sedInstanceRun));
 
     // SedInstanceTask API.
 

@@ -1,35 +1,52 @@
 <template>
-  <BackgroundComponent v-show="files.length === 0" />
-  <Tabs v-show="files.length !== 0" id="fileTabs" v-model:value="activeFile" :scrollable="true" :selectOnFocus="true">
+  <BackgroundComponent v-show="fileTabs.length === 0" />
+  <Tabs
+    v-show="fileTabs.length !== 0"
+    id="fileTabs"
+    v-model:value="activeFile"
+    :scrollable="true"
+    :selectOnFocus="true"
+  >
     <TabList id="fileTablist" class="file-tablist">
-      <Tab v-for="file in files" :id="'tab_' + file.path()" :key="'tab_' + file.path()" :value="file.path()">
+      <Tab
+        v-for="fileTab in fileTabs"
+        :id="'tab_' + fileTab.file.path()"
+        :key="'tab_' + fileTab.file.path()"
+        :value="fileTab.file.path()"
+      >
         <div class="flex gap-2 items-center">
           <div>
             {{
-              file
+              fileTab.file
                 .path()
                 .split(/(\\|\/)/g)
                 .pop()
             }}
           </div>
-          <div class="pi pi-times remove-button" @mousedown.prevent @click.stop="closeFile(file.path())" />
+          <div class="pi pi-times remove-button" @mousedown.prevent @click.stop="closeFile(fileTab.file.path())" />
         </div>
       </Tab>
     </TabList>
     <TabPanels class="p-0!">
-      <TabPanel v-for="file in files" :key="'tabPanel_' + file.path()" :value="file.path()">
+      <TabPanel v-for="fileTab in fileTabs" :key="'tabPanel_' + fileTab.file.path()" :value="fileTab.file.path()">
         <div class="tab-panel-container">
           <Toolbar id="fileTablistToolbar" class="p-1!">
             <template #start>
-              <Button class="p-1!" icon="pi pi-play-circle" severity="secondary" text />
+              <Button
+                class="p-1!"
+                icon="pi pi-play-circle"
+                severity="secondary"
+                text
+                @click="onRun(fileTab as IFileTab)"
+              />
               <Button class="p-1!" disabled icon="pi pi-stop-circle" severity="secondary" text />
             </template>
           </Toolbar>
-          <Splitter v-if="file.issues().length === 0" class="border-none! h-full m-0" layout="vertical">
+          <Splitter v-if="fileTab.file.issues().length === 0" class="border-none! h-full m-0" layout="vertical">
             <SplitterPanel :size="89">
               <Splitter>
                 <SplitterPanel class="ml-4 mr-4 mb-4" :size="25">
-                  <SimulationPropertyEditorComponent :file="vue.toRaw(file)" />
+                  <SimulationPropertyEditorComponent :file="vue.toRaw(fileTab.file)" />
                   <!--
                   <SolversPropertyEditorComponent />
                   <GraphsPropertyEditorComponent />
@@ -43,16 +60,20 @@
             </SplitterPanel>
             <SplitterPanel :size="11">
               <ScrollPanel class="h-full ml-1 mr-1 mb-1 text-sm">
-                <div class="leading-4">First entry...</div>
-                <div class="leading-4">Second entry...</div>
-                <div class="leading-4">Third entry...</div>
+                <div
+                  v-for="consoleEntry in fileTab.consoleEntries"
+                  :key="'consoleEntry_' + consoleEntry"
+                  class="leading-4"
+                >
+                  {{ consoleEntry }}
+                </div>
               </ScrollPanel>
             </SplitterPanel>
           </Splitter>
           <div v-else class="issues-container">
             <Fieldset legend="Issues">
               <div
-                v-for="(issue, index) in file.issues()"
+                v-for="(issue, index) in fileTab.file.issues()"
                 :key="'issue_' + issue.type + '_' + issue.description"
                 :class="index > 0 ? 'mt-4!' : ''"
               >
@@ -76,6 +97,7 @@ import * as vueusecore from '@vueuse/core'
 
 import * as vue from 'vue'
 
+import { SHORT_DELAY } from '../../../constants'
 import * as locAPI from '../../../libopencor/locAPI'
 
 import * as common from '../common'
@@ -87,7 +109,14 @@ import { UniversalTransition } from 'echarts/features'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 
-const files = vue.ref<locAPI.File[]>([])
+const emit = defineEmits(['runningInstance'])
+
+interface IFileTab {
+  file: locAPI.File
+  consoleEntries: string[]
+}
+
+const fileTabs = vue.ref<IFileTab[]>([])
 const activeFile = vue.ref<string>('')
 
 defineExpose({ openFile, closeCurrentFile, closeAllFiles, hasFile, hasFiles, selectFile })
@@ -104,17 +133,20 @@ export interface IContentsComponent {
 function openFile(file: locAPI.File): void {
   const filePath = file.path()
 
-  files.value.splice(files.value.findIndex((file) => file.path() === activeFile.value) + 1, 0, file)
+  fileTabs.value.splice(fileTabs.value.findIndex((fileTab) => fileTab.file.path() === activeFile.value) + 1, 0, {
+    file,
+    consoleEntries: []
+  })
 
   selectFile(filePath)
 }
 
 function hasFile(filePath: string): boolean {
-  return files.value.find((file) => file.path() === filePath) !== undefined
+  return fileTabs.value.find((fileTab) => fileTab.file.path() === filePath) !== undefined
 }
 
 function hasFiles(): boolean {
-  return files.value.length > 0
+  return fileTabs.value.length > 0
 }
 
 function selectFile(filePath: string): void {
@@ -140,28 +172,28 @@ function selectFile(filePath: string): void {
 }
 
 function selectNextFile(): void {
-  const activeFileIndex = files.value.findIndex((file) => file.path() === activeFile.value)
-  const nextFileIndex = (activeFileIndex + 1) % files.value.length
+  const activeFileIndex = fileTabs.value.findIndex((fileTab) => fileTab.file.path() === activeFile.value)
+  const nextFileIndex = (activeFileIndex + 1) % fileTabs.value.length
 
-  selectFile(files.value[nextFileIndex].path())
+  selectFile(fileTabs.value[nextFileIndex].file.path())
 }
 
 function selectPreviousFile(): void {
-  const activeFileIndex = files.value.findIndex((file) => file.path() === activeFile.value)
-  const nextFileIndex = (activeFileIndex - 1 + files.value.length) % files.value.length
+  const activeFileIndex = fileTabs.value.findIndex((fileTab) => fileTab.file.path() === activeFile.value)
+  const nextFileIndex = (activeFileIndex - 1 + fileTabs.value.length) % fileTabs.value.length
 
-  selectFile(files.value[nextFileIndex].path())
+  selectFile(fileTabs.value[nextFileIndex].file.path())
 }
 
 function closeFile(filePath: string): void {
   locAPI.fileManager.unmanage(filePath)
 
-  const activeFileIndex = files.value.findIndex((file) => file.path() === filePath)
+  const activeFileIndex = fileTabs.value.findIndex((fileTab) => fileTab.file.path() === filePath)
 
-  files.value.splice(activeFileIndex, 1)
+  fileTabs.value.splice(activeFileIndex, 1)
 
-  if (activeFile.value === filePath && files.value.length > 0) {
-    selectFile(files.value[Math.min(activeFileIndex, files.value.length - 1)].path())
+  if (activeFile.value === filePath && fileTabs.value.length > 0) {
+    selectFile(fileTabs.value[Math.min(activeFileIndex, fileTabs.value.length - 1)].file.path())
   }
 }
 
@@ -170,9 +202,25 @@ function closeCurrentFile(): void {
 }
 
 function closeAllFiles(): void {
-  while (files.value.length > 0) {
+  while (fileTabs.value.length > 0) {
     closeCurrentFile()
   }
+}
+
+function onRun(fileTab: IFileTab): void {
+  //---OPENCOR--- THE TIMEOUT IS ONLY NEEDED BECAUSE THE INSTANCE IS RUN IN THE MAIN THREAD, SO WE NEED TO GIVE OUR UI
+  //              TIME TO HANDLE OUR FIRST 'runningInstance' EVENT. ONCE THE INSTANCE IS RUN IN A SEPARATE THREAD, WE
+  //              CAN REMOVE THIS TIMEOUT.
+
+  emit('runningInstance', true)
+
+  setTimeout(() => {
+    const simulationTime = fileTab.file.sedInstance().run()
+
+    fileTab.consoleEntries.push(`Simulation time: ${common.formatTime(simulationTime)}`)
+
+    emit('runningInstance', false)
+  }, SHORT_DELAY)
 }
 
 // Track our file tablist and toolbar.
@@ -184,7 +232,7 @@ common.trackElementResizing('fileTablistToolbar')
 
 if (!common.isMobile()) {
   vueusecore.onKeyStroke((event: KeyboardEvent) => {
-    if (files.value.length === 0) {
+    if (fileTabs.value.length === 0) {
       return
     }
 
