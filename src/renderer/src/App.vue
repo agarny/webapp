@@ -12,7 +12,7 @@
       />
     </div>
     <div class="grow" @dragenter="onDragEnter" @dragover.prevent @drop.prevent="onDrop" @dragleave="onDragLeave">
-      <ContentsComponent ref="contents" @runningInstance="onRunningInstance" />
+      <ContentsComponent ref="contents" />
       <DragNDropComponent v-show="dropAreaCounter > 0" />
       <BlockUI :blocked="!uiEnabled" :fullScreen="true"></BlockUI>
       <ProgressSpinner v-show="spinningWheelVisible" class="spinning-wheel" />
@@ -271,16 +271,6 @@ function onOpenRemote(url: string): void {
   //       and that we can show a spinning wheel to indicate that something is happening.
 
   openFile(url)
-}
-
-// Running an instance.
-
-function onRunningInstance(runningInstance: boolean): void {
-  if (runningInstance) {
-    showSpinningWheel()
-  } else {
-    hideSpinningWheel()
-  }
 }
 
 // Close.

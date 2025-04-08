@@ -97,7 +97,6 @@ import * as vueusecore from '@vueuse/core'
 
 import * as vue from 'vue'
 
-import { SHORT_DELAY } from '../../../constants'
 import * as locAPI from '../../../libopencor/locAPI'
 
 import * as common from '../common'
@@ -108,8 +107,6 @@ import { LineChart, LineSeriesOption } from 'echarts/charts'
 import { UniversalTransition } from 'echarts/features'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
-
-const emit = defineEmits(['runningInstance'])
 
 interface IFileTab {
   file: locAPI.File
@@ -208,19 +205,9 @@ function closeAllFiles(): void {
 }
 
 function onRun(fileTab: IFileTab): void {
-  //---OPENCOR--- THE TIMEOUT IS ONLY NEEDED BECAUSE THE INSTANCE IS RUN IN THE MAIN THREAD, SO WE NEED TO GIVE OUR UI
-  //              TIME TO HANDLE OUR FIRST 'runningInstance' EVENT. ONCE THE INSTANCE IS RUN IN A SEPARATE THREAD, WE
-  //              CAN REMOVE THIS TIMEOUT.
+  const simulationTime = fileTab.file.sedInstance().run()
 
-  emit('runningInstance', true)
-
-  setTimeout(() => {
-    const simulationTime = fileTab.file.sedInstance().run()
-
-    fileTab.consoleEntries.push(`Simulation time: ${common.formatTime(simulationTime)}`)
-
-    emit('runningInstance', false)
-  }, SHORT_DELAY)
+  fileTab.consoleEntries.push(`Simulation time: ${common.formatTime(simulationTime)}`)
 }
 
 // Track our file tablist and toolbar.
