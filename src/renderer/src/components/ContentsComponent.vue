@@ -244,6 +244,14 @@ if (!common.isMobile()) {
       event.preventDefault()
 
       selectPreviousFile()
+    } else if (!event.ctrlKey && !event.shiftKey && !event.metaKey && event.code === 'F9') {
+      event.preventDefault()
+
+      const fileTab = fileTabs.value.find((fileTab) => fileTab.file.path() === activeFile.value)
+
+      if (fileTab !== undefined) {
+        onRun(fileTab as IFileTab)
+      }
     }
   })
 }
