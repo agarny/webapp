@@ -59,15 +59,7 @@
               </Splitter>
             </SplitterPanel>
             <SplitterPanel :size="11">
-              <ScrollPanel class="h-full ml-1 mr-1 mb-1 text-sm">
-                <div
-                  v-for="consoleEntry in fileTab.consoleEntries"
-                  :key="'consoleEntry_' + consoleEntry"
-                  class="leading-4"
-                >
-                  {{ consoleEntry }}
-                </div>
-              </ScrollPanel>
+              <Editor class="border-none h-full" :readonly="true" v-model="fileTab.consoleContents" />
             </SplitterPanel>
           </Splitter>
           <div v-else class="issues-container">
@@ -110,7 +102,7 @@ import VChart from 'vue-echarts'
 
 interface IFileTab {
   file: locAPI.File
-  consoleEntries: string[]
+  consoleContents: string
 }
 
 const fileTabs = vue.ref<IFileTab[]>([])
@@ -132,7 +124,7 @@ function openFile(file: locAPI.File): void {
 
   fileTabs.value.splice(fileTabs.value.findIndex((fileTab) => fileTab.file.path() === activeFile.value) + 1, 0, {
     file,
-    consoleEntries: []
+    consoleContents: `<b>${file.path()}</b>`
   })
 
   selectFile(filePath)
@@ -207,7 +199,18 @@ function closeAllFiles(): void {
 function onRun(fileTab: IFileTab): void {
   const simulationTime = fileTab.file.sedInstance().run()
 
-  fileTab.consoleEntries.push(`Simulation time: ${common.formatTime(simulationTime)}`)
+  fileTab.consoleContents += `<br/>&nbsp;&nbsp;<b>Simulation time:</b> ${common.formatTime(simulationTime)}`
+
+  vue
+    .nextTick()
+    .then(() => {
+      const consoleElement = document.getElementsByClassName('ql-editor')[0]
+
+      consoleElement.scrollTop = consoleElement.scrollHeight
+    })
+    .catch((error: unknown) => {
+      console.error('Error scrolling to the bottom of the console:', error)
+    })
 }
 
 // Track our file tablist and toolbar.
@@ -350,6 +353,18 @@ const option = vue.ref<EChartsOption>({
   height: 0;
 }
 
+:deep(.ql-editor > *) {
+  cursor: default;
+}
+
+:deep(.p-editor-content) {
+  border: none !important;
+}
+
+:deep(.p-editor-toolbar) {
+  display: none;
+}
+
 .p-tab {
   padding: 0.25rem 0.5rem;
   border-right: 1px solid var(--p-content-border-color);
@@ -393,6 +408,10 @@ const option = vue.ref<EChartsOption>({
   border: none;
   border-radius: 0;
   border-bottom: 1px solid var(--p-content-border-color);
+}
+
+:deep(.ql-editor) {
+  padding: 0.25rem 0.5rem;
 }
 
 .remove-button {
