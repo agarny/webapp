@@ -69,7 +69,7 @@
     "electron-settings": "^4.0.4",
     "electron-vite": "^3.1.0",
     "eslint": "^9.24.0",
-    "libopencor": "https://opencor.ws/libopencor/downloads/libopencor-2025.04.04.tgz",
+    "libopencor": "https://opencor.ws/libopencor/downloads/libopencor-2025.04.08.tgz",
     "node-addon-api": "^8.3.1",
     "prettier": "^3.5.3",
     "primeicons": "^7.0.0",
