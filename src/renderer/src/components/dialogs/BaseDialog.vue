@@ -7,5 +7,5 @@
 </template>
 
 <script setup lang="ts">
-import { enableDisableMainMenu } from '../common'
+import { enableDisableMainMenu } from '../../common'
 </script>
