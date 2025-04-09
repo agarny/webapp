@@ -1,6 +1,7 @@
 import electron from 'electron'
 import * as systemInformation from 'systeminformation'
 
+// @ts-expect-error (libOpenCOR.node is a native module)
 import loc from '../../dist/libOpenCOR/Release/libOpenCOR.node'
 
 // Some bridging between our main process and renderer process.
