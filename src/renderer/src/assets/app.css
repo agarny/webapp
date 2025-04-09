@@ -8,3 +8,7 @@ body {
 a {
   color: var(--p-button-link-color);
 }
+
+:focus {
+  outline: none !important;
+}

@@ -178,7 +178,6 @@ if (!common.isMobile()) {
 .p-tab {
   padding: 0.25rem 0.5rem;
   border-right: 1px solid var(--p-content-border-color);
-  outline: none;
 }
 
 .p-tab:first-of-type {
@@ -206,12 +205,6 @@ if (!common.isMobile()) {
 
 :deep(.p-tablist-active-bar) {
   display: none;
-}
-
-:deep(.p-tablist-prev-button),
-:deep(.p-tablist-next-button),
-:deep(.p-tabpanel) {
-  outline: none !important;
 }
 
 .remove-button {
