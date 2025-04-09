@@ -1,5 +1,5 @@
 <template>
-  <PropertyEditorComponent name="Simulation" :properties="properties" />
+  <PropertyEditor name="Simulation" :properties="properties" />
 </template>
 
 <script setup lang="ts">
