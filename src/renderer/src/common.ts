@@ -112,36 +112,32 @@ export function file(fileOrFilePath: string | File): Promise<locAPI.File> {
   })
 }
 
-// A method to track the resizing of a given element and, as a result, update the available viewport height, i.e. the
-// viewport height minus that of our main menu and that of our file tabs.
+// A method to track the height of a given element.
 
-export function trackElementResizing(id: string): void {
+export function trackElementHeight(id: string): void {
   vue.onMounted(() => {
     const element = document.getElementById(id)
 
     if (element !== null) {
       const observer = new ResizeObserver(() => {
-        function elementHeight(id: string): string {
-          const element = document.getElementById(id)
-          const res = element !== null ? window.getComputedStyle(element).height : '0px'
+        let elementHeight = window.getComputedStyle(element).height
 
-          if (res === 'auto') {
-            return '0px'
-          }
-
-          return res
+        if (elementHeight === '' || elementHeight === 'auto') {
+          elementHeight = '0px'
         }
 
-        document.documentElement.style.setProperty(
-          '--available-viewport-height',
-          'calc(100vh - ' +
-            elementHeight('mainMenu') +
-            ' - ' +
-            elementHeight('fileTablist') +
-            ' - ' +
-            elementHeight('fileTablistToolbar') +
-            ')'
-        )
+        const cssVariableName =
+          '--' +
+          id
+            .split('_')[0]
+            .replace(/([a-z])([A-Z])/g, '$1-$2')
+            .toLowerCase() +
+          '-height'
+        const oldElementHeight = window.getComputedStyle(document.documentElement).getPropertyValue(cssVariableName)
+
+        if (oldElementHeight === '' || (elementHeight !== '0px' && oldElementHeight !== elementHeight)) {
+          document.documentElement.style.setProperty(cssVariableName, elementHeight)
+        }
       })
 
       observer.observe(element)

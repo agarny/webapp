@@ -305,9 +305,9 @@ function onResetAll(): void {
   electronAPI?.resetAll()
 }
 
-// Track the size of our main menu.
+// Track the height of our main menu.
 
-common.trackElementResizing('mainMenu')
+common.trackElementHeight('mainMenu')
 
 // Things that need to be done when the component is mounted.
 
