@@ -1,6 +1,6 @@
 <template>
   <div class="h-full simulation-experiment">
-    <Toolbar :id="simulationExperimentToolbarId" class="p-1!">
+    <Toolbar :id="toolbarId" class="p-1!">
       <template #start>
         <Button class="p-1!" icon="pi pi-play-circle" severity="secondary" text @click="onRun()" />
         <Button class="p-1!" disabled icon="pi pi-stop-circle" severity="secondary" text />
@@ -50,7 +50,7 @@ const fileTab = fileTabModel.value as IFileTab
 const props = defineProps<{
   isActiveFile: boolean
 }>()
-const simulationExperimentToolbarId = `simulationExperimentToolbar_${String(fileTab.file.path())}`
+const toolbarId = `simulationExperimentToolbar_${String(fileTab.file.path())}`
 
 function onRun(): void {
   const simulationTime = fileTab.file.sedInstance().run()
@@ -72,7 +72,7 @@ function onRun(): void {
 
 // Track the height of our file tablist toolbar.
 
-common.trackElementHeight(simulationExperimentToolbarId)
+common.trackElementHeight(toolbarId)
 
 // Keyboard shortcuts.
 
