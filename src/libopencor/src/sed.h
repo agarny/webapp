@@ -24,3 +24,5 @@ napi_value sedInstanceRun(const Napi::CallbackInfo &pInfo);
 // SedInstanceTask API.
 
 napi_value sedInstanceTaskVoiUnit(const Napi::CallbackInfo &pInfo);
+napi_value sedInstanceTaskVoi(const Napi::CallbackInfo &pInfo);
+napi_value sedInstanceTaskState(const Napi::CallbackInfo &pInfo);

@@ -54,7 +54,10 @@ const toolbarId = `simulationExperimentToolbar_${String(fileTab.file.path())}`
 const editorId = `simulationExperimentEditor_${String(fileTab.file.path())}`
 
 function onRun(): void {
-  const simulationTime = fileTab.file.sedInstance().run()
+  // Run the instance and output the simulation time to the console.
+
+  const sedInstance = fileTab.file.sedInstance()
+  const simulationTime = sedInstance.run()
 
   fileTab.consoleContents =
     String(fileTab.consoleContents) + `<br/>&nbsp;&nbsp;<b>Simulation time:</b> ${common.formatTime(simulationTime)}`
@@ -71,6 +74,21 @@ function onRun(): void {
     .catch((error: unknown) => {
       console.error('Error scrolling to the bottom of the console:', error)
     })
+
+  const sedInstanceTask = sedInstance.task(0)
+  const xData = sedInstanceTask.voi()
+  const yData = sedInstanceTask.state(0)
+  const data: [number, number][] = []
+
+  for (let i = 0; i < xData.length; ++i) {
+    data.push([xData[i], yData[i]])
+  }
+
+  option.value.series[0].data = data
+  option.value.xAxis.min = Math.min(...xData)
+  option.value.xAxis.max = Math.max(...xData)
+  option.value.yAxis.min = Math.min(...yData)
+  option.value.yAxis.max = Math.max(...yData)
 }
 
 // Track the height of our file tablist toolbar.
@@ -99,31 +117,12 @@ echarts.use([GridComponent, DataZoomComponent, LineChart, CanvasRenderer, Univer
 
 type EChartsOption = echarts.ComposeOption<GridComponentOption | DataZoomComponentOption | LineSeriesOption>
 
-function func(x: number) {
-  x /= 10
-  return Math.sin(x) * Math.cos(x * 2 + 1) * Math.sin(x * 3 + 2) * 50
-}
-
-function generateData() {
-  const data: [number, number][] = []
-
-  for (let i = -200; i <= 200; i += 0.1) {
-    data.push([i, func(i)])
-  }
-
-  return data
-}
-
-const option = vue.ref<EChartsOption>({
+let option = vue.ref<EChartsOption>({
   animation: false,
-  grid: {
-    top: 40,
-    left: 50,
-    right: 40,
-    bottom: 50
-  },
   xAxis: {
     name: 'x',
+    min: 0,
+    max: 1,
     minorTick: {
       show: true
     },
@@ -133,8 +132,8 @@ const option = vue.ref<EChartsOption>({
   },
   yAxis: {
     name: 'y',
-    min: -100,
-    max: 100,
+    min: 0,
+    max: 1,
     minorTick: {
       show: true
     },
@@ -142,30 +141,11 @@ const option = vue.ref<EChartsOption>({
       show: true
     }
   },
-  dataZoom: [
-    {
-      show: true,
-      type: 'inside',
-      filterMode: 'none',
-      xAxisIndex: [0],
-      startValue: -20,
-      endValue: 20
-    },
-    {
-      show: true,
-      type: 'inside',
-      filterMode: 'none',
-      yAxisIndex: [0],
-      startValue: -20,
-      endValue: 20
-    }
-  ],
   series: [
     {
       type: 'line',
       showSymbol: false,
-      clip: true,
-      data: generateData()
+      clip: true
     }
   ]
 })

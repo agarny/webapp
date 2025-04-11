@@ -124,3 +124,19 @@ napi_value sedInstanceTaskVoiUnit(const Napi::CallbackInfo &pInfo)
 
     return Napi::String::New(pInfo.Env(), task->voiUnit());
 }
+
+napi_value sedInstanceTaskVoi(const Napi::CallbackInfo &pInfo)
+{
+    auto sedInstance = valueToSedInstance(pInfo[0]);
+    auto task = sedInstance->task(valueToInt32(pInfo[1]));
+
+    return doublesToNapiArray(pInfo.Env(), task->voi());
+}
+
+napi_value sedInstanceTaskState(const Napi::CallbackInfo &pInfo)
+{
+    auto sedInstance = valueToSedInstance(pInfo[0]);
+    auto task = sedInstance->task(valueToInt32(pInfo[1]));
+
+    return doublesToNapiArray(pInfo.Env(), task->state(valueToInt32(pInfo[2])));
+}

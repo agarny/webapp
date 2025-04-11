@@ -224,6 +224,8 @@ export class SEDInstance {
 
 interface IWasmSEDInstanceTask {
   voiUnit: string
+  voiAsArray: number[]
+  stateAsArray(index: number): number[]
 }
 
 export class SEDInstanceTask {
@@ -236,7 +238,7 @@ export class SEDInstanceTask {
     this._index = index
 
     if (wasmVersion()) {
-      this._wasmSEDInstanceTask = wasmSEDInstance.task(index)
+      this._wasmSEDInstanceTask = vue.toRaw(wasmSEDInstance).task(index)
     }
   }
 
@@ -244,5 +246,15 @@ export class SEDInstanceTask {
     return cppVersion()
       ? _locAPI.sedInstanceTaskVoiUnit(this._filePath, this._index)
       : this._wasmSEDInstanceTask.voiUnit
+  }
+
+  voi(): number[] {
+    return cppVersion() ? _locAPI.sedInstanceTaskVoi(this._filePath, this._index) : this._wasmSEDInstanceTask.voiAsArray
+  }
+
+  state(index: number): number[] {
+    return cppVersion()
+      ? _locAPI.sedInstanceTaskState(this._filePath, this._index, index)
+      : this._wasmSEDInstanceTask.stateAsArray(index)
   }
 }
