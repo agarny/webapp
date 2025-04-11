@@ -33,7 +33,11 @@
         :key="'tabPanel_' + fileTab.file.path()"
         :value="fileTab.file.path()"
       >
-        <SimulationExperimentView v-if="fileTab.file.issues().length === 0" v-model="fileTabs[index]" />
+        <SimulationExperimentView
+          v-if="fileTab.file.issues().length === 0"
+          v-model="fileTabs[index]"
+          :isActiveFile="fileTab.file.path() === activeFile"
+        />
         <IssuesView v-else :issues="fileTab.file.issues()" />
       </TabPanel>
     </TabPanels>

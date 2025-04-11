@@ -47,6 +47,9 @@ import VChart from 'vue-echarts'
 
 const fileTabModel = defineModel()
 const fileTab = fileTabModel.value as IFileTab
+const props = defineProps<{
+  isActiveFile: boolean
+}>()
 const simulationExperimentToolbarId = `simulationExperimentToolbar_${String(fileTab.file.path())}`
 
 function onRun(): void {
@@ -75,7 +78,7 @@ common.trackElementHeight(simulationExperimentToolbarId)
 
 if (!common.isMobile()) {
   vueusecore.onKeyStroke((event: KeyboardEvent) => {
-    if (!event.ctrlKey && !event.shiftKey && !event.metaKey && event.code === 'F9') {
+    if (props.isActiveFile && !event.ctrlKey && !event.shiftKey && !event.metaKey && event.code === 'F9') {
       event.preventDefault()
 
       onRun()
