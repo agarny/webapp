@@ -23,7 +23,7 @@
         </Splitter>
       </SplitterPanel>
       <SplitterPanel :size="11">
-        <Editor class="border-none h-full" :readonly="true" v-model="fileTab.consoleContents" />
+        <Editor :id="editorId" class="border-none h-full" :readonly="true" v-model="fileTab.consoleContents" />
       </SplitterPanel>
     </Splitter>
   </div>
@@ -51,6 +51,7 @@ const props = defineProps<{
   isActiveFile: boolean
 }>()
 const toolbarId = `simulationExperimentToolbar_${String(fileTab.file.path())}`
+const editorId = `simulationExperimentEditor_${String(fileTab.file.path())}`
 
 function onRun(): void {
   const simulationTime = fileTab.file.sedInstance().run()
@@ -61,9 +62,11 @@ function onRun(): void {
   vue
     .nextTick()
     .then(() => {
-      const consoleElement = document.getElementsByClassName('ql-editor')[0]
+      const consoleElement = document.getElementById(editorId)?.getElementsByClassName('ql-editor')[0]
 
-      consoleElement.scrollTop = consoleElement.scrollHeight
+      if (consoleElement !== undefined) {
+        consoleElement.scrollTop = consoleElement.scrollHeight
+      }
     })
     .catch((error: unknown) => {
       console.error('Error scrolling to the bottom of the console:', error)
