@@ -68,6 +68,7 @@
     "electron": "^36.3.2",
     "electron-builder": "^26.0.12",
     "electron-settings": "^4.0.4",
+    "electron-updater": "^6.6.2",
     "electron-vite": "^3.1.0",
     "eslint": "^9.28.0",
     "libopencor": "https://opencor.ws/libopencor/downloads/libopencor-0.20250521.0.tgz",
