@@ -85,10 +85,15 @@ function defaultOption(): EchartsOption {
   }
 
   if (plots.length === 0) {
-    res.xAxis.min = 0
-    res.xAxis.max = 1000
-    res.yAxis.min = 0
-    res.yAxis.max = 1000
+    if (res.xAxis !== undefined && !Array.isArray(res.xAxis)) {
+      res.xAxis.min = 0
+      res.xAxis.max = 1000
+    }
+
+    if (res.yAxis !== undefined && !Array.isArray(res.yAxis)) {
+      res.yAxis.min = 0
+      res.yAxis.max = 1000
+    }
   }
 
   if (showSliders) {
@@ -118,13 +123,11 @@ vue.watch(
   (plots) => {
     option.value = defaultOption()
 
-    for (const plot of plots) {
-      option.value.series.push({
-        type: 'line',
-        showSymbol: false,
-        data: common.coordinates(plot.x.data, plot.y.data)
-      })
-    }
+    option.value.series = plots.map((plot) => ({
+      type: 'line',
+      showSymbol: false,
+      data: common.coordinates(plot.x.data, plot.y.data)
+    }))
   }
 )
 </script>
