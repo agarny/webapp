@@ -25,10 +25,10 @@
 <script setup lang="ts">
 import * as vue from 'vue'
 
+import * as locApi from '../../../../libopencor/locApi'
+
 import { type IGraphPanelPlot } from '../widgets/GraphPanelWidget.vue'
 import { type IFileTab } from '../ContentsComponent.vue'
-
-import { uiJsonIssues } from './SimulationExperimentUiView'
 
 const fileTabModel = defineModel()
 defineProps<{
@@ -41,7 +41,7 @@ const sedInstance = fileTab.file.sedInstance()
 const sedInstanceTask = sedInstance.task(0)
 const plotsDivId = 'plotsDiv_' + String(fileTab.file.path())
 const plots = vue.ref<IGraphPanelPlot[]>([])
-const issues = vue.ref(uiJsonIssues(fileTab.uiJson))
+const issues = vue.ref(locApi.uiJsonIssues(fileTab.uiJson))
 
 vue.onMounted(() => {
   // Run the instance and update the plot.

@@ -78,12 +78,10 @@ import * as locApi from '../../../libopencor/locApi'
 
 import * as common from '../common'
 
-import { type IUiJson } from './views/SimulationExperimentUiView'
-
 export interface IFileTab {
   file: locApi.File
   consoleContents: string
-  uiJson?: IUiJson
+  uiJson?: locApi.IUiJson
 }
 
 defineProps<{

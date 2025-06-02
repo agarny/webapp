@@ -1,8 +1,6 @@
 import libOpenCOR from 'libopencor'
 import * as vue from 'vue'
 
-import { type IUiJson } from '../renderer/src/components/views/SimulationExperimentUiView'
-
 import {
   cppVersion,
   IssueType,
@@ -12,6 +10,7 @@ import {
   SedSimulationUniformTimeCourse,
   wasmIssuesToIssues,
   type IIssue,
+  type IUiJson,
   type IWasmIssues
 } from './locApi'
 

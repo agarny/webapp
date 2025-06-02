@@ -16,6 +16,10 @@ export {
   SedSimulationType
 } from './locSedApi'
 
+// UI JSON API.
+
+export { type IUiJson, uiJsonIssues } from './locUiJsonApi'
+
 // Version API.
 
 export { cppVersion, wasmVersion, version } from './locVersionApi'
