@@ -2,8 +2,8 @@
   <BaseDialog header="Open Remote..." style="width: 39rem">
     <div class="items-center mt-2 mb-4">
       <FloatLabel variant="on">
-        <label>URL</label>
         <InputText autofocus fluid v-model="url" @keyup.enter="emitOpenRemote()" />
+        <label>URL</label>
       </FloatLabel>
     </div>
     <template #footer>
