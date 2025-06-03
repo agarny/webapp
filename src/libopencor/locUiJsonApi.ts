@@ -10,7 +10,7 @@ export interface IUiJson {
   parameters?: IUiJsonParameter[]
 }
 
-interface IUiJsonInput {
+export interface IUiJsonInput {
   id?: string
   name: string
   defaultValue: number

@@ -3,9 +3,16 @@
     <div v-if="issues.length === 0" class="flex flex-row grow">
       <div class="ml-4 mr-4 mb-4">
         <Fieldset legend="Input parameters">
-          <div v-for="(input, index) in (fileTab.uiJson as any).input" :key="'input_' + index">
-            {{ input.name }}
-          </div>
+          <SimulationExperimentUiInputWidget
+            v-for="(input, index) in (fileTab.uiJson as any).input"
+            :key="'input_' + index"
+            :defaultValue="input.defaultValue"
+            :name="input.name"
+            :maximumValue="input.maximumValue"
+            :minimumValue="input.minimumValue"
+            :possibleValues="input.possibleValues"
+            :stepValue="input.stepValue"
+          />
         </Fieldset>
       </div>
       <div :id="plotsDivId" class="grow">
