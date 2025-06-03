@@ -10,20 +10,29 @@ export interface IUiJson {
   parameters?: IUiJsonParameter[]
 }
 
-export interface IUiJsonInput {
+type IUiJsonInput = IUiJsonDiscreteInput | IUiJsonScalarInput
+
+interface IUiJsonDiscreteInput {
+  defaultValue: number
   id?: string
   name: string
-  defaultValue: number
-  possibleValues?: IUiJsonInputPossibleValue[]
-  minimumValue?: number
-  maximumValue?: number
-  stepValue?: number
+  possibleValues?: IUiJsonDiscreteInputPossibleValue[]
   visible?: string
 }
 
-interface IUiJsonInputPossibleValue {
+export interface IUiJsonDiscreteInputPossibleValue {
   name: string
   value: number
+}
+
+interface IUiJsonScalarInput {
+  defaultValue: number
+  id?: string
+  minimumValue: number
+  maximumValue: number
+  name: string
+  stepValue?: number
+  visible?: string
 }
 
 interface IUiJsonOutput {
