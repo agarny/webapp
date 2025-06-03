@@ -191,20 +191,15 @@ function openFile(fileOrFilePath: string | File): void {
 
       if (fileType === locApi.FileType.UnknownFile || fileType === locApi.FileType.IrretrievableFile) {
         if (props.omex !== undefined) {
-          vue
-            .nextTick()
-            .then(() => {
-              issues.value.push({
-                type: locApi.IssueType.Error,
-                description:
-                  fileType === locApi.FileType.UnknownFile
-                    ? 'Only CellML files, SED-ML files, and COMBINE archives are supported.'
-                    : 'The file could not be retrieved.'
-              })
+          void vue.nextTick().then(() => {
+            issues.value.push({
+              type: locApi.IssueType.Error,
+              description:
+                fileType === locApi.FileType.UnknownFile
+                  ? 'Only CellML files, SED-ML files, and COMBINE archives are supported.'
+                  : 'The file could not be retrieved.'
             })
-            .catch((error: unknown) => {
-              console.error('Error adding issues:', error)
-            })
+          })
         } else {
           toast.add({
             severity: 'error',
@@ -234,17 +229,12 @@ function openFile(fileOrFilePath: string | File): void {
       }
 
       if (props.omex !== undefined) {
-        vue
-          .nextTick()
-          .then(() => {
-            issues.value.push({
-              type: locApi.IssueType.Error,
-              description: common.formatIssue(error instanceof Error ? error.message : String(error))
-            })
+        void vue.nextTick().then(() => {
+          issues.value.push({
+            type: locApi.IssueType.Error,
+            description: common.formatIssue(error instanceof Error ? error.message : String(error))
           })
-          .catch((error: unknown) => {
-            console.error('Error adding issues:', error)
-          })
+        })
       } else {
         toast.add({
           severity: 'error',
