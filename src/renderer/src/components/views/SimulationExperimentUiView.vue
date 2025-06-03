@@ -12,6 +12,7 @@
             :minimumValue="input.minimumValue"
             :possibleValues="input.possibleValues"
             :stepValue="input.stepValue"
+            :class="index !== 0 ? 'mt-4' : ''"
           />
         </Fieldset>
       </div>
