@@ -115,18 +115,13 @@ function onRun(): void {
   fileTab.consoleContents =
     String(fileTab.consoleContents) + `<br/>&nbsp;&nbsp;<b>Simulation time:</b> ${common.formatTime(simulationTime)}`
 
-  vue
-    .nextTick()
-    .then(() => {
-      const consoleElement = document.getElementById(editorId)?.getElementsByClassName('ql-editor')[0]
+  void vue.nextTick().then(() => {
+    const consoleElement = document.getElementById(editorId)?.getElementsByClassName('ql-editor')[0]
 
-      if (consoleElement !== undefined) {
-        consoleElement.scrollTop = consoleElement.scrollHeight
-      }
-    })
-    .catch((error: unknown) => {
-      console.error('Error scrolling to the bottom of the console:', error)
-    })
+    if (consoleElement !== undefined) {
+      consoleElement.scrollTop = consoleElement.scrollHeight
+    }
+  })
 
   updatePlot()
 }
