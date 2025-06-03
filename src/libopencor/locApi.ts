@@ -18,7 +18,7 @@ export {
 
 // UI JSON API.
 
-export { type IUiJson, uiJsonIssues } from './locUiJsonApi'
+export { type IUiJson, type IUiJsonInput, uiJsonIssues } from './locUiJsonApi'
 
 // Version API.
 
