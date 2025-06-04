@@ -72,17 +72,17 @@ vue.onMounted(() => {
     }
   ]
 
-  // Determine the sibling count for the height calculation.
+  // Determine the number of graph panel widgets (needed to set their height).
 
   const plotsDiv = document.getElementById(plotsDivId)
 
-  plotsDiv?.style.setProperty('--sibling-count', plotsDiv.children.length.toString())
+  plotsDiv?.style.setProperty('--graph-panel-widget-count', plotsDiv.children.length.toString())
 })
 </script>
 
 <style scoped>
 .graph-panel-widget {
-  height: calc(100% / var(--sibling-count));
+  height: calc(100% / var(--graph-panel-widget-count));
 }
 
 .simulation-experiment-only {
