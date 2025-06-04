@@ -13,11 +13,7 @@
             :possibleValues="input.possibleValues"
             :stepValue="input.stepValue"
             :class="index !== 0 ? 'mt-4' : ''"
-            @change="
-              (name: string, value: number) => {
-                console.log(`${name} <- ${value}`)
-              }
-            "
+            @change="updateSimulation"
           />
         </Fieldset>
       </div>
@@ -57,7 +53,21 @@ const plots = vue.ref<IGraphPanelPlot[]>([])
 const issues = vue.ref(locApi.uiJsonIssues(fileTab.uiJson))
 
 vue.onMounted(() => {
-  // Run the instance and update the plot.
+  updateSimulation()
+
+  // Determine the number of graph panel widgets (needed to set their height).
+
+  const plotsDiv = document.getElementById(plotsDivId)
+
+  plotsDiv?.style.setProperty('--graph-panel-widget-count', plotsDiv.children.length.toString())
+})
+
+function updateSimulation() {
+  // Update the SED-ML document.
+
+  //---OPENCOR--- TO BE DONE.
+
+  // Run the instance and update the plots.
 
   instance.run()
 
@@ -71,13 +81,7 @@ vue.onMounted(() => {
       }
     }
   ]
-
-  // Determine the number of graph panel widgets (needed to set their height).
-
-  const plotsDiv = document.getElementById(plotsDivId)
-
-  plotsDiv?.style.setProperty('--graph-panel-widget-count', plotsDiv.children.length.toString())
-})
+}
 </script>
 
 <style scoped>
