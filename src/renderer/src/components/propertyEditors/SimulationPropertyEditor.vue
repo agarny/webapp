@@ -11,36 +11,35 @@ const props = defineProps<{
   file: locApi.File
 }>()
 
-const sedSimulationUniformTimeCourse = props.file.sedDocument().simulation(0) as locApi.SedSimulationUniformTimeCourse
-const voiUnit = props.file.sedInstance().task(0).voiUnit()
+const uniformTimeCourse = props.file.document().simulation(0) as locApi.SedSimulationUniformTimeCourse
+const voiUnit = props.file.instance().task(0).voiUnit()
 
 const properties = vue.ref([
   {
     property: 'Starting point',
-    value: sedSimulationUniformTimeCourse.outputStartTime(),
+    value: uniformTimeCourse.outputStartTime(),
     unit: voiUnit
   },
   {
     property: 'Ending point',
-    value: sedSimulationUniformTimeCourse.outputEndTime(),
+    value: uniformTimeCourse.outputEndTime(),
     unit: voiUnit
   },
   {
     property: 'Point interval',
     value:
-      (sedSimulationUniformTimeCourse.outputEndTime() - sedSimulationUniformTimeCourse.outputStartTime()) /
-      sedSimulationUniformTimeCourse.numberOfSteps(),
+      (uniformTimeCourse.outputEndTime() - uniformTimeCourse.outputStartTime()) / uniformTimeCourse.numberOfSteps(),
     unit: voiUnit
   }
 ])
 
 function onPropertyUpdated(index, value): void {
   if (index === 0) {
-    sedSimulationUniformTimeCourse.setOutputStartTime(value)
+    uniformTimeCourse.setOutputStartTime(value)
   } else if (index === 1) {
-    sedSimulationUniformTimeCourse.setOutputEndTime(value)
+    uniformTimeCourse.setOutputEndTime(value)
   } else if (index === 2) {
-    sedSimulationUniformTimeCourse.setNumberOfSteps((properties.value[1].value - properties.value[0].value) / value)
+    uniformTimeCourse.setNumberOfSteps((properties.value[1].value - properties.value[0].value) / value)
   }
 }
 </script>

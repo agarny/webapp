@@ -64,8 +64,8 @@ export interface IWasmFile {
 export class File {
   private _path: string
   private _wasmFile: IWasmFile = {} as IWasmFile
-  private _sedDocument: SedDocument = {} as SedDocument
-  private _sedInstance: SedInstance = {} as SedInstance
+  private _document: SedDocument = {} as SedDocument
+  private _instance: SedInstance = {} as SedInstance
   private _issues: IIssue[] = []
 
   constructor(path: string, contents: Uint8Array | undefined = undefined) {
@@ -101,8 +101,8 @@ export class File {
 
     // Retrieve the SED-ML file associated with this file.
 
-    this._sedDocument = new SedDocument(this._path, this._wasmFile)
-    this._issues = this._sedDocument.issues()
+    this._document = new SedDocument(this._path, this._wasmFile)
+    this._issues = this._document.issues()
 
     if (this._issues.length !== 0) {
       return
@@ -114,7 +114,7 @@ export class File {
 
     // Make sure that there is only one model.
 
-    const modelCount = this._sedDocument.modelCount()
+    const modelCount = this._document.modelCount()
 
     if (modelCount !== 1) {
       this._issues.push({
@@ -127,7 +127,7 @@ export class File {
 
     // Make sure that the SED-ML file has only one simulation.
 
-    const simulationCount = this._sedDocument.simulationCount()
+    const simulationCount = this._document.simulationCount()
 
     if (simulationCount !== 1) {
       this._issues.push({
@@ -140,7 +140,7 @@ export class File {
 
     // Make sure that the simulation is a uniform time course simulation.
 
-    const simulation = this._sedDocument.simulation(0) as SedSimulationUniformTimeCourse
+    const simulation = this._document.simulation(0) as SedSimulationUniformTimeCourse
 
     if (simulation.type() !== SedSimulationType.UniformTimeCourse) {
       this._issues.push({
@@ -187,8 +187,8 @@ export class File {
 
     // Retrieve an instance of the model.
 
-    this._sedInstance = this._sedDocument.instantiate()
-    this._issues = this._sedInstance.issues()
+    this._instance = this._document.instantiate()
+    this._issues = this._instance.issues()
   }
 
   type(): FileType {
@@ -207,12 +207,12 @@ export class File {
     return cppVersion() ? _locApi.fileContents(this._path) : this._wasmFile.contents()
   }
 
-  sedDocument(): SedDocument {
-    return this._sedDocument
+  document(): SedDocument {
+    return this._document
   }
 
-  sedInstance(): SedInstance {
-    return this._sedInstance
+  instance(): SedInstance {
+    return this._instance
   }
 
   uiJson(): IUiJson | undefined {
