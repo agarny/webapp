@@ -68,8 +68,8 @@ const props = defineProps<{
 const fileTab = fileTabModel.value as IFileTab
 const toolbarId = `simulationExperimentToolbar_${String(fileTab.file.path())}`
 const editorId = `simulationExperimentEditor_${String(fileTab.file.path())}`
-const sedInstance = fileTab.file.sedInstance()
-const sedInstanceTask = sedInstance.task(0)
+const instance = fileTab.file.instance()
+const instanceTask = instance.task(0)
 
 interface IParameter {
   key: string
@@ -77,40 +77,40 @@ interface IParameter {
 }
 
 const parameters = vue.ref<IParameter[]>([])
-const xParameter = vue.ref({ [sedInstanceTask.voiName()]: true })
-const yParameter = vue.ref({ [sedInstanceTask.stateName(0)]: true })
+const xParameter = vue.ref({ [instanceTask.voiName()]: true })
+const yParameter = vue.ref({ [instanceTask.stateName(0)]: true })
 const plots = vue.ref<IGraphPanelPlot[]>([])
 
 function addParameter(param: string): void {
   parameters.value.push({ key: param, label: param })
 }
 
-addParameter(sedInstanceTask.voiName())
+addParameter(instanceTask.voiName())
 
-for (let i = 0; i < sedInstanceTask.stateCount(); i++) {
-  addParameter(sedInstanceTask.stateName(i))
+for (let i = 0; i < instanceTask.stateCount(); i++) {
+  addParameter(instanceTask.stateName(i))
 }
 
-for (let i = 0; i < sedInstanceTask.rateCount(); i++) {
-  addParameter(sedInstanceTask.rateName(i))
+for (let i = 0; i < instanceTask.rateCount(); i++) {
+  addParameter(instanceTask.rateName(i))
 }
 
-for (let i = 0; i < sedInstanceTask.constantCount(); i++) {
-  addParameter(sedInstanceTask.constantName(i))
+for (let i = 0; i < instanceTask.constantCount(); i++) {
+  addParameter(instanceTask.constantName(i))
 }
 
-for (let i = 0; i < sedInstanceTask.computedConstantCount(); i++) {
-  addParameter(sedInstanceTask.computedConstantName(i))
+for (let i = 0; i < instanceTask.computedConstantCount(); i++) {
+  addParameter(instanceTask.computedConstantName(i))
 }
 
-for (let i = 0; i < sedInstanceTask.algebraicCount(); i++) {
-  addParameter(sedInstanceTask.algebraicName(i))
+for (let i = 0; i < instanceTask.algebraicCount(); i++) {
+  addParameter(instanceTask.algebraicName(i))
 }
 
 function onRun(): void {
   // Run the instance, output the simulation time to the console, and update the plot.
 
-  const simulationTime = sedInstance.run()
+  const simulationTime = instance.run()
 
   fileTab.consoleContents =
     String(fileTab.consoleContents) + `<br/>&nbsp;&nbsp;<b>Simulation time:</b> ${common.formatTime(simulationTime)}`
@@ -134,60 +134,60 @@ function updatePlot() {
   }
 
   function checkGraphParameter(param: string): IGraphParameter | undefined {
-    if (param === sedInstanceTask.voiName()) {
+    if (param === instanceTask.voiName()) {
       return {
-        name: sedInstanceTask.voiName(),
-        unit: sedInstanceTask.voiUnit(),
-        data: sedInstanceTask.voi()
+        name: instanceTask.voiName(),
+        unit: instanceTask.voiUnit(),
+        data: instanceTask.voi()
       }
     }
 
-    for (let i = 0; i < sedInstanceTask.stateCount(); i++) {
-      if (param === sedInstanceTask.stateName(i)) {
+    for (let i = 0; i < instanceTask.stateCount(); i++) {
+      if (param === instanceTask.stateName(i)) {
         return {
-          name: sedInstanceTask.stateName(i),
-          unit: sedInstanceTask.stateUnit(i),
-          data: sedInstanceTask.state(i)
+          name: instanceTask.stateName(i),
+          unit: instanceTask.stateUnit(i),
+          data: instanceTask.state(i)
         }
       }
     }
 
-    for (let i = 0; i < sedInstanceTask.rateCount(); i++) {
-      if (param === sedInstanceTask.rateName(i)) {
+    for (let i = 0; i < instanceTask.rateCount(); i++) {
+      if (param === instanceTask.rateName(i)) {
         return {
-          name: sedInstanceTask.rateName(i),
-          unit: sedInstanceTask.rateUnit(i),
-          data: sedInstanceTask.rate(i)
+          name: instanceTask.rateName(i),
+          unit: instanceTask.rateUnit(i),
+          data: instanceTask.rate(i)
         }
       }
     }
 
-    for (let i = 0; i < sedInstanceTask.constantCount(); i++) {
-      if (param === sedInstanceTask.constantName(i)) {
+    for (let i = 0; i < instanceTask.constantCount(); i++) {
+      if (param === instanceTask.constantName(i)) {
         return {
-          name: sedInstanceTask.constantName(i),
-          unit: sedInstanceTask.constantUnit(i),
-          data: sedInstanceTask.constant(i)
+          name: instanceTask.constantName(i),
+          unit: instanceTask.constantUnit(i),
+          data: instanceTask.constant(i)
         }
       }
     }
 
-    for (let i = 0; i < sedInstanceTask.computedConstantCount(); i++) {
-      if (param === sedInstanceTask.computedConstantName(i)) {
+    for (let i = 0; i < instanceTask.computedConstantCount(); i++) {
+      if (param === instanceTask.computedConstantName(i)) {
         return {
-          name: sedInstanceTask.computedConstantName(i),
-          unit: sedInstanceTask.computedConstantUnit(i),
-          data: sedInstanceTask.computedConstant(i)
+          name: instanceTask.computedConstantName(i),
+          unit: instanceTask.computedConstantUnit(i),
+          data: instanceTask.computedConstant(i)
         }
       }
     }
 
-    for (let i = 0; i < sedInstanceTask.algebraicCount(); i++) {
-      if (param === sedInstanceTask.algebraicName(i)) {
+    for (let i = 0; i < instanceTask.algebraicCount(); i++) {
+      if (param === instanceTask.algebraicName(i)) {
         return {
-          name: sedInstanceTask.algebraicName(i),
-          unit: sedInstanceTask.algebraicUnit(i),
-          data: sedInstanceTask.algebraic(i)
+          name: instanceTask.algebraicName(i),
+          unit: instanceTask.algebraicUnit(i),
+          data: instanceTask.algebraic(i)
         }
       }
     }

@@ -50,8 +50,8 @@ defineProps<{
 }>()
 
 const fileTab = fileTabModel.value as IFileTab
-const sedInstance = fileTab.file.sedInstance()
-const sedInstanceTask = sedInstance.task(0)
+const instance = fileTab.file.instance()
+const instanceTask = instance.task(0)
 const plotsDivId = 'plotsDiv_' + String(fileTab.file.path())
 const plots = vue.ref<IGraphPanelPlot[]>([])
 const issues = vue.ref(locApi.uiJsonIssues(fileTab.uiJson))
@@ -59,15 +59,15 @@ const issues = vue.ref(locApi.uiJsonIssues(fileTab.uiJson))
 vue.onMounted(() => {
   // Run the instance and update the plot.
 
-  sedInstance.run()
+  instance.run()
 
   plots.value = [
     {
       x: {
-        data: sedInstanceTask.voi()
+        data: instanceTask.voi()
       },
       y: {
-        data: sedInstanceTask.state(0)
+        data: instanceTask.state(0)
       }
     }
   ]
