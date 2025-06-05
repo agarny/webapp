@@ -21,7 +21,7 @@
     </div>
     <IssuesView v-else :issues="issues" :simulationOnly="omex !== undefined" />
   </div>
-  <input ref="files" type="file" multiple style="display: none" @change="onChange" />
+  <input type="file" multiple style="display: none" @change="onChange" />
   <OpenRemoteDialog v-model:visible="openRemoteVisible" @openRemote="onOpenRemote" @close="openRemoteVisible = false" />
   <ResetAllDialog v-model:visible="resetAllVisible" @resetAll="onResetAll" @close="resetAllVisible = false" />
   <AboutDialog v-model:visible="aboutVisible" @close="aboutVisible = false" />
