@@ -73,11 +73,11 @@ MimeType=x-scheme-handler/${URI_SCHEME}`
 
 let mainInstance = true
 
-if (!electron.app.requestSingleInstanceLock()) {
-  mainInstance = false
+// if (!electron.app.requestSingleInstanceLock()) {
+//   mainInstance = false
 
-  electron.app.quit()
-}
+//   electron.app.quit()
+// }
 
 export let mainWindow: MainWindow | null = null
 

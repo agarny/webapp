@@ -71,13 +71,20 @@ function updateSimulation() {
 
   instance.run()
 
+  const x = Math.floor(Math.random() * instanceTask.stateCount())
+  let y = Math.floor(Math.random() * instanceTask.stateCount())
+
+  while (y === x) {
+    y = Math.floor(Math.random() * instanceTask.stateCount())
+  }
+
   plots.value = [
     {
       x: {
-        data: instanceTask.voi()
+        data: instanceTask.state(x)
       },
       y: {
-        data: instanceTask.state(0)
+        data: instanceTask.state(y)
       }
     }
   ]
