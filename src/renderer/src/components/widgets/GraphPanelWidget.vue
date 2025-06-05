@@ -1,22 +1,15 @@
 <template>
   <div class="h-full">
     <div v-if="showMarker" class="marker" />
-    <v-chart :autoresize="canAutoResize" :option="option" :theme="theme" />
+    <div ref="mainDiv" class="h-full" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { LineChart, type LineSeriesOption } from 'echarts/charts'
-import { DataZoomComponent, DataZoomComponentOption, GridComponent, GridComponentOption } from 'echarts/components'
-import * as echarts from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
+import Plotly from 'plotly.js-dist-min'
 import * as vue from 'vue'
-import VChart from 'vue-echarts'
 
 import * as common from '../../common'
-
-import { registerGraphPanelWidgetDarkTheme } from './GraphPanelWidgetDarkTheme'
-import { registerGraphPanelWidgetLightTheme } from './GraphPanelWidgetLightTheme'
 
 interface IGraphPanelPlotData {
   data: number[]
@@ -31,103 +24,77 @@ interface IProps {
   canAutoResize: boolean
   plots: IGraphPanelPlot[]
   showMarker?: boolean
-  showSliders?: boolean
 }
 
-const { canAutoResize, plots, showMarker = false, showSliders = false } = defineProps<IProps>()
+const { plots, showMarker = false } = defineProps<IProps>()
 
-const darkTheme = registerGraphPanelWidgetDarkTheme()
-const lightTheme = registerGraphPanelWidgetLightTheme()
-const theme = vue.computed(() => {
-  return common.isLightMode.value ? lightTheme : darkTheme
-})
+const mainDiv = vue.ref<InstanceType<typeof Element> | null>(null)
 
-echarts.use([CanvasRenderer, DataZoomComponent, GridComponent, LineChart])
+function themeData() {
+  // Note: the various keys can be found at https://plotly.com/javascript/reference/.
 
-type EchartsOption = echarts.ComposeOption<DataZoomComponentOption | GridComponentOption | LineSeriesOption>
-
-function defaultOption(): EchartsOption {
-  const res: EchartsOption = {
-    animation: false,
-    xAxis: {
-      type: 'value',
-      scale: true,
-      minorTick: {
-        show: true
-      },
-      minorSplitLine: {
-        show: true
+  function axisThemeData() {
+    return {
+      zerolinecolor: common.isDarkMode.value ? '#71717a' : '#94a3b8', // --p-surface-500 / --p-surface-400
+      gridcolor: common.isDarkMode.value ? '#3f3f46' : '#e2e8f0', // --p-surface-700 / --p-surface-200
+      minor: {
+        gridcolor: common.isDarkMode.value ? '#27272a' : '#f1f5f9' // --p-surface-800 / --p-surface-100
       }
+    }
+  }
+
+  return {
+    paper_bgcolor: common.isDarkMode.value ? '#18181b' : '#ffffff', // --p-content-background
+    plot_bgcolor: common.isDarkMode.value ? '#18181b' : '#ffffff', // --p-content-background
+    font: {
+      color: common.isDarkMode.value ? '#ffffff' : '#334155' // --p-text-color
     },
-    yAxis: {
-      type: 'value',
-      scale: true,
-      minorTick: {
-        show: true
-      },
-      minorSplitLine: {
-        show: true
-      }
-    },
-    dataZoom: [
-      {
-        type: 'inside',
-        filterMode: 'none',
-        xAxisIndex: 0
-      },
-      {
-        type: 'inside',
-        filterMode: 'none',
-        yAxisIndex: 0
-      }
+    colorway: [
+      '#7289ab', // Blue
+      '#ea7e53', // Orange
+      '#eedd78', // Yellow
+      '#e69d87', // Pink
+      '#73a373', // Green
+      '#73b9bc', // Cyan
+      '#dd6b66' // Red
     ],
-    series: []
+    xaxis: axisThemeData(),
+    yaxis: axisThemeData()
   }
-
-  if (plots.length === 0) {
-    if (res.xAxis !== undefined && !Array.isArray(res.xAxis)) {
-      res.xAxis.min = 0
-      res.xAxis.max = 1000
-    }
-
-    if (res.yAxis !== undefined && !Array.isArray(res.yAxis)) {
-      res.yAxis.min = 0
-      res.yAxis.max = 1000
-    }
-  }
-
-  if (showSliders) {
-    res.dataZoom = [
-      {
-        type: 'slider',
-        filterMode: 'none',
-        xAxisIndex: 0
-      },
-      {
-        type: 'slider',
-        filterMode: 'none',
-        yAxisIndex: 0,
-        orient: 'vertical',
-        left: '93%'
-      }
-    ]
-  }
-
-  return res
 }
-
-const option = vue.ref<EchartsOption>(defaultOption())
 
 vue.watch(
-  () => plots,
-  (plots) => {
-    option.value = defaultOption()
+  () => [plots, common.isDarkMode.value],
+  () => {
+    Plotly.react(
+      mainDiv.value,
+      plots.map((plot) => ({
+        x: plot.x.data,
+        y: plot.y.data,
+        mode: 'lines'
+      })),
+      {
+        // Note: the various keys can be found at https://plotly.com/javascript/reference/.
 
-    option.value.series = plots.map((plot) => ({
-      type: 'line',
-      showSymbol: false,
-      data: common.coordinates(plot.x.data, plot.y.data)
-    }))
+        ...themeData(),
+        margin: {
+          t: 5,
+          l: 30,
+          b: 30,
+          r: 5
+        },
+        showlegend: false
+      },
+      {
+        // Note: the various keys can be found at https://plotly.com/javascript/configuration-options/.
+
+        responsive: true,
+        displayModeBar: false,
+        doubleClickDelay: 1000,
+        scrollZoom: true,
+        showTips: false
+      }
+    )
   }
 )
 </script>
