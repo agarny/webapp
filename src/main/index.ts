@@ -75,6 +75,7 @@ let mainInstance = true
 
 if (!electron.app.requestSingleInstanceLock()) {
   mainInstance = false
+
   electron.app.quit()
 }
 
