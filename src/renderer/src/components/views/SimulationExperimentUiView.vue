@@ -22,7 +22,6 @@
           v-for="(_plot, index) in (fileTab.uiJson as any).output.plots"
           :key="'plot_' + index"
           class="graph-panel-widget"
-          :canAutoResize="isActiveFile"
           :plots="plots"
         />
       </div>
@@ -41,7 +40,6 @@ import { type IFileTab } from '../ContentsComponent.vue'
 
 const fileTabModel = defineModel()
 defineProps<{
-  isActiveFile: boolean
   simulationOnly?: boolean
 }>()
 

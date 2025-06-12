@@ -38,7 +38,7 @@
             </Fieldset>
           </SplitterPanel>
           <SplitterPanel :size="75">
-            <GraphPanelWidget :canAutoResize="isActiveFile" :plots="plots" />
+            <GraphPanelWidget :plots="plots" />
           </SplitterPanel>
         </Splitter>
       </SplitterPanel>

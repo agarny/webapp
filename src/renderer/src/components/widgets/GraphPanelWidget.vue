@@ -21,7 +21,6 @@ export interface IGraphPanelPlot {
 }
 
 interface IProps {
-  canAutoResize: boolean
   plots: IGraphPanelPlot[]
   showMarker?: boolean
 }
