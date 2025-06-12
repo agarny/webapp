@@ -12,6 +12,14 @@ import {
 
 // SED-ML API.
 
+class SedBase {
+  protected _filePath: string
+
+  constructor(filePath: string) {
+    this._filePath = filePath
+  }
+}
+
 interface IWasmSedDocument {
   issues: IWasmIssues
   modelCount: number
@@ -20,12 +28,11 @@ interface IWasmSedDocument {
   instantiate(): IWasmSedInstance
 }
 
-export class SedDocument {
-  private _filePath: string
+export class SedDocument extends SedBase {
   private _wasmSedDocument: IWasmSedDocument = {} as IWasmSedDocument
 
   constructor(filePath: string, wasmFile: IWasmFile) {
-    this._filePath = filePath
+    super(filePath)
 
     if (cppVersion()) {
       _locApi.sedDocumentCreate(this._filePath)
@@ -101,13 +108,13 @@ interface IWasmSedSimulation {
   type: SedSimulationType
 }
 
-export class SedSimulation {
-  protected _filePath: string
+export class SedSimulation extends SedBase {
   protected _index: number
   private _type: SedSimulationType
 
   constructor(filePath: string, index: number, _wasmSedDocument: IWasmSedDocument, type: SedSimulationType) {
-    this._filePath = filePath
+    super(filePath)
+
     this._index = index
     this._type = type
   }
@@ -219,12 +226,11 @@ interface IWasmSedInstance {
   run(): number
 }
 
-export class SedInstance {
-  private _filePath: string
+export class SedInstance extends SedBase {
   private _wasmSedInstance: IWasmSedInstance = {} as IWasmSedInstance
 
   constructor(filePath: string, wasmSedDocument: IWasmSedDocument) {
-    this._filePath = filePath
+    super(filePath)
 
     if (cppVersion()) {
       _locApi.sedDocumentInstantiate(this._filePath)
@@ -272,13 +278,13 @@ interface IWasmSedInstanceTask {
   algebraicAsArray(index: number): number[]
 }
 
-export class SedInstanceTask {
-  private _filePath: string
+export class SedInstanceTask extends SedBase {
   private _index: number
   private _wasmSedInstanceTask: IWasmSedInstanceTask = {} as IWasmSedInstanceTask
 
   constructor(filePath: string, index: number, wasmSedInstance: IWasmSedInstance) {
-    this._filePath = filePath
+    super(filePath)
+
     this._index = index
 
     if (wasmVersion()) {
