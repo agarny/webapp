@@ -20,6 +20,16 @@ class SedBase {
   }
 }
 
+class SedBaseIndex extends SedBase {
+  protected _index: number
+
+  constructor(filePath: string, index: number) {
+    super(filePath)
+
+    this._index = index
+  }
+}
+
 interface IWasmSedDocument {
   issues: IWasmIssues
   modelCount: number
@@ -108,14 +118,12 @@ interface IWasmSedSimulation {
   type: SedSimulationType
 }
 
-export class SedSimulation extends SedBase {
-  protected _index: number
+export class SedSimulation extends SedBaseIndex {
   private _type: SedSimulationType
 
   constructor(filePath: string, index: number, _wasmSedDocument: IWasmSedDocument, type: SedSimulationType) {
-    super(filePath)
+    super(filePath, index)
 
-    this._index = index
     this._type = type
   }
 
@@ -278,14 +286,11 @@ interface IWasmSedInstanceTask {
   algebraicAsArray(index: number): number[]
 }
 
-export class SedInstanceTask extends SedBase {
-  private _index: number
+export class SedInstanceTask extends SedBaseIndex {
   private _wasmSedInstanceTask: IWasmSedInstanceTask = {} as IWasmSedInstanceTask
 
   constructor(filePath: string, index: number, wasmSedInstance: IWasmSedInstance) {
-    super(filePath)
-
-    this._index = index
+    super(filePath, index)
 
     if (wasmVersion()) {
       this._wasmSedInstanceTask = vue.toRaw(wasmSedInstance).task(index)
