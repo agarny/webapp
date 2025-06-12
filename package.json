@@ -29,6 +29,7 @@
       "@parcel/watcher",
       "@tailwindcss/oxide",
       "electron",
+      "electron-winstaller",
       "esbuild"
     ]
   },
