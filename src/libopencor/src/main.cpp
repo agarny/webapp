@@ -28,6 +28,8 @@ Napi::Object init(Napi::Env pEnv, Napi::Object pExports)
     pExports.Set(Napi::String::New(pEnv, "sedDocumentInstantiate"), Napi::Function::New(pEnv, sedDocumentInstantiate));
     pExports.Set(Napi::String::New(pEnv, "sedDocumentIssues"), Napi::Function::New(pEnv, sedDocumentIssues));
     pExports.Set(Napi::String::New(pEnv, "sedDocumentModelCount"), Napi::Function::New(pEnv, sedDocumentModelCount));
+    pExports.Set(Napi::String::New(pEnv, "sedDocumentModelRemoveAllChanges"), Napi::Function::New(pEnv, sedDocumentModelRemoveAllChanges));
+    pExports.Set(Napi::String::New(pEnv, "sedDocumentModelAddChange"), Napi::Function::New(pEnv, sedDocumentModelAddChange));
     pExports.Set(Napi::String::New(pEnv, "sedDocumentSimulationCount"), Napi::Function::New(pEnv, sedDocumentSimulationCount));
     pExports.Set(Napi::String::New(pEnv, "sedDocumentSimulationType"), Napi::Function::New(pEnv, sedDocumentSimulationType));
     pExports.Set(Napi::String::New(pEnv, "sedDocumentSimulationOneStepStep"), Napi::Function::New(pEnv, sedDocumentSimulationOneStepStep));

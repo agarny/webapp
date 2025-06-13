@@ -208,7 +208,7 @@ export class File {
   }
 
   document(): SedDocument {
-    return this._document
+    return vue.toRaw(this._document)
   }
 
   instance(): SedInstance {

@@ -33,6 +33,7 @@ class SedBaseIndex extends SedBase {
 interface IWasmSedDocument {
   issues: IWasmIssues
   modelCount: number
+  model(index: number): IWasmSedModel
   simulationCount: number
   simulation(index: number): IWasmSedSimulation
   instantiate(): IWasmSedInstance
@@ -57,6 +58,10 @@ export class SedDocument extends SedBase {
 
   modelCount(): number {
     return cppVersion() ? _locApi.sedDocumentModelCount(this._filePath) : this._wasmSedDocument.modelCount
+  }
+
+  model(index: number): SedModel {
+    return new SedModel(this._filePath, index, this._wasmSedDocument)
   }
 
   simulationCount(): number {
@@ -104,6 +109,53 @@ export class SedDocument extends SedBase {
 
   instantiate(): SedInstance {
     return new SedInstance(this._filePath, this._wasmSedDocument)
+  }
+}
+
+interface IWasmSedModel {
+  removeAllChanges(): void
+  addChange(change: _locApi.SedChange): void
+}
+
+export interface ISedModelChange {
+  componentName: string
+  variableName: string
+  newValue: string
+}
+
+export class SedModel extends SedBaseIndex {
+  private _wasmSedModel: IWasmSedModel = {} as IWasmSedModel
+
+  constructor(filePath: string, index: number, _wasmSedDocument: IWasmSedDocument) {
+    super(filePath, index)
+
+    if (wasmVersion()) {
+      this._wasmSedModel = _wasmSedDocument.model(index)
+    }
+  }
+
+  removeAllChanges(): void {
+    if (cppVersion()) {
+      _locApi.sedDocumentModelRemoveAllChanges(this._filePath, this._index)
+    } else {
+      this._wasmSedModel.removeAllChanges()
+    }
+  }
+
+  addChange(change: ISedModelChange): void {
+    if (cppVersion()) {
+      _locApi.sedDocumentModelAddChange(
+        this._filePath,
+        this._index,
+        change.componentName,
+        change.variableName,
+        change.newValue
+      )
+    } else {
+      this._wasmSedModel.addChange(
+        new _locApi.SedChangeAttribute(change.componentName, change.variableName, change.newValue)
+      )
+    }
   }
 }
 

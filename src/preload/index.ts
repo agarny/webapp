@@ -113,6 +113,14 @@ electron.contextBridge.exposeInMainWorld('locApi', {
   sedDocumentIssues: (path: string) => loc.sedDocumentIssues(path),
   sedDocumentModelCount: (path: string) => loc.sedDocumentModelCount(path),
   sedDocumentSimulationCount: (path: string) => loc.sedDocumentSimulationCount(path),
+  sedDocumentModelRemoveAllChanges: (path: string, index: number) => loc.sedDocumentModelRemoveAllChanges(path, index),
+  sedDocumentModelAddChange: (
+    path: string,
+    index: number,
+    componentName: string,
+    variableName: string,
+    newValue: string
+  ) => loc.sedDocumentModelAddChange(path, index, componentName, variableName, newValue),
   sedDocumentSimulationType: (path: string, index: number) => loc.sedDocumentSimulationType(path, index),
   sedDocumentSimulationOneStepStep: (path: string, index: number) => loc.sedDocumentSimulationOneStepStep(path, index),
   sedDocumentSimulationUniformTimeCourseInitialTime: (path: string, index: number) =>

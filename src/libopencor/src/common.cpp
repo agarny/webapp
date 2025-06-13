@@ -28,6 +28,11 @@ double valueToDouble(const Napi::Value &pValue)
     return pValue.As<Napi::Number>().DoubleValue();
 }
 
+std::string valueToString(const Napi::Value &pValue)
+{
+    return pValue.As<Napi::String>().Utf8Value();
+}
+
 void untrackFileData(libOpenCOR::FilePtr pFile)
 {
     fileData.erase(pFile);

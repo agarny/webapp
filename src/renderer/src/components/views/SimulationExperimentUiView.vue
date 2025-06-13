@@ -44,6 +44,7 @@ defineProps<{
 }>()
 
 const fileTab = fileTabModel.value as IFileTab
+const model = fileTab.file.document().model(0)
 const instance = fileTab.file.instance()
 const instanceTask = instance.task(0)
 const plotsDivId = 'plotsDiv_' + String(fileTab.file.path())
@@ -60,10 +61,33 @@ vue.onMounted(() => {
   plotsDiv?.style.setProperty('--graph-panel-widget-count', plotsDiv.children.length.toString())
 })
 
+function modelChanges(): locApi.ISedModelChange[] {
+  function randomNumber(min: number, max: number): number {
+    min = Math.ceil(min)
+    max = Math.floor(max)
+
+    return Math.floor(Math.random() * (max - min + 1)) + min
+  }
+
+  const res: locApi.ISedModelChange[] = []
+
+  res.push({
+    componentName: 'main',
+    variableName: 'rho',
+    newValue: randomNumber(40, 50).toString()
+  })
+
+  return res
+}
+
 function updateSimulation() {
   // Update the SED-ML document.
 
-  //---OPENCOR--- TO BE DONE.
+  model.removeAllChanges()
+
+  for (const modelChange of modelChanges()) {
+    model.addChange(modelChange)
+  }
 
   // Run the instance and update the plots.
 
