@@ -101,7 +101,7 @@ export class File {
 
     // Retrieve the SED-ML file associated with this file.
 
-    this._document = new SedDocument(this._path, this._wasmFile)
+    this._document = vue.markRaw(new SedDocument(this._path, this._wasmFile))
     this._issues = this._document.issues()
 
     if (this._issues.length !== 0) {
@@ -208,7 +208,7 @@ export class File {
   }
 
   document(): SedDocument {
-    return vue.toRaw(this._document)
+    return this._document
   }
 
   instance(): SedInstance {
@@ -225,7 +225,7 @@ export class File {
         return undefined
       }
     } else {
-      const uiJson = vue.toRaw(this._wasmFile).childFileFromFileName('simulation.json')
+      const uiJson = this._wasmFile.childFileFromFileName('simulation.json')
 
       if (uiJson === null) {
         return undefined

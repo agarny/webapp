@@ -10,7 +10,7 @@
       <SplitterPanel :size="simulationOnly ? 100 : 89">
         <Splitter>
           <SplitterPanel class="ml-4 mr-4 mb-4 min-w-fit" :size="25">
-            <SimulationPropertyEditor :file="vue.toRaw(fileTabModel.file)" />
+            <SimulationPropertyEditor :file="fileTabModel.file" />
             <!--
                   <SolversPropertyEditor />
                   <GraphsPropertyEditor />

@@ -281,7 +281,7 @@ export class SedInstance extends SedBase {
     if (cppVersion()) {
       _locApi.sedDocumentInstantiate(this._filePath)
     } else {
-      this._wasmSedInstance = wasmSedDocument.instantiate()
+      this._wasmSedInstance = vue.markRaw(wasmSedDocument.instantiate())
     }
   }
 
@@ -294,7 +294,7 @@ export class SedInstance extends SedBase {
   }
 
   run(): number {
-    return cppVersion() ? _locApi.sedInstanceRun(this._filePath) : vue.toRaw(this._wasmSedInstance).run()
+    return cppVersion() ? _locApi.sedInstanceRun(this._filePath) : this._wasmSedInstance.run()
   }
 }
 
@@ -331,7 +331,7 @@ export class SedInstanceTask extends SedBaseIndex {
     super(filePath, index)
 
     if (wasmVersion()) {
-      this._wasmSedInstanceTask = vue.toRaw(wasmSedInstance).task(index)
+      this._wasmSedInstanceTask = wasmSedInstance.task(index)
     }
   }
 
