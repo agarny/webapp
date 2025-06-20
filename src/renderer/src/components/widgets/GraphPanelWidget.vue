@@ -108,7 +108,13 @@ vue.watch(
           b: 30,
           r: 5
         },
-        showlegend: false
+        showlegend: false,
+        xaxis: {
+          tickangle: 0
+        },
+        yaxis: {
+          tickangle: 0
+        }
       },
       {
         // Note: the various keys can be found at https://plotly.com/javascript/configuration-options/.
