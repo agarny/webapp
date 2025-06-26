@@ -45,14 +45,14 @@ jobs:
       - name: Check out OpenCOR
         uses: actions/checkout@v4
       - name: Retrieve the EV certificate (Windows only)
-        if: ${{ (matrix.name == 'Windows (Intel)') || (matrix.name == 'Windows (ARM)') }}
+        if: ${{ runner.os == 'Windows' }}
         shell: bash
         run: |
           echo "CSC_LINK=$(echo $WINDOWS_CSC_LINK)" >> $GITHUB_ENV
           echo "CSC_KEY_PASSWORD=$(echo $WINDOWS_CSC_KEY_PASSWORD)" >> $GITHUB_ENV
           echo -n $EV_CERTIFICATE_BASE64 | base64 -d > $WINDOWS_CSC_LINK
       - name: Retrieve the Developer ID Application certificates (macOS only)
-        if: ${{ (matrix.name == 'macOS (Intel)') || (matrix.name == 'macOS (ARM)') }}
+        if: ${{ runner.os == 'macOS' }}
         run: |
           echo "CSC_LINK=$(echo $MACOS_CSC_LINK)" >> $GITHUB_ENV
           echo "CSC_KEY_PASSWORD=$(echo $MACOS_CSC_KEY_PASSWORD)" >> $GITHUB_ENV
