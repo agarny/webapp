@@ -72,21 +72,10 @@ jobs:
         run: pnpm install
       - name: Build libOpenCOR
         run: pnpm libopencor
-      - name: Package OpenCOR
-        run: pnpm package
-      - name: Remove blockmap files
-        shell: bash
-        run: find ./dist -name '*.blockmap' -delete
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}
-          path: ./dist/OpenCOR-*.*
+      - name: Build OpenCOR
+        run: pnpm build
       - name: Release OpenCOR
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: softprops/action-gh-release@v1
-        with:
-          files: ./build/OpenCOR-*
+        run: pnpm electron-builder -p always
   web_app:
     if: ${{ github.repository == 'opencor/webapp' }}
     name: Web app
