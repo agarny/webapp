@@ -1,5 +1,7 @@
 appId: ws.opencor.app
 productName: OpenCOR
+publish:
+  provider: github
 win:
   artifactName: ${productName}-${version}-Windows-${arch}.${ext}
   target:
