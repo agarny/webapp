@@ -4,6 +4,8 @@ import * as systemInformation from 'systeminformation'
 // @ts-expect-error (libOpenCOR.node is a native module)
 import loc from '../../dist/libOpenCOR/Release/libOpenCOR.node'
 
+import { type ISplashScreenInfo } from '../electronApi'
+
 // Some bridging between our main process and renderer process.
 // Note: this must be in sync with src/electronApi.ts.
 
@@ -24,6 +26,13 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
 
     return osInfo.distro + ' ' + osInfo.release + ' (' + architecture + ')'
   },
+
+  // Splash screen window.
+
+  onInitSplashScreenWindow: (callback: (info: ISplashScreenInfo) => void) =>
+    electron.ipcRenderer.on('init-splash-screen-window', (_event, info: ISplashScreenInfo) => {
+      callback(info)
+    }),
 
   // Renderer process asking the main process to do something for it.
 

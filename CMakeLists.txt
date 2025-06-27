@@ -152,22 +152,3 @@ endif()
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
                       ${CMAKE_JS_LIB} ${WINDOWS_LIBS}
                       ${CMAKE_BINARY_DIR}/Static/lib/${CMAKE_PROJECT_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
-
-# Configure our splash screen.
-
-string(TIMESTAMP YEAR "%Y")
-
-if(YEAR EQUAL 2025)
-    set(COPYRIGHT "2025")
-else()
-    set(COPYRIGHT "2025-${YEAR}")
-endif()
-
-string(TIMESTAMP YEAR "%Y")
-string(TIMESTAMP MONTH "%m")
-string(TIMESTAMP DAY "%d")
-
-set(VERSION "0.${YEAR}${MONTH}${DAY}.0")
-
-configure_file(src/main/assets/splashscreen.html.in
-               ${CMAKE_BINARY_DIR}/../../out/splashscreen.html)

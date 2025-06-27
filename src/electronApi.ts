@@ -1,9 +1,18 @@
+export interface ISplashScreenInfo {
+  copyright: string
+  version: string
+}
+
 interface IElectronApi {
   // Note: this must be in sync with src/preload/index.ts.
 
   // Some general methods.
 
   operatingSystem: () => string
+
+  // Splash screen window.
+
+  onInitSplashScreenWindow: (callback: (info: ISplashScreenInfo) => void) => void
 
   // Renderer process asking the main process to do something for it.
 

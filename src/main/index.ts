@@ -124,7 +124,7 @@ electron.app
       process.env.NODE_ENV = 'production'
     }
 
-    // Create our splash window, if we are not in development mode, and pass it our copyright and version values.
+    // Create our splash window, if we are not in development mode.
 
     const splashScreenWindow: SplashScreenWindow | null = isDevMode() ? null : new SplashScreenWindow()
 

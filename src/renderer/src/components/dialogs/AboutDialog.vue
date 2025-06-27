@@ -4,7 +4,7 @@
       <div class="text-center">
         <div class="text-3xl font-bold">OpenCOR {{ version }}</div>
         <div v-if="electronApi !== undefined" class="text-xl italic font-bold">{{ electronApi.operatingSystem() }}</div>
-        <div class="text-sm italic">Copyright {{ copyright }}</div>
+        <div class="text-sm italic">Copyright {{ constants.COPYRIGHT }}</div>
       </div>
       <div class="space-y-2">
         <div>
@@ -46,9 +46,9 @@
 import { electronApi } from '../../../../electronApi'
 import * as locApi from '../../../../libopencor/locApi'
 
+import * as constants from '../../../../constants'
+
 defineEmits(['close'])
 
 const version = __APP_VERSION__
-const currentYear = new Date().getFullYear()
-const copyright = currentYear === 2025 ? '2025' : `2025-${currentYear.toString()}`
 </script>

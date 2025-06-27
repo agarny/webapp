@@ -8,19 +8,20 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
     />
-    <link rel="stylesheet" href="../src/main/assets/splashscreen.css" />
+    <link rel="stylesheet" href="./splashscreen.css" />
   </head>
   <body>
     <table class="contents">
       <tr>
         <td class="logo" colspan="2">
-          <img class="logo" src="../src/renderer/src/assets/logo.svg" />
+          <img class="logo" src="../../renderer/src/assets/logo.svg" />
         </td>
       </tr>
       <tr>
-        <td class="copyright">Copyright @COPYRIGHT@</td>
-        <td class="version">Version @VERSION@</td>
+        <td class="copyright">Copyright <span id="copyright" /></td>
+        <td class="version">Version <span id="version" /></td>
       </tr>
     </table>
+    <script src="./splashscreen.js"></script>
   </body>
 </html>

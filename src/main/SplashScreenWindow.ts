@@ -1,3 +1,7 @@
+import * as electron from 'electron'
+
+import * as constants from '../constants'
+
 import { ApplicationWindow } from './ApplicationWindow'
 import { retrieveMainWindowState } from './MainWindow'
 
@@ -22,8 +26,17 @@ export class SplashScreenWindow extends ApplicationWindow {
       alwaysOnTop: true
     })
 
-    this.loadFile('./out/splashscreen.html').catch((error: unknown) => {
+    this.loadFile('./src/main/assets/splashscreen.html').catch((error: unknown) => {
       console.error('Failed to load splash screen:', error)
+    })
+
+    // Initialise our Web contents.
+
+    this.on('ready-to-show', () => {
+      this.webContents.send('init-splash-screen-window', {
+        copyright: constants.COPYRIGHT,
+        version: electron.app.getVersion()
+      })
     })
   }
 }
