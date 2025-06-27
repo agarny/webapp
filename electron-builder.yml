@@ -21,7 +21,6 @@ mac:
   artifactName: ${productName}-${version}-macOS-${arch}.${ext}
   target:
     - dmg
-    - pkg
     - zip
 protocols:
   name: OpenCOR
