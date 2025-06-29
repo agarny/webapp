@@ -59,8 +59,8 @@ where `<script>` is one of the following:
 - `format:check`: check that OpenCOR's code and OpenCOR's Web app's code are properly formatted;
 - `libopencor`: build OpenCOR's JavaScript interface to libOpenCOR's C++ bindings;
 - `lint`: lint OpenCOR's code and OpenCOR's Web app's code;
-- `package`: (build and) package OpenCOR for the current platform;
-- `publish:web`: publish OpenCOR's Web app on [npm](https://npmjs.com/);
+- `release`: (build and) release OpenCOR for the current platform;
+- `release:web`: release OpenCOR's Web app on [npm](https://npmjs.com/);
 - `start`: (build and) start OpenCOR in production mode; and
 - `start:web`: (build and) start OpenCOR's Web app in production mode.
 

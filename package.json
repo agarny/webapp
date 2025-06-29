@@ -43,8 +43,8 @@
     "install": "node scripts/version.js",
     "libopencor": "cmake-js build -B Release -O dist/libOpenCOR",
     "lint": "eslint --fix .",
-    "package": "pnpm build && electron-builder",
-    "publish:web": "pnpm publish ./src/renderer",
+    "release": "pnpm electron-builder -p always",
+    "release:web": "pnpm publish ./src/renderer",
     "start": "electron-vite preview",
     "start:web": "pnpm build:web && cd ./src/renderer && vite preview"
   },

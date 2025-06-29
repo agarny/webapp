@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  packages:
+  releases:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -76,7 +76,7 @@ jobs:
       - name: Build OpenCOR
         run: pnpm build
       - name: Release OpenCOR
-        run: pnpm electron-builder -p always
+        run: pnpm release
   web_app:
     if: ${{ github.repository == 'opencor/webapp' }}
     name: Web app
