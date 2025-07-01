@@ -64,6 +64,13 @@ jobs:
           node-version: 'lts/*'
       - name: Install pnpm
         run: npm install -g pnpm
+      - name: Make sure that we can sign OpenCOR (Windows ARM only)
+        if: matrix.name == 'Windows (ARM)'
+        run: |
+          curl -L https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z -o winCodeSign.7z
+          7z x winCodeSign.7z -oC:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0
+          cd C:\Users\runneradmin\AppData\Local\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\windows-10
+          mv x64 arm64
       - name: Install libopenjp2-tools (Linux ARM only)
         if: matrix.name == 'Linux (ARM)'
         run: |
