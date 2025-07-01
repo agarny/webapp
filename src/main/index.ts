@@ -126,9 +126,9 @@ electron.app
       process.env.NODE_ENV = 'production'
     }
 
-    // Create our splash window, if we are not in development mode.
+    // Create our splash window.
 
-    const splashScreenWindow: SplashScreenWindow | null = isDevMode() ? null : new SplashScreenWindow()
+    const splashScreenWindow = new SplashScreenWindow()
 
     // Set our app user model id for Windows.
 

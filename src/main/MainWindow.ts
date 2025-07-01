@@ -106,7 +106,7 @@ export class MainWindow extends ApplicationWindow {
 
   // Constructor.
 
-  constructor(commandLine: string[], splashScreenWindow: SplashScreenWindow | null) {
+  constructor(commandLine: string[], splashScreenWindow: SplashScreenWindow) {
     // Initialise ourselves.
 
     const mainWindowState = retrieveMainWindowState()
@@ -145,7 +145,7 @@ export class MainWindow extends ApplicationWindow {
     this.once('show', () => {
       let handleCommandLineDelay = SHORT_DELAY
 
-      if (!this._splashScreenWindowClosed && !!splashScreenWindow) {
+      if (!this._splashScreenWindowClosed) {
         this._splashScreenWindowClosed = true
 
         handleCommandLineDelay = LONG_DELAY
