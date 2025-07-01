@@ -13,6 +13,34 @@ import { enableDisableMainMenu, enableDisableFileCloseAndCloseAllMenuItems } fro
 import { fileClosed, fileIssue, fileOpened, fileSelected, filesOpened, MainWindow, resetAll } from './MainWindow'
 import { SplashScreenWindow } from './SplashScreenWindow'
 
+// Allow only one instance of OpenCOR.
+
+let mainInstance = true
+
+if (!electron.app.requestSingleInstanceLock()) {
+  mainInstance = false
+
+  electron.app.quit()
+}
+
+// Take over if another instance of OpenCOR is started.
+
+export let mainWindow: MainWindow | null = null
+
+electron.app.on('second-instance', (_event, argv) => {
+  if (mainWindow !== null) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+
+    mainWindow.focus()
+
+    argv.shift() // Remove the first argument, which is the path to OpenCOR.
+
+    mainWindow.handleArguments(argv)
+  }
+})
+
 // Prettify our settings.
 
 electronSettings.configure({
@@ -68,32 +96,6 @@ MimeType=x-scheme-handler/${URI_SCHEME}`
     }
   })
 }
-
-// Allow only one instance of OpenCOR.
-
-let mainInstance = true
-
-if (!electron.app.requestSingleInstanceLock()) {
-  mainInstance = false
-
-  electron.app.quit()
-}
-
-export let mainWindow: MainWindow | null = null
-
-electron.app.on('second-instance', (_event, argv) => {
-  if (mainWindow !== null) {
-    if (mainWindow.isMinimized()) {
-      mainWindow.restore()
-    }
-
-    mainWindow.focus()
-
-    argv.shift() // Remove the first argument, which is the path to OpenCOR.
-
-    mainWindow.handleArguments(argv)
-  }
-})
 
 // Handle the clicking of an opencor:// link.
 
