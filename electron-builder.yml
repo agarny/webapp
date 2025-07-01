@@ -3,6 +3,7 @@ productName: OpenCOR
 publish:
   provider: github
   owner: agarny
+  channel: latest-${arch}
   releaseType: release
 win:
   artifactName: ${productName}-${version}-Windows-${arch}.${ext}
