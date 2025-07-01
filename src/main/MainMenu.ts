@@ -1,6 +1,6 @@
 import electron from 'electron'
 
-import { isMacOs } from '../electron'
+import { isMacOs, isPackaged } from '../electron'
 
 import { mainWindow } from './index'
 import { clearRecentFiles } from './MainWindow'
@@ -27,10 +27,14 @@ export function enableDisableMainMenu(enable: boolean): void {
       }
     }
 
-    const checkForUpdatesMenuItem: electron.MenuItemConstructorOptions = {
-      label: 'Check For Updates...',
-      click: () => {
-        mainWindow?.webContents.send('check-for-updates')
+    let checkForUpdatesMenuItem: electron.MenuItemConstructorOptions | null = null
+
+    if (isPackaged()) {
+      checkForUpdatesMenuItem = {
+        label: 'Check For Updates...',
+        click: () => {
+          mainWindow?.webContents.send('check-for-updates')
+        }
       }
     }
 
@@ -52,8 +56,12 @@ export function enableDisableMainMenu(enable: boolean): void {
     if (isMacOs()) {
       if (enable) {
         appSubMenu.push(aboutOpencorMenuItem)
-        appSubMenu.push({ type: 'separator' })
-        appSubMenu.push(checkForUpdatesMenuItem)
+
+        if (checkForUpdatesMenuItem !== null) {
+          appSubMenu.push({ type: 'separator' })
+          appSubMenu.push(checkForUpdatesMenuItem)
+        }
+
         appSubMenu.push({ type: 'separator' })
         appSubMenu.push(settingsMenuItem)
         appSubMenu.push({ type: 'separator' })
@@ -232,8 +240,11 @@ export function enableDisableMainMenu(enable: boolean): void {
     })
 
     if (!isMacOs()) {
-      helpSubMenu.push({ type: 'separator' })
-      helpSubMenu.push(checkForUpdatesMenuItem)
+      if (checkForUpdatesMenuItem !== null) {
+        helpSubMenu.push({ type: 'separator' })
+        helpSubMenu.push(checkForUpdatesMenuItem)
+      }
+
       helpSubMenu.push({ type: 'separator' })
       helpSubMenu.push(aboutOpencorMenuItem)
     }
