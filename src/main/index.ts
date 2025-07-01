@@ -7,7 +7,7 @@ import * as nodeChildProcess from 'node:child_process'
 import path from 'path'
 
 import { URI_SCHEME } from '../constants'
-import { isDevMode, isWindows, isLinux } from '../electron'
+import { isPackaged, isWindows, isLinux } from '../electron'
 
 import { enableDisableMainMenu, enableDisableFileCloseAndCloseAllMenuItems } from './MainMenu'
 import { fileClosed, fileIssue, fileOpened, fileSelected, filesOpened, MainWindow, resetAll } from './MainWindow'
@@ -134,9 +134,9 @@ electron.app
 
     electronToolkitUtils.electronApp.setAppUserModelId('ws.opencor.app')
 
-    // Enable the F12 shortcut (to show/hide the developer tools), if we are in development.
+    // Enable the F12 shortcut (to show/hide the developer tools) if we are not packaged.
 
-    if (isDevMode()) {
+    if (!isPackaged()) {
       electron.app.on('browser-window-created', (_event, window) => {
         electronToolkitUtils.optimizer.watchWindowShortcuts(window)
       })
