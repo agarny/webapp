@@ -158,14 +158,14 @@ export class MainWindow extends ApplicationWindow {
       setTimeout(() => {
         // Retrieve the recently opened files and our Reopen menu.
 
-        recentFilePaths = electronSettings.getSync('recentFiles') as string[]
+        recentFilePaths = (electronSettings.getSync('recentFiles') as string[] | undefined) ?? []
 
         updateReopenMenu(recentFilePaths)
 
         // Reopen previously opened files, if any, and select the previously selected file.
 
-        this._openedFilePaths = electronSettings.getSync('openedFiles') as string[]
-        this._selectedFilePath = electronSettings.getSync('selectedFile') as string
+        this._openedFilePaths = (electronSettings.getSync('openedFiles') as string[] | undefined) ?? []
+        this._selectedFilePath = (electronSettings.getSync('selectedFile') as string | undefined) ?? ''
 
         this.reopenFilePathsAndSelectFilePath()
 
