@@ -9,7 +9,7 @@
 import Plotly from 'plotly.js-gl2d-dist-min'
 import * as vue from 'vue'
 
-import * as common from '../../../../common'
+import * as vueCommon from '../../../../vueCommon'
 import { MEDIUM_DELAY } from '../../../../constants'
 
 let oldMainDivClientWidth = -1
@@ -55,19 +55,19 @@ function themeData() {
 
   function axisThemeData() {
     return {
-      zerolinecolor: common.isDarkMode.value ? '#71717a' : '#94a3b8', // --p-surface-500 / --p-surface-400
-      gridcolor: common.isDarkMode.value ? '#3f3f46' : '#e2e8f0', // --p-surface-700 / --p-surface-200
+      zerolinecolor: vueCommon.isDarkMode.value ? '#71717a' : '#94a3b8', // --p-surface-500 / --p-surface-400
+      gridcolor: vueCommon.isDarkMode.value ? '#3f3f46' : '#e2e8f0', // --p-surface-700 / --p-surface-200
       minor: {
-        gridcolor: common.isDarkMode.value ? '#27272a' : '#f1f5f9' // --p-surface-800 / --p-surface-100
+        gridcolor: vueCommon.isDarkMode.value ? '#27272a' : '#f1f5f9' // --p-surface-800 / --p-surface-100
       }
     }
   }
 
   return {
-    paper_bgcolor: common.isDarkMode.value ? '#18181b' : '#ffffff', // --p-content-background
-    plot_bgcolor: common.isDarkMode.value ? '#18181b' : '#ffffff', // --p-content-background
+    paper_bgcolor: vueCommon.isDarkMode.value ? '#18181b' : '#ffffff', // --p-content-background
+    plot_bgcolor: vueCommon.isDarkMode.value ? '#18181b' : '#ffffff', // --p-content-background
     font: {
-      color: common.isDarkMode.value ? '#ffffff' : '#334155' // --p-text-color
+      color: vueCommon.isDarkMode.value ? '#ffffff' : '#334155' // --p-text-color
     },
     colorway: [
       '#7289ab', // Blue
@@ -84,7 +84,7 @@ function themeData() {
 }
 
 vue.watch(
-  () => [plots, common.isDarkMode.value],
+  () => [plots, vueCommon.isDarkMode.value],
   () => {
     Plotly.react(
       mainDiv.value,

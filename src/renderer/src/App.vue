@@ -22,9 +22,24 @@
     </div>
   </div>
   <input type="file" multiple style="display: none" @change="onChange" />
+  <UpdateErrorDialog
+    v-model:visible="updateErrorVisible"
+    :title="updateErrorTitle"
+    :issue="updateErrorIssue"
+    @close="onUpdateErrorDialogClose"
+  />
+  <UpdateAvailableDialog
+    v-model:visible="updateAvailableVisible"
+    :version="updateVersion"
+    @downloadAndInstall="onDownloadAndInstall"
+    @close="updateAvailableVisible = false"
+  />
+  <UpdateDownloadProgressDialog v-model:visible="updateDownloadProgressVisible" :percent="updateDownloadPercent" />
+  <UpdateNotAvailableDialog v-model:visible="updateNotAvailableVisible" @close="updateNotAvailableVisible = false" />
   <OpenRemoteDialog v-model:visible="openRemoteVisible" @openRemote="onOpenRemote" @close="openRemoteVisible = false" />
   <ResetAllDialog v-model:visible="resetAllVisible" @resetAll="onResetAll" @close="resetAllVisible = false" />
   <AboutDialog v-model:visible="aboutVisible" @close="aboutVisible = false" />
+  <SettingsDialog v-model:visible="settingsVisible" @close="settingsVisible = false" />
   <Toast />
 </template>
 
@@ -39,6 +54,7 @@ import { SHORT_DELAY, TOAST_LIFE } from '../../constants'
 import { electronApi } from '../../electronApi'
 import * as locApi from '../../libopencor/locApi'
 import * as locCommon from '../../locCommon'
+import * as vueCommon from '../../vueCommon'
 
 import IContentsComponent from './components/ContentsComponent.vue'
 
@@ -128,15 +144,65 @@ function hideSpinningWheel(): void {
   spinningWheelVisible.value = false
 }
 
-// Check for updates dialog.
+// Auto update.
 
 electronApi?.onCheckForUpdates(() => {
-  toast.add({
-    severity: 'info',
-    summary: 'Check for updates',
-    detail: 'The Check for updates dialog has yet to be implemented.',
-    life: TOAST_LIFE
-  })
+  electronApi?.checkForUpdates(false)
+})
+
+const updateErrorVisible = vue.ref<boolean>(false)
+const updateErrorTitle = vue.ref<string>('')
+const updateErrorIssue = vue.ref<string>('')
+
+function onUpdateErrorDialogClose(): void {
+  updateErrorVisible.value = false
+  updateDownloadProgressVisible.value = false
+}
+
+const updateAvailableVisible = vue.ref<boolean>(false)
+const updateDownloadProgressVisible = vue.ref<boolean>(false)
+const updateVersion = vue.ref<string>('')
+const updateDownloadPercent = vue.ref<number>(0)
+
+electronApi?.onUpdateAvailable((version: string) => {
+  updateAvailableVisible.value = true
+  updateVersion.value = version
+})
+
+function onDownloadAndInstall(): void {
+  updateDownloadPercent.value = 0 // Just to be on the safe side.
+  updateDownloadProgressVisible.value = true
+  updateAvailableVisible.value = false
+
+  electronApi?.downloadAndInstallUpdate()
+}
+
+electronApi?.onUpdateDownloadError((issue: string) => {
+  updateErrorTitle.value = 'Downloading Update...'
+  updateErrorIssue.value = `An error occurred while downloading the update (${issue}).`
+  updateErrorVisible.value = true
+})
+
+electronApi?.onUpdateDownloadProgress((percent: number) => {
+  updateDownloadPercent.value = percent
+})
+
+electronApi?.onUpdateDownloaded(() => {
+  updateDownloadPercent.value = 100 // Just to be on the safe side.
+
+  electronApi?.installUpdateAndRestart()
+})
+
+const updateNotAvailableVisible = vue.ref<boolean>(false)
+
+electronApi?.onUpdateNotAvailable(() => {
+  updateNotAvailableVisible.value = true
+})
+
+electronApi?.onUpdateCheckError((issue: string) => {
+  updateErrorTitle.value = 'Checking For Updates...'
+  updateErrorIssue.value = `An error occurred while checking for updates (${issue}).`
+  updateErrorVisible.value = true
 })
 
 // About dialog.
@@ -153,17 +219,14 @@ function onAbout(): void {
 
 // Settings dialog.
 
+const settingsVisible = vue.ref<boolean>(false)
+
 electronApi?.onSettings(() => {
   onSettings()
 })
 
 function onSettings(): void {
-  toast.add({
-    severity: 'info',
-    summary: 'Settings',
-    detail: 'The Settings dialog has yet to be implemented.',
-    life: TOAST_LIFE
-  })
+  settingsVisible.value = true
 }
 
 // Open a file.
@@ -366,7 +429,7 @@ if (props.omex !== undefined) {
 } else {
   // Track the height of our main menu.
 
-  common.trackElementHeight('mainMenu')
+  vueCommon.trackElementHeight('mainMenu')
 
   // Things that need to be done when the component is mounted.
 
@@ -374,7 +437,12 @@ if (props.omex !== undefined) {
     // Do what follows with a bit of a delay to give our background (with the OpenCOR logo) time to be renderered.
 
     setTimeout(() => {
-      if (electronApi === undefined) {
+      if (electronApi !== undefined) {
+        // Check for updates.
+        // Note: the main process will actually check for updates if requested and if OpenCOR is packaged.
+
+        electronApi.checkForUpdates(true)
+      } else {
         // Handle the action passed to our Web app, if any.
         // Note: to use vue.nextTick() doesn't do the trick, so we have no choice but to use setTimeout().
 

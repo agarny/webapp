@@ -58,6 +58,7 @@ import * as vue from 'vue'
 
 import * as common from '../../../../common'
 import * as locCommon from '../../../../locCommon'
+import * as vueCommon from '../../../../vueCommon'
 
 import { type IGraphPanelPlot } from '../widgets/GraphPanelWidget.vue'
 import { type IFileTab } from '../ContentsComponent.vue'
@@ -148,7 +149,7 @@ vue.onMounted(() => {
 
 // Track the height of our file tablist toolbar.
 
-common.trackElementHeight(toolbarId)
+vueCommon.trackElementHeight(toolbarId)
 
 // Keyboard shortcuts.
 

@@ -36,6 +36,8 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
 
   // Renderer process asking the main process to do something for it.
 
+  checkForUpdates: (atStartup: boolean) => electron.ipcRenderer.invoke('check-for-updates', atStartup),
+  downloadAndInstallUpdate: () => electron.ipcRenderer.invoke('download-and-install-update'),
   enableDisableMainMenu: (enable: boolean) => electron.ipcRenderer.invoke('enable-disable-main-menu', enable),
   enableDisableFileCloseAndCloseAllMenuItems: (enable: boolean) =>
     electron.ipcRenderer.invoke('enable-disable-file-close-and-close-all-menu-items', enable),
@@ -45,6 +47,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   filePath: (file: File) => electron.webUtils.getPathForFile(file),
   fileSelected: (filePath: string) => electron.ipcRenderer.invoke('file-selected', filePath),
   filesOpened: (filePaths: string[]) => electron.ipcRenderer.invoke('files-opened', filePaths),
+  installUpdateAndRestart: () => electron.ipcRenderer.invoke('install-update-and-restart'),
   resetAll: () => electron.ipcRenderer.invoke('reset-all'),
 
   // Renderer process listening to the main process.
@@ -91,6 +94,30 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
     }),
   onSettings: (callback: () => void) =>
     electron.ipcRenderer.on('settings', () => {
+      callback()
+    }),
+  onUpdateAvailable: (callback: (version: string) => void) =>
+    electron.ipcRenderer.on('update-available', (_event, version: string) => {
+      callback(version)
+    }),
+  onUpdateCheckError: (callback: (issue: string) => void) =>
+    electron.ipcRenderer.on('update-check-error', (_event, issue: string) => {
+      callback(issue)
+    }),
+  onUpdateDownloaded: (callback: () => void) =>
+    electron.ipcRenderer.on('update-downloaded', () => {
+      callback()
+    }),
+  onUpdateDownloadError: (callback: (issue: string) => void) =>
+    electron.ipcRenderer.on('update-download-error', (_event, issue: string) => {
+      callback(issue)
+    }),
+  onUpdateDownloadProgress: (callback: (percent: number) => void) =>
+    electron.ipcRenderer.on('update-download-progress', (_event, percent: number) => {
+      callback(percent)
+    }),
+  onUpdateNotAvailable: (callback: () => void) =>
+    electron.ipcRenderer.on('update-not-available', () => {
       callback()
     })
 })

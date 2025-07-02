@@ -10,7 +10,18 @@ import { URI_SCHEME } from '../constants'
 import { isPackaged, isWindows, isLinux } from '../electron'
 
 import { enableDisableMainMenu, enableDisableFileCloseAndCloseAllMenuItems } from './MainMenu'
-import { fileClosed, fileIssue, fileOpened, fileSelected, filesOpened, MainWindow, resetAll } from './MainWindow'
+import {
+  checkForUpdates,
+  downloadAndInstallUpdate,
+  fileClosed,
+  fileIssue,
+  fileOpened,
+  fileSelected,
+  filesOpened,
+  installUpdateAndRestart,
+  MainWindow,
+  resetAll
+} from './MainWindow'
 import { SplashScreenWindow } from './SplashScreenWindow'
 
 // Allow only one instance of OpenCOR.
@@ -134,6 +145,12 @@ electron.app
 
     // Handle some requests from our renderer process.
 
+    electron.ipcMain.handle('check-for-updates', (_event, atStartup: boolean) => {
+      checkForUpdates(atStartup)
+    })
+    electron.ipcMain.handle('download-and-install-update', () => {
+      downloadAndInstallUpdate()
+    })
     electron.ipcMain.handle('enable-disable-main-menu', (_event, enable: boolean) => {
       enableDisableMainMenu(enable)
     })
@@ -154,6 +171,9 @@ electron.app
     })
     electron.ipcMain.handle('files-opened', (_event, filePaths: string[]) => {
       filesOpened(filePaths)
+    })
+    electron.ipcMain.handle('install-update-and-restart', () => {
+      installUpdateAndRestart()
     })
     electron.ipcMain.handle('reset-all', resetAll)
 

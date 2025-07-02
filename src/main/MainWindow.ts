@@ -1,14 +1,64 @@
 import electron from 'electron'
 import * as electronSettings from 'electron-settings'
+import { autoUpdater, type ProgressInfo, type UpdateCheckResult } from 'electron-updater'
 import path from 'path'
 
 import { FULL_URI_SCHEME, LONG_DELAY, SHORT_DELAY } from '../constants'
-import { isDevMode, isWindows, isLinux, isMacOs } from '../electron'
+import { isDevMode, isPackaged, isWindows, isLinux, isMacOs } from '../electron'
 
 import icon from './assets/icon.png?asset'
 import { ApplicationWindow } from './ApplicationWindow'
 import { enableDisableMainMenu, updateReopenMenu } from './MainMenu'
 import type { SplashScreenWindow } from './SplashScreenWindow'
+
+autoUpdater.autoDownload = false
+autoUpdater.logger = null
+
+export function checkForUpdates(atStartup: boolean): void {
+  // Check for updates, if requested and if OpenCOR is packaged.
+
+  if (isPackaged() && (electronSettings.getSync('checkForUpdatesAtStartup') ?? true)) {
+    autoUpdater
+      .checkForUpdates()
+      .then((result: UpdateCheckResult | null) => {
+        const updateAvailable = result?.isUpdateAvailable ?? false
+
+        if (updateAvailable) {
+          MainWindow.instance?.webContents.send('update-available', result?.updateInfo.version)
+        } else if (!atStartup) {
+          MainWindow.instance?.webContents.send('update-not-available')
+        }
+      })
+      .catch((error: unknown) => {
+        MainWindow.instance?.webContents.send(
+          'update-check-error',
+          error instanceof Error ? error.message : String(error)
+        )
+      })
+  }
+}
+
+autoUpdater.on('download-progress', (info: ProgressInfo) => {
+  MainWindow.instance?.webContents.send('update-download-progress', info.percent)
+})
+
+export function downloadAndInstallUpdate(): void {
+  autoUpdater
+    .downloadUpdate()
+    .then(() => {
+      MainWindow.instance?.webContents.send('update-downloaded')
+    })
+    .catch((error: unknown) => {
+      MainWindow.instance?.webContents.send(
+        'update-download-error',
+        error instanceof Error ? error.message : String(error)
+      )
+    })
+}
+
+export function installUpdateAndRestart(): void {
+  autoUpdater.quitAndInstall()
+}
 
 export function retrieveMainWindowState(): {
   x: number
