@@ -1,6 +1,6 @@
 import * as jsonschema from 'jsonschema'
 
-import * as common from '../renderer/src/common'
+import * as common from '../common'
 
 import { EIssueType, type IIssue } from './locLoggerApi'
 

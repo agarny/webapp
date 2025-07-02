@@ -28,7 +28,7 @@ import * as vueusecore from '@vueuse/core'
 
 import * as vue from 'vue'
 
-import * as common from '../common'
+import * as common from '../../../common'
 
 const props = defineProps<{
   hasFiles: boolean

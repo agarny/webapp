@@ -36,8 +36,7 @@ import * as mathjs from 'mathjs'
 import * as vue from 'vue'
 
 import * as locApi from '../../../../libopencor/locApi'
-
-import * as common from '../../common'
+import * as locCommon from '../../../../locCommon'
 
 import { type IGraphPanelPlot } from '../widgets/GraphPanelWidget.vue'
 import { type IFileTab } from '../ContentsComponent.vue'
@@ -56,7 +55,7 @@ const plots = vue.ref<IGraphPanelPlot[][]>([])
 const issues = vue.ref(locApi.uiJsonIssues(fileTabModel.value.uiJson))
 const inputValues = vue.ref<number[]>([])
 const showInput = vue.ref<boolean[]>([])
-const idToInfo: Record<string, common.ISimulationDataInfo> = {}
+const idToInfo: Record<string, locCommon.ISimulationDataInfo> = {}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function evaluateValue(value: string): any {
@@ -81,7 +80,7 @@ fileTabModel.value.uiJson?.input.forEach((input: locApi.IUiJsonInput) => {
 })
 
 fileTabModel.value.uiJson?.output.data.forEach((data: locApi.IUiJsonOutputData) => {
-  idToInfo[data.id] = common.simulationDataInfo(instanceTask, data.name)
+  idToInfo[data.id] = locCommon.simulationDataInfo(instanceTask, data.name)
 })
 
 vue.onMounted(() => {
@@ -124,7 +123,7 @@ function updateUiAndSimulation() {
   const parser = math.parser()
 
   fileTabModel.value.uiJson?.output.data.forEach((data: locApi.IUiJsonOutputData) => {
-    parser.set(data.id, common.simulationData(instanceTask, idToInfo[data.id]))
+    parser.set(data.id, locCommon.simulationData(instanceTask, idToInfo[data.id]))
   })
 
   plots.value =

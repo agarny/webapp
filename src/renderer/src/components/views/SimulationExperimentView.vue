@@ -56,7 +56,8 @@ import * as vueusecore from '@vueuse/core'
 
 import * as vue from 'vue'
 
-import * as common from '../../common'
+import * as common from '../../../../common'
+import * as locCommon from '../../../../locCommon'
 
 import { type IGraphPanelPlot } from '../widgets/GraphPanelWidget.vue'
 import { type IFileTab } from '../ContentsComponent.vue'
@@ -123,17 +124,17 @@ function onRun(): void {
   updatePlot()
 }
 
-const xInfo = vue.computed(() => common.simulationDataInfo(instanceTask, xParameter.value))
-const yInfo = vue.computed(() => common.simulationDataInfo(instanceTask, yParameter.value))
+const xInfo = vue.computed(() => locCommon.simulationDataInfo(instanceTask, xParameter.value))
+const yInfo = vue.computed(() => locCommon.simulationDataInfo(instanceTask, yParameter.value))
 
 function updatePlot() {
   plots.value = [
     {
       x: {
-        data: common.simulationData(instanceTask, xInfo.value)
+        data: locCommon.simulationData(instanceTask, xInfo.value)
       },
       y: {
-        data: common.simulationData(instanceTask, yInfo.value)
+        data: locCommon.simulationData(instanceTask, yInfo.value)
       }
     }
   ]

@@ -34,11 +34,12 @@ import * as vueusecore from '@vueuse/core'
 import { useToast } from 'primevue/usetoast'
 import * as vue from 'vue'
 
+import * as common from '../../common'
 import { SHORT_DELAY, TOAST_LIFE } from '../../constants'
 import { electronApi } from '../../electronApi'
 import * as locApi from '../../libopencor/locApi'
+import * as locCommon from '../../locCommon'
 
-import * as common from './common'
 import IContentsComponent from './components/ContentsComponent.vue'
 
 const props = defineProps<{
@@ -170,7 +171,7 @@ function onSettings(): void {
 function openFile(fileOrFilePath: string | File): void {
   // Check whether the file is already open and if so then select it.
 
-  const filePath = common.filePath(fileOrFilePath)
+  const filePath = locCommon.filePath(fileOrFilePath)
 
   if (contents.value?.hasFile(filePath) ?? false) {
     contents.value?.selectFile(filePath)
@@ -180,11 +181,11 @@ function openFile(fileOrFilePath: string | File): void {
 
   // Retrieve a locApi.File object for the given file or file path and add it to the contents.
 
-  if (common.isRemoteFilePath(filePath)) {
+  if (locCommon.isRemoteFilePath(filePath)) {
     showSpinningWheel()
   }
 
-  common
+  locCommon
     .file(fileOrFilePath)
     .then((file) => {
       const fileType = file.type()
@@ -219,12 +220,12 @@ function openFile(fileOrFilePath: string | File): void {
         contents.value?.openFile(file)
       }
 
-      if (common.isRemoteFilePath(filePath)) {
+      if (locCommon.isRemoteFilePath(filePath)) {
         hideSpinningWheel()
       }
     })
     .catch((error: unknown) => {
-      if (common.isRemoteFilePath(filePath)) {
+      if (locCommon.isRemoteFilePath(filePath)) {
         hideSpinningWheel()
       }
 
