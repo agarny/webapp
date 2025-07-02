@@ -369,15 +369,16 @@ if (props.omex !== undefined) {
 
   // Things that need to be done when the component is mounted.
 
-  const action = vueusecore.useStorage('action', '')
-
   vue.onMounted(() => {
-    // Handle the action, if any. We handle the action with a bit of a delay to give our background (with the OpenCOR
-    // logo) time to be renderered.
-    // Note: to use vue.nextTick() doesn't do the trick, so we have no choice but to use setTimeout().
+    // Do what follows with a bit of a delay to give our background (with the OpenCOR logo) time to be renderered.
 
     setTimeout(() => {
       if (electronApi === undefined) {
+        // Handle the action passed to our Web app, if any.
+        // Note: to use vue.nextTick() doesn't do the trick, so we have no choice but to use setTimeout().
+
+        const action = vueusecore.useStorage('action', '')
+
         if (window.location.search !== '') {
           action.value = window.location.search.substring(1)
 
