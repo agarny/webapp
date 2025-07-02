@@ -15,11 +15,7 @@ import { SplashScreenWindow } from './SplashScreenWindow'
 
 // Allow only one instance of OpenCOR.
 
-let mainInstance = true
-
 if (!electron.app.requestSingleInstanceLock()) {
-  mainInstance = false
-
   electron.app.quit()
 }
 
@@ -112,12 +108,6 @@ electron.app.on('open-url', (_event, url) => {
 electron.app
   .whenReady()
   .then(() => {
-    // Leave if we are not the main instance.
-
-    if (!mainInstance) {
-      return
-    }
-
     // Set process.env.NODE_ENV to 'production' if we are not the default app.
     // Note: we do this because some packages rely on the value of process.env.NODE_ENV to determine whether they
     //       should run in development mode (default) or production mode.
