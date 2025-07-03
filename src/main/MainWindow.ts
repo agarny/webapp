@@ -233,6 +233,14 @@ export class MainWindow extends ApplicationWindow {
           }
         }
 
+        // When auto updating OpenCOR, we may end up with an extra argument that we need to ignore.
+
+        if ((isWindows() || isMacOs()) && commandLine[0] === '--updated') {
+          commandLine.shift()
+        } else if (isLinux() && commandLine[0] === '--no-sandbox') {
+          commandLine.shift()
+        }
+
         this.handleArguments(commandLine)
       }, handleCommandLineDelay)
     })
