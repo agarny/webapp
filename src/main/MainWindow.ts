@@ -57,7 +57,7 @@ export function downloadAndInstallUpdate(): void {
 }
 
 export function installUpdateAndRestart(): void {
-  autoUpdater.quitAndInstall()
+  autoUpdater.quitAndInstall(true, true)
 }
 
 export function retrieveMainWindowState(): {
