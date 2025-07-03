@@ -173,21 +173,12 @@ export class MainWindow extends ApplicationWindow {
         // the former case, we need to remove one or two arguments while, in the latter case, nothing should be removed.
 
         if (!this.isAction(commandLine[0])) {
-          // The first argument is not an action, so it has to be the path to either OpenCOR (when packaged) or Electron
-          // (when not packaged). So, first, we need to determine whether the first argument is the path to Electron.
-          // Then, we remove the first argument in all cases and the second argument only if the first one was the path
-          // to Electron (since it would mean that it was the path to our renderer).
-
-          const appFileName = path.basename(commandLine[0])
-          const isElectron = isWindows()
-            ? appFileName === 'electron.exe'
-            : isLinux()
-              ? appFileName === 'electron'
-              : appFileName === 'Electron'
+          // The first argument is not an action, so remove the first argument and then the second argument, but only
+          // if we are not packaged.
 
           commandLine.shift()
 
-          if (isElectron) {
+          if (!isPackaged()) {
             commandLine.shift()
           }
         }
