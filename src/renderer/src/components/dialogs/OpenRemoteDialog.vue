@@ -7,8 +7,8 @@
       </FloatLabel>
     </div>
     <template #footer>
-      <Button type="button" label="Open" :disabled="url === ''" @click="emitOpenRemote()" />
-      <Button type="button" label="Cancel" severity="secondary" @click="emitClose()" />
+      <Button label="Open" :disabled="url === ''" @click="emitOpenRemote()" />
+      <Button label="Cancel" severity="secondary" @click="emitClose()" />
     </template>
   </BaseDialog>
 </template>
