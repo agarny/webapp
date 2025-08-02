@@ -49,7 +49,6 @@ const items = [
           emit('open')
         }
       },
-      { separator: true },
       {
         label: 'Open Remote...',
         shortcut: isWindowsOrLinux ? 'Ctrl+Shift+Alt+O' : isMacOs ? '⇧⌘⌥O' : undefined,

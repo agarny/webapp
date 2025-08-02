@@ -92,7 +92,6 @@ export function enableDisableMainMenu(enable: boolean): void {
         mainWindow?.open()
       }
     })
-    fileSubMenu.push({ type: 'separator' })
     fileSubMenu.push({
       label: 'Open Remote...',
       accelerator: 'CmdOrCtrl+Shift+O',
