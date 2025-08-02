@@ -19,14 +19,16 @@
           <ol class="list-decimal list-inside ml-2">
             <li>
               <span class="font-bold">OpenCOR:</span> a desktop application that can be run on
+              <a href="https://en.wikipedia.org/wiki/List_of_Intel_processors">Intel</a>-based and
+              <a href="https://en.wikipedia.org/wiki/ARM_architecture_family">ARM</a>-based
               <a href="https://en.wikipedia.org/wiki/Microsoft_Windows" target="_blank" rel="noopener">Windows</a>,
               <a href="https://en.wikipedia.org/wiki/Linux" target="_blank" rel="noopener">Linux</a>, and
-              <a href="https://en.wikipedia.org/wiki/MacOS" target="_blank" rel="noopener">macOS</a>; and
+              <a href="https://en.wikipedia.org/wiki/MacOS" target="_blank" rel="noopener">macOS</a> machines; and
             </li>
             <li>
               <span class="font-bold">OpenCOR's Web app:</span> a
               <a href="https://en.wikipedia.org/wiki/Web_application" target="_blank" rel="noopener">Web app</a> that
-              can be run using a Web browser.
+              can be run on a Web browser.
             </li>
           </ol>
         </div>
