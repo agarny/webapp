@@ -32,10 +32,6 @@
             </li>
           </ol>
         </div>
-        <div>
-          The main difference between the two versions is that models in OpenCOR are compiled while they are interpreted
-          in OpenCOR's Web app.
-        </div>
       </div>
     </div>
     <template #footer>
