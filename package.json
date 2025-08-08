@@ -41,7 +41,7 @@
     "format": "prettier --log-level silent --write . && clang-format -i src/libopencor/src/*",
     "format:check": "prettier --check . && clang-format --dry-run -Werror src/libopencor/src/*",
     "install": "node scripts/version.js",
-    "libopencor": "cmake-js build -B Release -O dist/libOpenCOR",
+    "libopencor": "cmake-js build -B Release -O ./dist/libOpenCOR",
     "lint": "eslint --fix .",
     "release": "pnpm electron-builder",
     "release:web": "pnpm publish ./src/renderer",
