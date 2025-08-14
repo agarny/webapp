@@ -8,20 +8,43 @@
 </template>
 
 <script setup lang="ts">
+import * as vue from 'vue'
+
+import { SHORT_DELAY } from './common/constants'
 import OpenCOR from './components/OpenCOR.vue'
 
 function updateViewportHeight() {
   document.documentElement.style.setProperty('--vh', `${String(window.innerHeight * 0.01)}px`)
 }
 
-window.addEventListener('resize', updateViewportHeight)
+let resizeTimeout: number | null = null
 
-updateViewportHeight()
+function debouncedUpdateViewportHeight() {
+  if (resizeTimeout !== null) {
+    clearTimeout(resizeTimeout)
+  }
+
+  resizeTimeout = window.setTimeout(updateViewportHeight, SHORT_DELAY)
+}
+
+vue.onMounted(() => {
+  window.addEventListener('resize', debouncedUpdateViewportHeight)
+
+  updateViewportHeight()
+})
+
+vue.onUnmounted(() => {
+  window.removeEventListener('resize', debouncedUpdateViewportHeight)
+})
 </script>
 
 <style scoped>
+:root {
+  --vh: 1vh; /* Default value */
+}
+
 #app {
   width: 100%;
-  height: calc(100 * var(--vh, 1vh));
+  height: calc(100 * var(--vh));
 }
 </style>
