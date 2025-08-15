@@ -20,7 +20,7 @@
         <ContentsComponent ref="contents" :simulationOnly="omex !== undefined" />
         <DragNDropComponent v-show="dropAreaCounter > 0" />
         <BlockUI :blocked="!uiEnabled" :fullScreen="true"></BlockUI>
-        <SpinningWheelComponent v-show="spinningWheelVisible" />
+        <BlockingMessageComponent message="Loading model..." v-show="spinningWheelVisible" />
       </div>
     </div>
   </div>
