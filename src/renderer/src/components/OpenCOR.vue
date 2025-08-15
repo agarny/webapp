@@ -16,7 +16,7 @@
         />
       </div>
       <div class="h-full" @dragenter="onDragEnter" @dragover.prevent @drop.prevent="onDrop" @dragleave="onDragLeave">
-        <LoadOpencorComponent v-show="loadingLipencorWebAssemblyModuleVisible" />
+        <BlockingMessageComponent message="Loading OpenCOR..." v-show="loadingLipencorWebAssemblyModuleVisible" />
         <ContentsComponent ref="contents" :simulationOnly="omex !== undefined" />
         <DragNDropComponent v-show="dropAreaCounter > 0" />
         <BlockUI :blocked="!uiEnabled" :fullScreen="true"></BlockUI>

@@ -1,15 +1,21 @@
 <template>
-  <div class="loading p-overlay-mask">
+  <div class="blocking-message p-overlay-mask">
     <Message class="message" severity="secondary">
       <i class="message-icon pi pi-spin pi-cog" />
       <br />
-      <span class="message-text">Loading OpenCOR...</span>
+      <span class="message-text">{{ message }}</span>
     </Message>
   </div>
 </template>
 
+<script setup lang="ts">
+defineProps<{
+  message: string
+}>()
+</script>
+
 <style scoped>
-.loading {
+.blocking-message {
   z-index: 99999;
 }
 
