@@ -24,7 +24,6 @@
     "combine"
   ],
   "license": "Apache-2.0",
-  "main": "dist/opencor.umd.js",
   "module": "dist/opencor.es.js",
   "name": "@opencor/opencor",
   "productName": "OpenCOR",
@@ -37,8 +36,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/opencor.es.js",
-      "require": "./dist/opencor.umd.js"
+      "import": "./dist/opencor.es.js"
     },
     "./style.css": "./dist/opencor.css"
   },

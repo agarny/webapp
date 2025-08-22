@@ -10,7 +10,7 @@ export default vite.defineConfig({
     lib: {
       entry: './index.ts',
       fileName: (format) => `opencor.${format}.js`,
-      formats: ['es', 'umd'],
+      formats: ['es'],
       name: 'OpenCOR'
     },
     rollupOptions: {
