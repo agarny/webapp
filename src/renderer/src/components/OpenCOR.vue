@@ -703,7 +703,9 @@ vue.onMounted(() => {
   }
 
   const resizeObserver = new ResizeObserver(() => {
-    resizeOurselves()
+    setTimeout(() => {
+      resizeOurselves()
+    }, SHORT_DELAY)
   })
 
   let oldMainMenuHeight = vueCommon.trackedCssVariableValue(mainMenuId.value)
