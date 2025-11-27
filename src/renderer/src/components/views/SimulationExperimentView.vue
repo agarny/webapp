@@ -237,13 +237,11 @@ if (interactiveModeAvailable.value) {
 }
 
 function evaluateValue(value: string): mathjs.MathType {
-  let index = -1;
   const parser = interactiveMath.parser();
+  let index = -1;
 
   props.uiJson.input.forEach((input: locApi.IUiJsonInput) => {
-    if (input.id !== undefined && input.id !== '') {
-      parser.set(input.id, interactiveInputValues.value[++index]);
-    }
+    parser.set(input.id, interactiveInputValues.value[++index]);
   });
 
   return parser.evaluate(value);
