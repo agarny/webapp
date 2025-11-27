@@ -10,8 +10,7 @@
       </div>
     </template>
     <template #end>
-      <Button class="p-1!" icon="pi pi-ellipsis-v" severity="secondary" text @click="menu.toggle($event)" />
-      <Menu ref="menu" :model="menuItems" :popup="true" />
+      <Button class="p-1!" icon="pi pi-cog" severity="secondary" text @click="simulationSettingsVisible = true" />
     </template>
   </Toolbar>
   <div v-show="!interactiveModeEnabled"  :style="{ width: width + 'px', height: heightMinusToolbar + 'px' }">
@@ -132,15 +131,6 @@ const editorId = vue.ref('simulationExperimentViewEditor');
 const heightMinusToolbar = vue.ref<number>(0);
 const interactiveModeAvailable = vue.ref<boolean>(props.uiJson !== undefined);
 const interactiveModeEnabled = vue.ref<boolean>(props.uiJson !== undefined);
-const menu = vue.ref();
-const menuItems = vue.ref([
-  {
-    label: 'Settings...',
-    command: () => {
-      simulationSettingsVisible.value = true;
-    }
-  }
-]);
 const simulationSettingsVisible = vue.ref<boolean>(false);
 
 function populateParameters(parameters: vue.Ref<string[]>, instanceTask: locSedApi.SedInstanceTask): void {
