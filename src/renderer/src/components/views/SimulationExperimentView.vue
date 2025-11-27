@@ -236,6 +236,41 @@ if (interactiveModeAvailable.value) {
   });
 }
 
+interactiveMath.import(
+  {
+    // Import some element-wise functions to allow sin(array) instead of map(array, sin), for instance.
+
+    // Arithmetic operators.
+
+    pow: (x: mathjs.MathType, y: mathjs.MathType) => x.map((v: number) => Math.pow(v, y)),
+    sqrt: (x: mathjs.MathType) => x.map((v: number) => Math.sqrt(v)),
+    abs: (x: mathjs.MathType) => x.map((v: number) => Math.abs(v)),
+    exp: (x: mathjs.MathType) => x.map((v: number) => Math.exp(v)),
+    log: (x: mathjs.MathType) => x.map((v: number) => Math.log(v)),
+    log10: (x: mathjs.MathType) => x.map((v: number) => Math.log10(v)),
+    ceil: (x: mathjs.MathType) => x.map((v: number) => Math.ceil(v)),
+    floor: (x: mathjs.MathType) => x.map((v: number) => Math.floor(v)),
+    min: (x: mathjs.MathType, y: mathjs.MathType) => x.map((v: number, index: number) => Math.min(v, y[index])),
+    max: (x: mathjs.MathType, y: mathjs.MathType) => x.map((v: number, index: number) => Math.max(v, y[index])),
+    mod: (x: mathjs.MathType, y: mathjs.MathType) => x.map((v: number) => v % y),
+
+    // // Trigonometric operators.
+
+    sin: (x: mathjs.MathType) => x.map((v: number) => Math.sin(v)),
+    cos: (x: mathjs.MathType) => x.map((v: number) => Math.cos(v)),
+    tan: (x: mathjs.MathType) => x.map((v: number) => Math.tan(v)),
+    sinh: (x: mathjs.MathType) => x.map((v: number) => Math.sinh(v)),
+    cosh: (x: mathjs.MathType) => x.map((v: number) => Math.cosh(v)),
+    tanh: (x: mathjs.MathType) => x.map((v: number) => Math.tanh(v)),
+    asin: (x: mathjs.MathType) => x.map((v: number) => Math.asin(v)),
+    acos: (x: mathjs.MathType) => x.map((v: number) => Math.acos(v)),
+    atan: (x: mathjs.MathType) => x.map((v: number) => Math.atan(v)),
+    asinh: (x: mathjs.MathType) => x.map((v: number) => Math.asinh(v)),
+    acosh: (x: mathjs.MathType) => x.map((v: number) => Math.acosh(v)),
+    atanh: (x: mathjs.MathType) => x.map((v: number) => Math.atanh(v))
+  },
+  { override: true }
+);
 function evaluateValue(value: string): mathjs.MathType {
   const parser = interactiveMath.parser();
   let index = -1;
