@@ -97,6 +97,7 @@
       </div>
     </div>
   </div>
+  <SimulationSettingsDialog v-model:visible="simulationSettingsVisible" @ok="simulationSettingsVisible.value = false" @close="simulationSettingsVisible = false" />
 </template>
 
 <script setup lang="ts">
@@ -136,10 +137,11 @@ const menuItems = vue.ref([
   {
     label: 'Settings...',
     command: () => {
-      console.log('Settings clicked...');
+      simulationSettingsVisible.value = true;
     }
   }
 ]);
+const simulationSettingsVisible = vue.ref<boolean>(false);
 
 function populateParameters(parameters: vue.Ref<string[]>, instanceTask: locSedApi.SedInstanceTask): void {
   function addParameter(param: string): void {
