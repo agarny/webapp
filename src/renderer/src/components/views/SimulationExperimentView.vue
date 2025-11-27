@@ -1,8 +1,8 @@
 <template>
   <Toolbar :id="toolbarId" class="p-1!">
     <template #start>
-      <Button v-show="!interactiveModeEnabled" class="p-1!" icon="pi pi-play-circle" severity="secondary" text @click="onRun()" />
-      <Button v-show="!interactiveModeEnabled" class="p-1!" disabled icon="pi pi-stop-circle" severity="secondary" text />
+      <Button :class="{ 'invisible': interactiveModeEnabled }" class="p-1!" icon="pi pi-play-circle" severity="secondary" text @click="onRun()" />
+      <Button :class="{ 'invisible': interactiveModeEnabled }" class="p-1!" disabled icon="pi pi-stop-circle" severity="secondary" text />
     </template>
     <template #center>
       <div v-show="interactiveModeAvailable">
@@ -414,5 +414,9 @@ if (common.isDesktop()) {
 
 :deep(.ql-editor > *) {
   cursor: default;
+}
+
+.invisible {
+  visibility: hidden;
 }
 </style>
