@@ -1,8 +1,8 @@
 <template>
   <Toolbar :id="toolbarId" class="p-1!">
-    <template #start v-show="!interactiveModeEnabled">
-      <Button class="p-1!" icon="pi pi-play-circle" severity="secondary" text @click="onRun()" />
-      <Button class="p-1!" disabled icon="pi pi-stop-circle" severity="secondary" text />
+    <template #start>
+      <Button v-show="!interactiveModeEnabled" class="p-1!" icon="pi pi-play-circle" severity="secondary" text @click="onRun()" />
+      <Button v-show="!interactiveModeEnabled" class="p-1!" disabled icon="pi pi-stop-circle" severity="secondary" text />
     </template>
     <template #center>
       <div v-show="interactiveModeAvailable" class="flex items-center gap-2">
