@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog header=" " style="width: 39rem">
+  <BaseDialog header=" " class="w-169">
     <div class="space-y-7">
       <div class="text-center">
         <div class="text-3xl font-bold">OpenCOR (MVP) {{ version }}</div>
