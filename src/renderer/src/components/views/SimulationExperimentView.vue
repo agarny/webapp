@@ -5,7 +5,7 @@
       <Button v-show="!interactiveModeEnabled" class="p-1!" disabled icon="pi pi-stop-circle" severity="secondary" text />
     </template>
     <template #center>
-      <div v-show="interactiveModeAvailable" class="flex items-center gap-2">
+      <div v-show="interactiveModeAvailable">
         <ToggleButton size="small" v-model="interactiveModeEnabled" onLabel="Interactive mode" offLabel="Standard mode" />
       </div>
     </template>
