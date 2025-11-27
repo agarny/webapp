@@ -9,6 +9,10 @@
         <ToggleButton size="small" v-model="interactiveModeEnabled" onLabel="Interactive mode" offLabel="Standard mode" />
       </div>
     </template>
+    <template #end>
+      <Button class="p-1!" icon="pi pi-ellipsis-v" severity="secondary" text @click="menu.toggle($event)" />
+      <Menu ref="menu" :model="menuItems" :popup="true" />
+    </template>
   </Toolbar>
   <div v-show="!interactiveModeEnabled"  :style="{ width: width + 'px', height: heightMinusToolbar + 'px' }">
     <Splitter class="border-none! h-full m-0" layout="vertical">
@@ -124,6 +128,15 @@ const editorId = vue.ref('simulationExperimentViewEditor');
 const heightMinusToolbar = vue.ref<number>(0);
 const interactiveModeAvailable = vue.ref<boolean>(props.uiJson !== undefined);
 const interactiveModeEnabled = vue.ref<boolean>(props.uiJson !== undefined);
+const menu = vue.ref();
+const menuItems = vue.ref([
+  {
+    label: 'Settings...',
+    command: () => {
+      console.log('Settings clicked...');
+    }
+  }
+]);
 
 // Standard mode.
 
