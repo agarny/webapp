@@ -109,6 +109,7 @@ import { SHORT_DELAY } from '../../common/constants';
 import * as locCommon from '../../common/locCommon';
 import * as vueCommon from '../../common/vueCommon';
 import * as locApi from '../../libopencor/locApi';
+import * as locSedApi from '../../libopencor/locSedApi';
 
 import type { IGraphPanelPlot } from '../widgets/GraphPanelWidget.vue';
 
@@ -138,6 +139,34 @@ const menuItems = vue.ref([
   }
 ]);
 
+function populateParameters(parameters: vue.Ref<string[]>, instanceTask: locSedApi.SedInstanceTask): void {
+  function addParameter(param: string): void {
+    parameters.value.push(param);
+  }
+
+  addParameter(instanceTask.voiName());
+
+  for (let i = 0; i < instanceTask.stateCount(); i++) {
+    addParameter(instanceTask.stateName(i));
+  }
+
+  for (let i = 0; i < instanceTask.rateCount(); i++) {
+    addParameter(instanceTask.rateName(i));
+  }
+
+  for (let i = 0; i < instanceTask.constantCount(); i++) {
+    addParameter(instanceTask.constantName(i));
+  }
+
+  for (let i = 0; i < instanceTask.computedConstantCount(); i++) {
+    addParameter(instanceTask.computedConstantName(i));
+  }
+
+  for (let i = 0; i < instanceTask.algebraicCount(); i++) {
+    addParameter(instanceTask.algebraicName(i));
+  }
+}
+
 // Standard mode.
 
 const standardDocument = props.file.document();
@@ -150,31 +179,7 @@ const standardYParameter = vue.ref(standardInstanceTask.stateName(0));
 const standardPlots = vue.ref<IGraphPanelPlot[]>([]);
 const standardConsoleContents = vue.ref<string>(`<b>${props.file.path()}</b>`);
 
-function addParameter(param: string): void {
-  standardParameters.value.push(param);
-}
-
-addParameter(standardInstanceTask.voiName());
-
-for (let i = 0; i < standardInstanceTask.stateCount(); i++) {
-  addParameter(standardInstanceTask.stateName(i));
-}
-
-for (let i = 0; i < standardInstanceTask.rateCount(); i++) {
-  addParameter(standardInstanceTask.rateName(i));
-}
-
-for (let i = 0; i < standardInstanceTask.constantCount(); i++) {
-  addParameter(standardInstanceTask.constantName(i));
-}
-
-for (let i = 0; i < standardInstanceTask.computedConstantCount(); i++) {
-  addParameter(standardInstanceTask.computedConstantName(i));
-}
-
-for (let i = 0; i < standardInstanceTask.algebraicCount(); i++) {
-  addParameter(standardInstanceTask.algebraicName(i));
-}
+populateParameters(standardParameters, standardInstanceTask);
 
 function onRun(): void {
   // Run the instance, output the simulation time to the console, and update the plot.
