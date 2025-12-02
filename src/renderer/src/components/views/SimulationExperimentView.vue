@@ -69,7 +69,7 @@
           <ScrollPanel class="h-full">
             <Fieldset legend="Input parameters">
               <InputWidget
-                v-for="(input, index) in (uiJson as any).input"
+                v-for="(input, index) in uiJson.input"
                 v-model="interactiveInputValues[index]!"
                 v-show="interactiveShowInput[index]"
                 :key="`input_${index}`"
@@ -87,20 +87,27 @@
         <div class="grow">
           <IssuesView v-show="interactiveInstanceIssues.length !== 0" :leftMargin="false" :width="width" :height="heightMinusToolbar" :issues="interactiveInstanceIssues" />
           <GraphPanelWidget v-show="interactiveInstanceIssues.length === 0"
-            v-for="(_plot, index) in (uiJson as any).output.plots"
+            v-for="(_plot, index) in uiJson.output.plots"
             :key="`plot_${index}`"
-            :style="{ height: `calc(100% / ${(uiJson as any).output.plots.length})` }"
+            :style="{ height: `calc(100% / ${uiJson.output.plots.length})` }"
             :plots="interactivePlots[index] || []"
           />
         </div>
       </div>
     </div>
   </div>
-  <SimulationSettingsDialog v-model:visible="simulationSettingsVisible" @ok="simulationSettingsVisible.value = false" @close="simulationSettingsVisible = false" />
+  <SimulationSettingsDialog
+    v-model:visible="simulationSettingsVisible"
+    :uiJson="uiJson"
+    :allParameters="interactiveAllParameters"
+    :editableParameters="interactiveEditableParameters"
+    @ok="onSimulationSettingsOk"
+    @close="simulationSettingsVisible = false"
+  />
 </template>
 
 <script setup lang="ts">
-import * as mathjs from 'https://cdn.jsdelivr.net/npm/mathjs@14.9.1/+esm';
+import * as mathjs from 'https://cdn.jsdelivr.net/npm/mathjs@15.1.0/+esm';
 
 import * as vueusecore from '@vueuse/core';
 
@@ -132,33 +139,72 @@ const heightMinusToolbar = vue.ref<number>(0);
 const interactiveModeAvailable = vue.ref<boolean>(props.uiJson !== undefined);
 const interactiveModeEnabled = vue.ref<boolean>(props.uiJson !== undefined);
 const simulationSettingsVisible = vue.ref<boolean>(false);
+const uiJson = vue.ref<locApi.IUiJson>(JSON.parse(JSON.stringify(props.uiJson)));
 
-function populateParameters(parameters: vue.Ref<string[]>, instanceTask: locSedApi.SedInstanceTask): void {
+function populateParameters(
+  parameters: vue.Ref<string[]>,
+  instanceTask: locSedApi.SedInstanceTask,
+  onlyEditableParameters: boolean = false
+): void {
   function addParameter(param: string): void {
     parameters.value.push(param);
   }
 
-  addParameter(instanceTask.voiName());
+  if (!onlyEditableParameters) {
+    addParameter(instanceTask.voiName());
+  }
 
   for (let i = 0; i < instanceTask.stateCount(); i++) {
     addParameter(instanceTask.stateName(i));
   }
 
-  for (let i = 0; i < instanceTask.rateCount(); i++) {
-    addParameter(instanceTask.rateName(i));
+  if (!onlyEditableParameters) {
+    for (let i = 0; i < instanceTask.rateCount(); i++) {
+      addParameter(instanceTask.rateName(i));
+    }
   }
 
   for (let i = 0; i < instanceTask.constantCount(); i++) {
     addParameter(instanceTask.constantName(i));
   }
 
-  for (let i = 0; i < instanceTask.computedConstantCount(); i++) {
-    addParameter(instanceTask.computedConstantName(i));
+  if (!onlyEditableParameters) {
+    for (let i = 0; i < instanceTask.computedConstantCount(); i++) {
+      addParameter(instanceTask.computedConstantName(i));
+    }
+
+    for (let i = 0; i < instanceTask.algebraicCount(); i++) {
+      addParameter(instanceTask.algebraicName(i));
+    }
   }
 
-  for (let i = 0; i < instanceTask.algebraicCount(); i++) {
-    addParameter(instanceTask.algebraicName(i));
+  // Sort the parameters alphabetically.
+
+  parameters.value.sort((parameter1: string, parameter2: string) => parameter1.localeCompare(parameter2));
+}
+
+function populateInputProperties(currentUiJson: locApi.IUiJson) {
+  if (!interactiveModeAvailable.value) {
+    interactiveInputValues.value = [];
+    interactiveShowInput.value = [];
+
+    Object.keys(interactiveIdToInfo).forEach((key) => {
+      delete interactiveIdToInfo[key];
+    });
+
+    return;
   }
+
+  interactiveInputValues.value = currentUiJson.input.map((input: locApi.IUiJsonInput) => input.defaultValue);
+  interactiveShowInput.value = currentUiJson.input.map((input: locApi.IUiJsonInput) => input.visible ?? 'true');
+
+  Object.keys(interactiveIdToInfo).forEach((key) => {
+    delete interactiveIdToInfo[key];
+  });
+
+  currentUiJson.output.data.forEach((data: locApi.IUiJsonOutputData) => {
+    interactiveIdToInfo[data.id] = locCommon.simulationDataInfo(interactiveInstanceTask, data.name);
+  });
 }
 
 // Standard mode.
@@ -214,6 +260,8 @@ function updatePlot() {
 const interactiveDocument = props.file.document();
 const interactiveInstance = interactiveDocument.instantiate();
 const interactiveInstanceTask = interactiveInstance.task(0);
+const interactiveAllParameters = vue.ref<string[]>([]);
+const interactiveEditableParameters = vue.ref<string[]>([]);
 const interactiveMath = mathjs.create(mathjs.all ?? {}, {});
 const interactiveModel = interactiveDocument.model(0);
 const interactivePlots = vue.ref<IGraphPanelPlot[][]>([]);
@@ -221,19 +269,14 @@ const interactiveUiJsonIssues = vue.ref<locApi.IIssue[]>(
   interactiveModeAvailable.value ? locApi.uiJsonIssues(props.uiJson) : []
 );
 const interactiveInstanceIssues = vue.ref<locApi.IIssue[]>([]);
-const interactiveInputValues = vue.ref<number[]>(
-  interactiveModeAvailable.value ? props.uiJson.input.map((input: locApi.IUiJsonInput) => input.defaultValue) : []
-);
-const interactiveShowInput = vue.ref<string[]>(
-  interactiveModeAvailable.value ? props.uiJson.input.map((input: locApi.IUiJsonInput) => input.visible ?? 'true') : []
-);
+const interactiveInputValues = vue.ref<number[]>([]);
+const interactiveShowInput = vue.ref<string[]>([]);
 const interactiveIdToInfo: Record<string, locCommon.ISimulationDataInfo> = {};
 
-if (interactiveModeAvailable.value) {
-  props.uiJson.output.data.forEach((data: locApi.IUiJsonOutputData) => {
-    interactiveIdToInfo[data.id] = locCommon.simulationDataInfo(interactiveInstanceTask, data.name);
-  });
-}
+populateParameters(interactiveAllParameters, interactiveInstanceTask);
+populateParameters(interactiveEditableParameters, interactiveInstanceTask, true);
+
+populateInputProperties(props.uiJson);
 
 interactiveMath.import(
   {
@@ -270,11 +313,12 @@ interactiveMath.import(
   },
   { override: true }
 );
+
 function evaluateValue(value: string): mathjs.MathType {
   const parser = interactiveMath.parser();
   let index = -1;
 
-  props.uiJson.input.forEach((input: locApi.IUiJsonInput) => {
+  uiJson.value.input.forEach((input: locApi.IUiJsonInput) => {
     parser.set(input.id, interactiveInputValues.value[++index]);
   });
 
@@ -290,7 +334,7 @@ function updateInteractiveSimulation() {
 
   // Show/hide the input widgets.
 
-  props.uiJson.input.forEach((input: locApi.IUiJsonInput, index: number) => {
+  uiJson.value.input.forEach((input: locApi.IUiJsonInput, index: number) => {
     interactiveShowInput.value[index] = evaluateValue(input.visible ?? 'true');
   });
 
@@ -298,7 +342,7 @@ function updateInteractiveSimulation() {
 
   interactiveModel.removeAllChanges();
 
-  props.uiJson.parameters.forEach((parameter: locApi.IUiJsonParameter) => {
+  uiJson.value.parameters.forEach((parameter: locApi.IUiJsonParameter) => {
     const componentVariableNames = parameter.name.split('/');
 
     interactiveModel.addChange(
@@ -323,18 +367,46 @@ function updateInteractiveSimulation() {
 
   const parser = interactiveMath.parser();
 
-  props.uiJson.output.data.forEach((data: locApi.IUiJsonOutputData) => {
+  uiJson.value.output.data.forEach((data: locApi.IUiJsonOutputData) => {
     // @ts-expect-error (we trust that we have some valid information)
     parser.set(data.id, locCommon.simulationData(interactiveInstanceTask, interactiveIdToInfo[data.id]));
   });
 
-  interactivePlots.value = props.uiJson.output.plots.map((plot: locApi.IUiJsonOutputPlot) => {
+  interactivePlots.value = uiJson.value.output.plots.map((plot: locApi.IUiJsonOutputPlot) => {
+    // Note: we replace `*` and `/` (but not `.*` and `./`) with `.*` and `./`, respectively, to ensure element-wise
+    //       operations.
+
     return [
       {
-        x: { data: parser.evaluate(plot.xValue) },
-        y: { data: parser.evaluate(plot.yValue) }
+        x: { data: parser.evaluate(plot.xValue.replace(/(?<!\.)\*(?!\.)/g, '.*').replace(/(?<!\.)\/(?!\.)/g, './')) },
+        y: { data: parser.evaluate(plot.yValue.replace(/(?<!\.)\*(?!\.)/g, '.*').replace(/(?<!\.)\/(?!\.)/g, './')) }
       }
     ];
+  });
+}
+
+function onSimulationSettingsOk(newUiJson: locApi.IUiJson) {
+  // Update our UI JSON settings and hide the dialog.
+
+  uiJson.value = newUiJson;
+  simulationSettingsVisible.value = false;
+
+  // Validate the new UI JSON settings.
+
+  interactiveUiJsonIssues.value = locApi.uiJsonIssues(newUiJson);
+
+  if (interactiveUiJsonIssues.value.length > 0) {
+    return;
+  }
+
+  // Update our input properties.
+
+  populateInputProperties(newUiJson);
+
+  // Update the interactive simulation with the new UI JSON settings.
+
+  void vue.nextTick().then(() => {
+    updateInteractiveSimulation();
   });
 }
 

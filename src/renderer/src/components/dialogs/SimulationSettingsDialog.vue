@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog header="Simulation Settings...">
+  <BaseDialog header="Simulation Settings..." class="w-169">
     <template #footer>
       <Button autofocus label="OK" @click="$emit('ok')" />
       <Button label="Cancel" severity="secondary" @click="$emit('close')" />
