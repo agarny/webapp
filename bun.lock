@@ -12,7 +12,7 @@
         "primeicons": "^7.0.0",
         "primevue": "4.2.5",
         "quill": "^2.0.3",
-        "systeminformation": "^5.30.1",
+        "systeminformation": "^5.30.2",
         "ua-parser-js": "^2.0.7",
         "vue": "3.4.21",
       },
@@ -1177,7 +1177,7 @@
 
     "svg-tags": ["svg-tags@1.0.0", "", {}, "sha512-ovssysQTa+luh7A5Weu3Rta6FJlFBBbInjOh722LIt6klpU2/HtdUbszju/G4devcvk8PGt7FCLv5wftu3THUA=="],
 
-    "systeminformation": ["systeminformation@5.30.1", "", { "os": "!aix", "bin": { "systeminformation": "lib/cli.js" } }, "sha512-5zK8Sqqn71b0AoYKnj8nurrugOVogo4hBxAeQR9N0lbC5V+Fkw1hRBRWLaKxBmuvX8v4xH3cxifOJjlhQQW1lQ=="],
+    "systeminformation": ["systeminformation@5.30.2", "", { "os": "!aix", "bin": { "systeminformation": "lib/cli.js" } }, "sha512-Rrt5oFTWluUVuPlbtn3o9ja+nvjdF3Um4DG0KxqfYvpzcx7Q9plZBTjJiJy9mAouua4+OI7IUGBaG9Zyt9NgxA=="],
 
     "table": ["table@6.9.0", "", { "dependencies": { "ajv": "^8.0.1", "lodash.truncate": "^4.4.2", "slice-ansi": "^4.0.0", "string-width": "^4.2.3", "strip-ansi": "^6.0.1" } }, "sha512-9kY+CygyYM6j02t5YFHbNz2FN5QmYGv9zAjVp4lCDjlCw7amdckXlEt/bjMhUIfj4ThGRE4gCUH5+yGnNuPo5A=="],
 
