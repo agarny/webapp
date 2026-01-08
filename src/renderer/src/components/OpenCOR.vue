@@ -81,6 +81,9 @@
         @no="resetAllVisible = false"
       />
       <AboutDialog v-model:visible="aboutVisible" @close="aboutVisible = false" />
+      <BaseDialog :visible=true header=" " class="w-169">
+        <CellDLEditor />
+      </BaseDialog>
     </div>
     <OkMessageDialog
       v-model:visible="updateErrorVisible"
@@ -106,6 +109,8 @@
 </template>
 
 <script setup lang="ts">
+import CellDLEditor from '@abi-software/celldl-editor';
+import '@abi-software/celldl-editor/style.css';
 import primeVueAuraTheme from '@primeuix/themes/aura';
 import * as vueusecore from '@vueuse/core';
 
