@@ -81,6 +81,7 @@
         @no="resetAllVisible = false"
       />
       <AboutDialog v-model:visible="aboutVisible" @close="aboutVisible = false" />
+      <!-- <CellDLEditorWidget /> -->
     </div>
     <OkMessageDialog
       v-model:visible="updateErrorVisible"
