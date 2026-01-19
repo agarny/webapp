@@ -232,7 +232,11 @@ const props = defineProps<{
 }>();
 
 const toolbarNeeded = vue.computed(() => {
-  return (props.simulationOnly && !props.uiJson) || !props.simulationOnly;
+  return (
+    !interactiveUiJsonIssues.value.length &&
+    !interactiveInstanceIssues.value.length &&
+    ((props.simulationOnly && !props.uiJson) || !props.simulationOnly)
+  );
 });
 
 const toolbarId = vue.ref('simulationExperimentViewToolbar');
