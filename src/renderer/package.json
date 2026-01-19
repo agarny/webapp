@@ -55,6 +55,7 @@
     "vue": "3.4.21"
   },
   "dependencies": {
+    "@abi-software/celldl-editor": "^0.20260115.0",
     "@napi-rs/keyring": "^1.2.0",
     "@primeuix/themes": "^2.0.2",
     "@primevue/auto-import-resolver": "4.2.5",
