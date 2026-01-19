@@ -62,7 +62,7 @@
         ref="contents"
         :isActive="compIsActive"
         :uiEnabled="compUiEnabled"
-        :simulationOnly="omex"
+        :simulationOnly="!!omex"
         :width="width"
         :height="heightMinusMainMenu"
       />
