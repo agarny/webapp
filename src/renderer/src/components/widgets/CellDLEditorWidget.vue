@@ -14,13 +14,8 @@ import * as vueusecore from '@vueuse/core';
 
 import * as vue from 'vue';
 
-const CellDLEditor = vue.defineAsyncComponent(async () => {
-  while (!globalThis.oxigraph) {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
+import CellDLEditor from '@abi-software/celldl-editor'
 
-  return import('@abi-software/celldl-editor');
-});
 const celldlEditorCommand = vue.ref<CellDLEditorCommand>({
   command: ''
 });
