@@ -8,13 +8,12 @@
 </template>
 
 <script setup lang="ts">
+import CellDLEditor from '@abi-software/celldl-editor'
 import type { CellDLEditorCommand, EditorData } from '@abi-software/celldl-editor';
 import '@abi-software/celldl-editor/style.css';
 import * as vueusecore from '@vueuse/core';
 
 import * as vue from 'vue';
-
-import CellDLEditor from '@abi-software/celldl-editor'
 
 const celldlEditorCommand = vue.ref<CellDLEditorCommand>({
   command: ''
@@ -73,9 +72,8 @@ with `kind` set as appropriate. This will result in an `editorData` event, to be
 
   celldlEditorCommand.value = {
     command: 'file',
-      options: {
-        action: 'close'
-      }
+    options: {
+      action: 'close'
     }
   }
 */
