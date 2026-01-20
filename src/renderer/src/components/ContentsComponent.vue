@@ -1,16 +1,9 @@
 <template>
   <div v-if="simulationOnly" class="h-full">
-    <div v-for="fileTab in fileTabs" :key="`tabPanel_${fileTab.file.path()}`" :value="fileTab.file.path()">
-      <IssuesView
-        v-if="fileTab.file.issues().length"
-        :width="width"
-        :height="height"
-        :issues="fileTab.file.issues()"
+    <div v-for="fileTab in fileTabs" :key="`tabPanel_${fileTab.file.path()}`" class="h-full" :value="fileTab.file.path()">
+      <IssuesView v-if="fileTab.file.issues().length" class="h-full" :issues="fileTab.file.issues()"
       />
-      <SimulationExperimentView
-        v-else
-        :width="width"
-        :height="height"
+      <SimulationExperimentView v-else class="h-full"
         :isActive="isActive"
         :uiEnabled="uiEnabled"
         :file="fileTab.file"
@@ -20,16 +13,14 @@
       />
     </div>
   </div>
-  <div v-else class="h-full">
-    <BackgroundComponent v-show="!fileTabs.length" :style="{ height: height + 'px' }" />
-    <Tabs
-      v-show="fileTabs.length"
-      id="fileTabs"
+  <div v-else class="h-full flex flex-col">
+    <BackgroundComponent v-show="!fileTabs.length" class="h-full" />
+    <Tabs v-show="fileTabs.length" id="fileTabs" class="h-full flex flex-col"
       v-model:value="activeFile"
       :scrollable="true"
       :selectOnFocus="true"
     >
-      <TabList :id="fileTablistId" class="border-b border-b-primary">
+      <TabList :id="fileTablistId" class="border-b border-b-primary shrink-0">
         <Tab
           v-for="fileTab in fileTabs"
           :id="`tab_${fileTab.file.path()}`"
@@ -46,22 +37,15 @@
           </div>
         </Tab>
       </TabList>
-      <TabPanels class="p-0!">
-        <TabPanel
-          v-for="fileTab in fileTabs"
+      <TabPanels class="p-0! grow min-h-0">
+        <TabPanel v-for="fileTab in fileTabs" class="h-full"
           :key="`tabPanel_${fileTab.file.path()}`"
           :value="fileTab.file.path()"
         >
-          <IssuesView
-            v-if="fileTab.file.issues().length"
-            :width="width"
-            :height="heightMinusFileTablist"
+          <IssuesView v-if="fileTab.file.issues().length" class="h-full"
             :issues="fileTab.file.issues()"
           />
-          <SimulationExperimentView
-            v-else
-            :width="width"
-            :height="heightMinusFileTablist"
+          <SimulationExperimentView v-else class="h-full"
             :isActive="isActive"
             :uiEnabled="uiEnabled"
             :file="fileTab.file"
@@ -80,9 +64,7 @@ import * as vueusecore from '@vueuse/core';
 import * as vue from 'vue';
 
 import * as common from '../common/common.ts';
-import { SHORT_DELAY } from '../common/constants.ts';
 import { electronApi } from '../common/electronApi.ts';
-import * as vueCommon from '../common/vueCommon.ts';
 import * as locApi from '../libopencor/locApi.ts';
 export interface IFileTab {
   file: locApi.File;
@@ -90,8 +72,6 @@ export interface IFileTab {
 }
 
 const props = defineProps<{
-  width: number;
-  height: number;
   isActive: boolean;
   simulationOnly?: boolean;
   uiEnabled: boolean;
@@ -110,7 +90,6 @@ export interface IContentsComponent {
 const fileTablistId = vue.ref('contentsComponentFileTablist');
 const fileTabs = vue.ref<IFileTab[]>([]);
 const activeFile = vue.ref<string>('');
-const heightMinusFileTablist = vue.ref<number>(0);
 
 const filePaths = vue.computed(() => {
   const res: string[] = [];
@@ -227,47 +206,6 @@ vue.onMounted(() => {
   // Customise our IDs.
 
   fileTablistId.value = `contentsComponentFileTablist${String(crtInstance?.uid)}`;
-
-  // Track the height of our file tablist.
-
-  let fileTablistResizeObserver: ResizeObserver | undefined;
-
-  setTimeout(() => {
-    fileTablistResizeObserver = vueCommon.trackElementHeight(fileTablistId.value);
-  }, SHORT_DELAY);
-
-  // Monitor "our" contents size.
-
-  function resizeOurselves() {
-    heightMinusFileTablist.value = props.height - vueCommon.trackedCssVariableValue(fileTablistId.value);
-  }
-
-  vue.watch(
-    () => props.height,
-    () => {
-      resizeOurselves();
-    }
-  );
-
-  let oldFileTablistHeight = vueCommon.trackedCssVariableValue(fileTablistId.value);
-
-  const mutationObserver = new MutationObserver(() => {
-    const newFileTablistHeight = vueCommon.trackedCssVariableValue(fileTablistId.value);
-
-    if (newFileTablistHeight !== oldFileTablistHeight) {
-      oldFileTablistHeight = newFileTablistHeight;
-
-      resizeOurselves();
-    }
-  });
-
-  mutationObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
-
-  vue.onUnmounted(() => {
-    mutationObserver.disconnect();
-
-    fileTablistResizeObserver?.disconnect();
-  });
 });
 
 // Keyboard shortcuts.

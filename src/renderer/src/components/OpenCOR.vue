@@ -1,37 +1,29 @@
 <template>
-  <BlockUI
-    ref="blockUi"
+  <BlockUI ref="blockUi" class="opencor overflow-hidden h-full"
     :blocked="compBlockUiEnabled"
-    class="opencor overflow-hidden h-full"
     @click="activateInstance"
     @focus="activateInstance"
     @focusin="activateInstance"
     @keydown="activateInstance"
     @mousedown="activateInstance"
   >
-    <Toast
-      :id="toastId"
+    <Toast :id="toastId" :class="compIsActive ? 'visible' : 'invisible'"
       :group="toastId"
       :pt:root:style="{ position: 'absolute' }"
-      :class="compIsActive ? 'visible' : 'invisible'"
     />
     <BackgroundComponent v-show="(loadingOpencorMessageVisible || loadingModelMessageVisible) && omex" />
     <BlockingMessageComponent message="Loading OpenCOR..." v-show="loadingOpencorMessageVisible" />
     <BlockingMessageComponent message="Loading model..." v-show="loadingModelMessageVisible" />
-    <IssuesView v-if="issues.length" class="h-full" :issues="issues" :width="width" :height="height" />
-    <div
-      v-else
+    <IssuesView v-if="issues.length" class="h-full" :issues="issues" />
+    <div v-else class="h-full flex flex-col"
       @dragenter="onDragEnter"
-      class="h-full"
       @dragover.prevent
       @drop.prevent="onDrop"
       @dragleave="onDragLeave"
     >
       <input ref="files" type="file" multiple style="display: none" @change="onChange" />
       <DragNDropComponent v-show="dragAndDropCounter" />
-      <MainMenu
-        :id="mainMenuId"
-        v-if="!electronApi && !omex"
+      <MainMenu :id="mainMenuId" v-if="!electronApi && !omex"
         :isActive="compIsActive"
         :uiEnabled="compUiEnabled"
         :hasFiles="hasFiles"
@@ -58,13 +50,10 @@
         />
       </div>
       -->
-      <ContentsComponent
-        ref="contents"
+      <ContentsComponent ref="contents" class="grow min-h-0"
         :isActive="compIsActive"
         :uiEnabled="compUiEnabled"
         :simulationOnly="!!omex"
-        :width="width"
-        :height="heightMinusMainMenu"
       />
       <OpenRemoteDialog
         v-model:visible="openRemoteVisible"
@@ -692,19 +681,8 @@ electronApi?.onSelect((filePath: string) => {
 
 // A few things that can only be done when the component is mounted.
 
-const width = vue.ref<number>(0);
-const height = vue.ref<number>(0);
-const heightMinusMainMenu = vue.ref<number>(0);
-
 vue.onMounted(() => {
-  // Set our height to '100vh'/'100dvh' or '100%', depending on whether we are mounted as a Vue application or a Vue
-  // component.
-
   const blockUiElement = blockUi.value?.$el as HTMLElement;
-  const parentElement = blockUiElement.parentElement;
-  const grandParentElement = parentElement?.parentElement;
-  const greatGrandParentElement = grandParentElement?.parentElement;
-  const greatGreatGrandParentElement = greatGrandParentElement?.parentElement;
 
   // Customise our IDs.
 
@@ -717,14 +695,6 @@ vue.onMounted(() => {
     activateInstance();
   }, SHORT_DELAY);
 
-  // Track the height of our main menu.
-
-  let mainMenuResizeObserver: ResizeObserver | undefined;
-
-  setTimeout(() => {
-    mainMenuResizeObserver = vueCommon.trackElementHeight(mainMenuId.value);
-  }, SHORT_DELAY);
-
   // Ensure that our toasts are shown within our block UI.
 
   setTimeout(() => {
@@ -734,54 +704,6 @@ vue.onMounted(() => {
       blockUiElement.appendChild(toastElement);
     }
   }, SHORT_DELAY);
-
-  // Monitor our size.
-  // Note: this accounts for changes in viewport size (e.g., when rotating a mobile device).
-
-  window.addEventListener('resize', resizeOurselves);
-
-  vue.onUnmounted(() => {
-    window.removeEventListener('resize', resizeOurselves);
-  });
-
-  // Monitor our contents size.
-
-  function resizeOurselves() {
-    const style = window.getComputedStyle(blockUiElement);
-
-    width.value = parseFloat(style.width);
-    height.value = parseFloat(style.height);
-
-    heightMinusMainMenu.value = height.value - vueCommon.trackedCssVariableValue(mainMenuId.value);
-  }
-
-  const resizeObserver = new ResizeObserver(() => {
-    setTimeout(() => {
-      resizeOurselves();
-    }, SHORT_DELAY);
-  });
-
-  let oldMainMenuHeight = vueCommon.trackedCssVariableValue(mainMenuId.value);
-
-  const mutationObserver = new MutationObserver(() => {
-    const newMainMenuHeight = vueCommon.trackedCssVariableValue(mainMenuId.value);
-
-    if (newMainMenuHeight !== oldMainMenuHeight) {
-      oldMainMenuHeight = newMainMenuHeight;
-
-      resizeOurselves();
-    }
-  });
-
-  resizeObserver.observe(blockUiElement);
-  mutationObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
-
-  vue.onUnmounted(() => {
-    resizeObserver.disconnect();
-    mutationObserver.disconnect();
-
-    mainMenuResizeObserver?.disconnect();
-  });
 });
 
 // If a COMBINE archive is provided then open it (and then the Simulation Experiment view will be shown in isolation) or

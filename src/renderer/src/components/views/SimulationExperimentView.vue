@@ -1,193 +1,195 @@
 <template>
-  <Toolbar v-if="toolbarNeeded" :id="toolbarId" class="p-1!">
-    <template #start>
-      <div :class="{ 'invisible': interactiveModeEnabled && interactiveLiveUpdatesEnabled }">
-        <Button class="p-1!" icon="pi pi-play-circle" severity="secondary" text @click="onRun()" />
-      </div>
-    </template>
-    <template #center>
-      <div v-show="interactiveModeAvailable">
-        <ToggleButton size="small" v-model="interactiveModeEnabled" onLabel="Interactive mode" offLabel="Standard mode" />
-      </div>
-    </template>
-    <template #end>
-      <div :class="{ 'invisible': !interactiveModeAvailable || !interactiveModeEnabled }" class="flex">
-        <Button class="p-1!" icon="pi pi-cog" severity="secondary" text @click="settingsMenu.toggle($event)" />
-        <Popover ref="settingsMenu">
-          <div class="flex items-center gap-2 px-1 py-1">
-            <Checkbox :inputId="liveUpdatesCheckboxId" v-model="interactiveLiveUpdatesEnabled" binary size="small" @change="onLiveUpdatesChange()" />
-            <label :for="liveUpdatesCheckboxId" class="text-sm select-none">Live updates</label>
-          </div>
-        </Popover>
-      </div>
-    </template>
-  </Toolbar>
-  <div v-show="!interactiveModeEnabled"  :style="{ width: width + 'px', height: actualHeight + 'px' }">
-    <Splitter class="border-none! h-full m-0" layout="vertical">
-      <SplitterPanel :size="simulationOnly ? 100 : 89">
-        <Splitter>
-          <SplitterPanel class="ml-4 mr-4 mb-4 min-w-fit" :size="25">
-            <ScrollPanel class="h-full">
-              <SimulationPropertyEditor :uniformTimeCourse="standardUniformTimeCourse" :instanceTask="standardInstanceTask" />
-              <!--
-                  <SolversPropertyEditor />
-                  <GraphsPropertyEditor />
-                  <ParametersPropertyEditor />
-                  -->
-              <Fieldset legend="X Axis">
-                <Select
-                  v-model="standardXParameter"
-                  editable
-                  filter
-                  filterMode="lenient"
-                  :options="standardParameters"
-                  size="small"
-                  class="w-full"
-                  @change="updatePlot()"
-                />
-              </Fieldset>
-              <Fieldset legend="Y Axis">
-                <Select
-                  v-model="standardYParameter"
-                  editable
-                  filter
-                  filterMode="lenient"
-                  :options="standardParameters"
-                  size="small"
-                  class="w-full"
-                  @change="updatePlot()"
-                />
-              </Fieldset>
-            </ScrollPanel>
-          </SplitterPanel>
-          <SplitterPanel :size="75">
-            <GraphPanelWidget
-              :key="interactiveModeEnabled ? 'hidden-graph-panel' : 'visible-graph-panel'"
-              :data="standardData"
-              :showLegend="false"
-            />
-          </SplitterPanel>
-        </Splitter>
-      </SplitterPanel>
-      <SplitterPanel v-if="!simulationOnly" :size="11">
-        <Editor :id="editorId" class="border-none h-full" :readonly="true" v-model="standardConsoleContents" />
-      </SplitterPanel>
-    </Splitter>
-  </div>
-  <div v-if="interactiveModeAvailable">
-    <div v-show="interactiveModeEnabled" class="flex" :style="{ width: width + 'px', height: actualHeight + 'px' }">
-      <IssuesView v-if="interactiveUiJsonIssues.length" class="grow" :width="width" :height="actualHeight" :issues="interactiveUiJsonIssues" />
-      <div v-else class="flex grow min-h-0">
-        <div class="ml-4 mr-4 mb-4">
-          <ScrollPanel class="h-full">
-            <Fieldset legend="Input parameters">
-              <InputWidget
-                v-for="(input, index) in uiJson.input"
-                v-model="interactiveInputValues[index]!"
-                v-show="interactiveShowInput[index]"
-                :key="`input_${index}`"
-                :name="input.name"
-                :maximumValue="locApi.isScalarInput(input) ? input.maximumValue : undefined"
-                :minimumValue="locApi.isScalarInput(input) ? input.minimumValue : undefined"
-                :possibleValues="locApi.isDiscreteInput(input) ? input.possibleValues : undefined"
-                :stepValue="locApi.isScalarInput(input) ? input.stepValue : undefined"
-                :class="index !== 0 ? 'mt-6' : ''"
-                @change="updateInteractiveSimulation()"
+  <div class="h-full flex flex-col">
+    <Toolbar v-if="toolbarNeeded" :id="toolbarId" class="p-1! shrink-0">
+      <template #start>
+        <div :class="{ 'invisible': interactiveModeEnabled && interactiveLiveUpdatesEnabled }">
+          <Button class="p-1!" icon="pi pi-play-circle" severity="secondary" text @click="onRun()" />
+        </div>
+      </template>
+      <template #center>
+        <div v-show="interactiveModeAvailable">
+          <ToggleButton size="small" v-model="interactiveModeEnabled" onLabel="Interactive mode" offLabel="Standard mode" />
+        </div>
+      </template>
+      <template #end>
+        <div :class="{ 'invisible': !interactiveModeAvailable || !interactiveModeEnabled }" class="flex">
+          <Button class="p-1!" icon="pi pi-cog" severity="secondary" text @click="settingsMenu.toggle($event)" />
+          <Popover ref="settingsMenu">
+            <div class="flex items-center gap-2 px-1 py-1">
+              <Checkbox :inputId="liveUpdatesCheckboxId" v-model="interactiveLiveUpdatesEnabled" binary size="small" @change="onLiveUpdatesChange()" />
+              <label :for="liveUpdatesCheckboxId" class="text-sm select-none">Live updates</label>
+            </div>
+          </Popover>
+        </div>
+      </template>
+    </Toolbar>
+    <div v-show="!interactiveModeEnabled" class="grow min-h-0">
+      <Splitter class="border-none! h-full m-0" layout="vertical">
+        <SplitterPanel :size="simulationOnly ? 100 : 89">
+          <Splitter>
+            <SplitterPanel class="ml-4 mr-4 mb-4 min-w-fit" :size="25">
+              <ScrollPanel class="h-full">
+                <SimulationPropertyEditor :uniformTimeCourse="standardUniformTimeCourse" :instanceTask="standardInstanceTask" />
+                <!--
+                    <SolversPropertyEditor />
+                    <GraphsPropertyEditor />
+                    <ParametersPropertyEditor />
+                    -->
+                <Fieldset legend="X Axis">
+                  <Select
+                    v-model="standardXParameter"
+                    editable
+                    filter
+                    filterMode="lenient"
+                    :options="standardParameters"
+                    size="small"
+                    class="w-full"
+                    @change="updatePlot()"
+                  />
+                </Fieldset>
+                <Fieldset legend="Y Axis">
+                  <Select
+                    v-model="standardYParameter"
+                    editable
+                    filter
+                    filterMode="lenient"
+                    :options="standardParameters"
+                    size="small"
+                    class="w-full"
+                    @change="updatePlot()"
+                  />
+                </Fieldset>
+              </ScrollPanel>
+            </SplitterPanel>
+            <SplitterPanel :size="75">
+              <GraphPanelWidget
+                :key="interactiveModeEnabled ? 'hidden-graph-panel' : 'visible-graph-panel'"
+                :data="standardData"
+                :showLegend="false"
               />
-            </Fieldset>
-            <Fieldset legend="Runs">
-              <div class="flex flex-col gap-4">
-                <div class="flex gap-2">
-                  <Button class="grow"
-                    icon="pi pi-plus"
-                    label="Add run"
-                    size="small"
-                    @click="onAddRun()"
-                  />
-                  <Button class="w-9!"
-                    icon="pi pi-refresh"
-                    size="small"
-                    severity="danger"
-                    title="Remove all runs"
-                    @click="onRemoveAllRuns()"
-                    :disabled="interactiveRuns.length === 1"
-                  />
-                </div>
-                <div class="flex flex-col gap-2">
-                  <div v-for="(run, index) in interactiveRuns"
-                    :key="`run_${index}`"
-                    class="run border border-dashed rounded pl-2 pr-1.5 py-1"
-                  >
-                    <div class="flex items-center">
-                      <div class="grow text-sm"
-                        :class="{ 'cursor-help': !run.isLiveRun }"
-                        v-tippy:bottom="!run.isLiveRun ? {
-                          allowHTML: true,
-                          content: run.tooltip,
-                          placement: 'bottom'
-                        } : undefined"
-                      >
-                        {{ run.isLiveRun ? 'Live run' : `Run #${index}` }}
-                      </div>
-                      <div>
-                        <Button class="p-0! w-5! h-5!"
-                          icon="pi pi-wave-pulse"
-                          :style="{ color: run.color }"
-                          text size="small"
-                          :title="`Change ${run.isLiveRun ? 'live run' : 'run'} colour`"
-                          @click="onToggleRunColorPopover(index, $event)"
-                        />
-                        <Popover :ref="(element) => interactiveRunColorPopoverRefs[index] = element as unknown as IPopover | undefined"
-                          v-if="interactiveRunColorPopoverIndex === index"
+            </SplitterPanel>
+          </Splitter>
+        </SplitterPanel>
+        <SplitterPanel v-if="!simulationOnly" :size="11">
+          <Editor :id="editorId" class="border-none h-full" :readonly="true" v-model="standardConsoleContents" />
+        </SplitterPanel>
+      </Splitter>
+    </div>
+    <div v-if="interactiveModeAvailable" class="grow min-h-0">
+      <div v-show="interactiveModeEnabled" class="flex h-full">
+        <IssuesView v-if="interactiveUiJsonIssues.length" class="grow h-full" :issues="interactiveUiJsonIssues" />
+        <div v-else class="flex grow min-h-0">
+          <div class="ml-4 mr-4 mb-4">
+            <ScrollPanel class="h-full">
+              <Fieldset legend="Input parameters">
+                <InputWidget
+                  v-for="(input, index) in uiJson.input"
+                  v-model="interactiveInputValues[index]!"
+                  v-show="interactiveShowInput[index]"
+                  :key="`input_${index}`"
+                  :name="input.name"
+                  :maximumValue="locApi.isScalarInput(input) ? input.maximumValue : undefined"
+                  :minimumValue="locApi.isScalarInput(input) ? input.minimumValue : undefined"
+                  :possibleValues="locApi.isDiscreteInput(input) ? input.possibleValues : undefined"
+                  :stepValue="locApi.isScalarInput(input) ? input.stepValue : undefined"
+                  :class="index !== 0 ? 'mt-6' : ''"
+                  @change="updateInteractiveSimulation()"
+                />
+              </Fieldset>
+              <Fieldset legend="Runs">
+                <div class="flex flex-col gap-4">
+                  <div class="flex gap-2">
+                    <Button class="grow"
+                      icon="pi pi-plus"
+                      label="Add run"
+                      size="small"
+                      @click="onAddRun()"
+                    />
+                    <Button class="w-9!"
+                      icon="pi pi-refresh"
+                      size="small"
+                      severity="danger"
+                      title="Remove all runs"
+                      @click="onRemoveAllRuns()"
+                      :disabled="interactiveRuns.length === 1"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-2">
+                    <div v-for="(run, index) in interactiveRuns"
+                      :key="`run_${index}`"
+                      class="run border border-dashed rounded pl-2 pr-1.5 py-1"
+                    >
+                      <div class="flex items-center">
+                        <div class="grow text-sm"
+                          :class="{ 'cursor-help': !run.isLiveRun }"
+                          v-tippy:bottom="!run.isLiveRun ? {
+                            allowHTML: true,
+                            content: run.tooltip,
+                            placement: 'bottom'
+                          } : undefined"
                         >
-                          <div class="flex gap-2">
-                            <button class="cursor-pointer w-6 h-6 rounded"
-                              v-for="color in GraphPanelWidgetPalette" :key="color"
-                              :style="{ backgroundColor: color }"
-                              :class="{ 'selected-color': color === run.color }"
-                              @click="onRunColorChange(index, color)"
-                            >
-                            </button>
-                          </div>
-                        </Popover>
+                          {{ run.isLiveRun ? 'Live run' : `Run #${index}` }}
+                        </div>
+                        <div>
+                          <Button class="p-0! w-5! h-5!"
+                            icon="pi pi-wave-pulse"
+                            :style="{ color: run.color }"
+                            text size="small"
+                            :title="`Change ${run.isLiveRun ? 'live run' : 'run'} colour`"
+                            @click="onToggleRunColorPopover(index, $event)"
+                          />
+                          <Popover :ref="(element) => interactiveRunColorPopoverRefs[index] = element as unknown as IPopover | undefined"
+                            v-if="interactiveRunColorPopoverIndex === index"
+                          >
+                            <div class="flex gap-2">
+                              <button class="cursor-pointer w-6 h-6 rounded"
+                                v-for="color in GraphPanelWidgetPalette" :key="color"
+                                :style="{ backgroundColor: color }"
+                                :class="{ 'selected-color': color === run.color }"
+                                @click="onRunColorChange(index, color)"
+                              >
+                              </button>
+                            </div>
+                          </Popover>
+                        </div>
+                        <Button class="p-0! w-5! h-5!"
+                          :icon="run.visible ? 'pi pi-eye' : 'pi pi-eye-slash'"
+                          :severity="run.visible ? 'info' : 'secondary'"
+                          text size="small"
+                          :title="`${run.visible ? 'Hide' : 'Show'} ${run.isLiveRun ? 'live run' : 'run'}`"
+                          @click="onToggleRun(index)"
+                        />
+                        <Button v-if="!run.isLiveRun" class="p-0! w-5! h-5!"
+                          icon="pi pi-trash"
+                          severity="danger"
+                          text size="small"
+                          title="Remove run"
+                          @click="onRemoveRun(index)"
+                        />
+                        <div v-else class="w-5 h-5"></div>
                       </div>
-                      <Button class="p-0! w-5! h-5!"
-                        :icon="run.visible ? 'pi pi-eye' : 'pi pi-eye-slash'"
-                        :severity="run.visible ? 'info' : 'secondary'"
-                        text size="small"
-                        :title="`${run.visible ? 'Hide' : 'Show'} ${run.isLiveRun ? 'live run' : 'run'}`"
-                        @click="onToggleRun(index)"
-                      />
-                      <Button v-if="!run.isLiveRun" class="p-0! w-5! h-5!"
-                        icon="pi pi-trash"
-                        severity="danger"
-                        text size="small"
-                        title="Remove run"
-                        @click="onRemoveRun(index)"
-                      />
-                      <div v-else class="w-5 h-5"></div>
+                    </div>
+                    <div v-if="interactiveRuns.length === 1" class="hint text-center text-xs">
+                      There are no (additional) runs.<br/>
+                      Click "Add run" to add one.
                     </div>
                   </div>
-                  <div v-if="interactiveRuns.length === 1" class="hint text-center text-xs">
-                    There are no (additional) runs.<br/>
-                    Click "Add run" to add one.
-                  </div>
                 </div>
-              </div>
-            </Fieldset>
-          </ScrollPanel>
-        </div>
-        <div class="flex flex-col grow gap-2 h-full min-h-0">
-          <IssuesView v-show="interactiveInstanceIssues.length" :leftMargin="false" :width="width" :height="actualHeight" :issues="interactiveInstanceIssues" />
-          <GraphPanelWidget v-show="!interactiveInstanceIssues.length"
-            v-for="(_plot, index) in uiJson.output.plots"
-            :key="`plot_${index}`"
-            class="w-full min-h-0"
-            :margins="interactiveCompMargins"
-            :data="interactiveCompData[index] || { traces: [] }"
-            @marginsUpdated="(newMargins: IGraphPanelMargins) => onMarginsUpdated(`plot_${index}`, newMargins)"
-            @resetMargins="() => onResetMargins()"
-          />
+              </Fieldset>
+            </ScrollPanel>
+          </div>
+          <div class="flex flex-col grow gap-2 h-full min-h-0">
+            <IssuesView v-show="interactiveInstanceIssues.length" class="h-full" :leftMargin="false" :issues="interactiveInstanceIssues" />
+            <GraphPanelWidget v-show="!interactiveInstanceIssues.length"
+              v-for="(_plot, index) in uiJson.output.plots"
+              :key="`plot_${index}`"
+              class="w-full min-h-0"
+              :margins="interactiveCompMargins"
+              :data="interactiveCompData[index] || { traces: [] }"
+              @marginsUpdated="(newMargins: IGraphPanelMargins) => onMarginsUpdated(`plot_${index}`, newMargins)"
+              @resetMargins="() => onResetMargins()"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -202,9 +204,7 @@ import * as vueusecore from '@vueuse/core';
 import * as vue from 'vue';
 
 import * as common from '../../common/common.ts';
-import { SHORT_DELAY } from '../../common/constants.ts';
 import * as locCommon from '../../common/locCommon.ts';
-import * as vueCommon from '../../common/vueCommon.ts';
 import * as locApi from '../../libopencor/locApi.ts';
 import * as locSedApi from '../../libopencor/locSedApi.ts';
 
@@ -222,13 +222,11 @@ interface ISimulationRun {
 
 const props = defineProps<{
   file: locApi.File;
-  height: number;
   isActive: boolean;
   isActiveFile: boolean;
   simulationOnly?: boolean;
   uiEnabled: boolean;
   uiJson: locApi.IUiJson;
-  width: number;
 }>();
 
 const toolbarNeeded = vue.computed(() => {
@@ -242,7 +240,6 @@ const toolbarNeeded = vue.computed(() => {
 const toolbarId = vue.ref('simulationExperimentViewToolbar');
 const editorId = vue.ref('simulationExperimentViewEditor');
 const liveUpdatesCheckboxId = vue.ref('simulationExperimentViewLiveUpdatesCheckbox');
-const actualHeight = vue.ref<number>(0);
 const interactiveModeAvailable = vue.ref<boolean>(!!props.uiJson);
 const interactiveModeEnabled = vue.ref<boolean>(!!props.uiJson);
 const interactiveLiveUpdatesEnabled = vue.ref<boolean>(true);
@@ -758,45 +755,6 @@ vue.onMounted(() => {
   editorId.value = `simulationExperimentViewEditor${String(crtInstance?.uid)}`;
   liveUpdatesCheckboxId.value = `simulationExperimentViewLiveUpdatesCheckbox${String(crtInstance?.uid)}`;
 
-  // Track the height of our toolbar.
-
-  let toolbarResizeObserver: ResizeObserver | undefined;
-
-  setTimeout(() => {
-    toolbarResizeObserver = vueCommon.trackElementHeight(toolbarId.value);
-  }, SHORT_DELAY);
-
-  // Monitor "our" contents size.
-
-  function resizeOurselves() {
-    actualHeight.value = props.height - (toolbarNeeded.value ? vueCommon.trackedCssVariableValue(toolbarId.value) : 0);
-  }
-
-  vue.nextTick(() => {
-    resizeOurselves();
-  });
-
-  vue.watch(
-    () => props.height,
-    () => {
-      resizeOurselves();
-    }
-  );
-
-  let oldToolbarHeight = vueCommon.trackedCssVariableValue(toolbarId.value);
-
-  const mutationObserver = new MutationObserver(() => {
-    const newToolbarHeight = vueCommon.trackedCssVariableValue(toolbarId.value);
-
-    if (newToolbarHeight !== oldToolbarHeight) {
-      oldToolbarHeight = newToolbarHeight;
-
-      resizeOurselves();
-    }
-  });
-
-  mutationObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
-
   // Make sure that our active popover gets hidden when the window loses focus.
 
   vue.watch(
@@ -811,14 +769,6 @@ vue.onMounted(() => {
       }
     }
   );
-
-  // Disconnect our observers when unmounting.
-
-  vue.onUnmounted(() => {
-    mutationObserver.disconnect();
-
-    toolbarResizeObserver?.disconnect();
-  });
 });
 
 // Keyboard shortcuts.

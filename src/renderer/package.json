@@ -39,7 +39,7 @@
     },
     "./style.css": "./dist/opencor.css"
   },
-  "version": "0.20260119.1",
+  "version": "0.20260120.0",
   "scripts": {
     "build": "vite build",
     "build:lib": "vite build --config vite.lib.config.ts && cp index.d.ts dist/index.d.ts",
@@ -57,7 +57,7 @@
   "dependencies": {
     "@abi-software/celldl-editor": "^0.20260115.0",
     "@napi-rs/keyring": "^1.2.0",
-    "@primeuix/themes": "^2.0.2",
+    "@primeuix/themes": "^2.0.3",
     "@primevue/auto-import-resolver": "4.2.5",
     "@vueuse/core": "14.1.0",
     "crypto-js": "^4.2.0",
