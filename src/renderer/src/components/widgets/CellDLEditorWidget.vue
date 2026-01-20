@@ -1,26 +1,20 @@
 <template>
   <BaseDialog :visible=true header=" " class="w-169">
     <CellDLEditor
-      :editorCommand="editorCommand"
+      :editorCommand="celldlEditorCommand"
       @editorData="onEditorData"
       @error="onError" />
   </BaseDialog>
 </template>
 
 <script setup lang="ts">
+import CellDLEditor from '@abi-software/celldl-editor'
 import type { CellDLEditorCommand, EditorData } from '@abi-software/celldl-editor';
 import '@abi-software/celldl-editor/style.css';
 import * as vueusecore from '@vueuse/core';
 
 import * as vue from 'vue';
 
-const CellDLEditor = vue.defineAsyncComponent(async () => {
-  while (!globalThis.oxigraph) {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-
-  return import('@abi-software/celldl-editor');
-});
 const celldlEditorCommand = vue.ref<CellDLEditorCommand>({
   command: ''
 });
@@ -78,9 +72,8 @@ with `kind` set as appropriate. This will result in an `editorData` event, to be
 
   celldlEditorCommand.value = {
     command: 'file',
-      options: {
-        action: 'close'
-      }
+    options: {
+      action: 'close'
     }
   }
 */
