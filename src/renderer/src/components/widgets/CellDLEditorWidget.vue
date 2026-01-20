@@ -1,7 +1,7 @@
 <template>
   <BaseDialog :visible=true header=" " class="w-169">
     <CellDLEditor
-      :editorCommand="editorCommand"
+      :editorCommand="celldlEditorCommand"
       @editorData="onEditorData"
       @error="onError" />
   </BaseDialog>
