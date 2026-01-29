@@ -158,7 +158,7 @@
                             <div class="card-item">
                               <div class="card-header">
                                 <div class="flex items-center gap-2">
-                                  <span class="item-badge">{{ inputIndex + 1 }}</span>
+                                  <span class="item-badge">{{ Number(inputIndex) + 1 }}</span>
                                   <span class="font-medium">{{ input.name }}</span>
                                   <Tag :value="locApi.isDiscreteInput(input) ? 'Discrete' : 'Scalar'" severity="info" size="small" />
                                 </div>
@@ -245,7 +245,7 @@
                                   </div>
                                   <div class="possible-values-list">
                                     <div v-for="(possibleValue, possibleValueIndex) in input.possibleValues" :key="`possibleValue${possibleValueIndex}`" class="entry-row">
-                                      <span class="index index-secondary">{{ possibleValueIndex + 1 }}</span>
+                                      <span class="index index-secondary">{{ Number(possibleValueIndex) + 1 }}</span>
                                       <FloatLabel variant="on" class="flex-1">
                                         <InputText v-model="possibleValue.name" class="w-full" size="small" />
                                         <label>Name</label>
@@ -308,7 +308,7 @@
 
                           <div v-else class="entries-list">
                             <div v-for="(data, dataIndex) in localSettings.interactive.uiJson.output.data" :key="`data_${dataIndex}`" class="entry-row">
-                              <span class="index">{{ dataIndex + 1 }}</span>
+                              <span class="index">{{ Number(dataIndex) + 1 }}</span>
                               <FloatLabel variant="on" class="flex-1">
                                 <InputText v-model="data.id" class="w-full" size="small" />
                                 <label>ID</label>
@@ -375,8 +375,8 @@
                             <div class="card-item">
                               <div class="plot-card-header">
                                 <div class="flex items-center gap-2">
-                                  <span class="item-badge">{{ plotIndex + 1 }}</span>
-                                  <span class="font-medium text-sm">Plot #{{ plotIndex + 1 }}</span>
+                                  <span class="item-badge">{{ Number(plotIndex) + 1 }}</span>
+                                  <span class="font-medium text-sm">Plot #{{ Number(plotIndex) + 1 }}</span>
                                   <Tag :value="plotTraceCount(plot) + ' trace' + (plotTraceCount(plot) !== 1 ? 's' : '')" severity="info" size="small" />
                                 </div>
                                 <Button
@@ -482,7 +482,7 @@
                                         </template>
                                         <div class="entry-row entry-row-trace">
                                           <div>
-                                            <span class="index index-secondary">{{ traceIndex + 2 }}</span>
+                                            <span class="index index-secondary">{{ Number(traceIndex) + 2 }}</span>
                                           </div>
                                           <div class="w-full">
                                             <div class="mb-3">
@@ -584,7 +584,7 @@
 
                           <div v-else class="entries-list">
                             <div v-for="(parameter, parameterIndex) in localSettings.interactive.uiJson.parameters" :key="`param_${parameterIndex}`" class="entry-row">
-                              <span class="index">{{ parameterIndex + 1 }}</span>
+                              <span class="index">{{ Number(parameterIndex) + 1 }}</span>
                               <FloatLabel variant="on" class="flex-1">
                                 <Select v-model="parameter.name"
                                   class="w-full" panelClass="model-parameter-filter"
@@ -1044,6 +1044,10 @@ function addTrace(plotIndex: number) {
 
 function removeTrace(plotIndex: number, traceIndex: number) {
   const plot = localSettings.value.interactive.uiJson.output.plots[plotIndex];
+
+  if (!plot) {
+    return;
+  }
 
   if (traceIndex === -1) {
     // Update the main trace to be the first additional trace and shift it out of the additional traces. If there are no
