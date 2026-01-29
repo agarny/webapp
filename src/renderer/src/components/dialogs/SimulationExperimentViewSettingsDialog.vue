@@ -725,22 +725,24 @@
                 <i :class="showUiJsonIssuesPanel ? 'pi pi-arrow-down-left-and-arrow-up-right-to-center ml-2 text-xs!' : 'pi pi-arrow-up-right-and-arrow-down-left-from-center ml-2 text-xs!'"></i>
               </Button>
             </div>
-            <Button
-              outlined
-              size="small"
-              @click="onDownload(localSettings.interactive.uiJson)"
-            >
-              <i class="pi pi-download mr-2"></i>
-              <span>Export JSON file</span>
-            </Button>
           </div>
         </template>
 
-        <!-- OK/Cancel -->
+        <!-- Action buttons -->
 
-        <div class="flex gap-4 justify-end">
-          <Button autofocus label="OK" @click="onOk" />
-          <Button label="Cancel" severity="secondary" @click="onCancel" />
+        <div class="flex gap-4 justify-between items-center">
+          <Button
+            outlined
+            size="small"
+            @click="onDownload(localSettings.interactive.uiJson)"
+          >
+            <i class="pi pi-download mr-2"></i>
+            <span>Export JSON file</span>
+          </Button>
+          <div class="flex gap-4">
+            <Button autofocus label="OK" @click="onOk" />
+            <Button label="Cancel" severity="secondary" @click="onCancel" />
+          </div>
         </div>
       </div>
     </template>
