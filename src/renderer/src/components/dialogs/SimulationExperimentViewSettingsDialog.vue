@@ -734,10 +734,10 @@
           <Button
             outlined
             size="small"
-            @click="onDownload(localSettings.interactive.uiJson)"
+            @click="onDownloadCombineArchive(localSettings.interactive.uiJson)"
           >
             <i class="pi pi-download mr-2"></i>
-            <span>Export JSON file</span>
+            <span>Export COMBINE archive</span>
           </Button>
           <div class="flex gap-4">
             <Button autofocus label="OK" @click="onOk" />
@@ -1086,10 +1086,11 @@ function removeParameter(index: number) {
   localSettings.value.interactive.uiJson.parameters.splice(index, 1);
 }
 
-function onDownload(uiJson: locApi.IUiJson) {
+function onDownloadCombineArchive(uiJson: locApi.IUiJson) {
   const uiJsonString = JSON.stringify(locApi.cleanUiJson(uiJson), null, 2);
+  const blob = new Blob([uiJsonString], { type: 'application/json' });
 
-  common.downloadFile('simulation.json', uiJsonString, 'application/json');
+  common.downloadFile('simulation.omex', blob, 'application/zip');
 }
 
 function resetUxSettings() {
