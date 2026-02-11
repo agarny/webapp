@@ -46,6 +46,7 @@
           <IssuesView v-if="fileTab.file.issues().length" class="m-4" style="height: calc(100% - 2rem);"
             :issues="fileTab.file.issues()"
           />
+<!-- TODO: enable once our CellDL integration is fully ready.
           <SimulationExperimentView v-else
             :isActive="isActive"
             :uiEnabled="uiEnabled"
@@ -54,6 +55,8 @@
             :uiJson="fileTab.uiJson!"
             @error="$emit('error', $event)"
           />
+-->
+          <CellDLEditingView v-else />
         </TabPanel>
       </TabPanels>
     </Tabs>

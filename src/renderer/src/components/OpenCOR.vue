@@ -74,7 +74,6 @@
         v-model:visible="aboutVisible"
         @close="aboutVisible = false"
       />
-      <CellDLEditorWidget />
     </div>
     <OkMessageDialog
       v-model:visible="updateErrorVisible"
