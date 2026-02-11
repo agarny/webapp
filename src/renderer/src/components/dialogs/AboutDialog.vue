@@ -2,7 +2,7 @@
   <BaseDialog header=" " class="w-169">
     <div class="space-y-7">
       <div class="text-center">
-        <div class="text-3xl font-bold">OpenCOR {{ version }}</div>
+        <div class="text-3xl font-bold">OpenCOR {{ currentVersion }}</div>
         <div v-if="electronApi" class="text-xl italic font-bold">{{ electronApi.operatingSystem() }}</div>
         <div class="text-sm italic">Copyright {{ COPYRIGHT }}</div>
       </div>
@@ -18,15 +18,15 @@
 
           <ol class="list-decimal list-inside ml-2">
             <li>
-              <span class="font-bold">OpenCOR:</span> a desktop application that can be run on
-              <a href="https://en.wikipedia.org/wiki/List_of_Intel_processors">Intel</a>-based and
-              <a href="https://en.wikipedia.org/wiki/ARM_architecture_family">ARM</a>-based
+              <span class="font-bold"><a href="https://github.com/opencor/webapp/releases/latest" target="_blank" rel="noopener">OpenCOR</a>:</span> a desktop application that can be run on
+              <a href="https://en.wikipedia.org/wiki/List_of_Intel_processors" target="_blank" rel="noopener">Intel</a>-based and
+              <a href="https://en.wikipedia.org/wiki/ARM_architecture_family" target="_blank" rel="noopener">ARM</a>-based
               <a href="https://en.wikipedia.org/wiki/Microsoft_Windows" target="_blank" rel="noopener">Windows</a>,
               <a href="https://en.wikipedia.org/wiki/Linux" target="_blank" rel="noopener">Linux</a>, and
               <a href="https://en.wikipedia.org/wiki/MacOS" target="_blank" rel="noopener">macOS</a> machines; and
             </li>
             <li>
-              <span class="font-bold">OpenCOR's Web app:</span> a
+              <span class="font-bold"><a href="https://opencor.ws/app" target="_blank" rel="noopener">OpenCOR's Web app</a>:</span> a
               <a href="https://en.wikipedia.org/wiki/Web_application" target="_blank" rel="noopener">Web app</a> that
               can be run on a Web browser.
             </li>
@@ -41,11 +41,12 @@
 </template>
 
 <script setup lang="ts">
+import { currentVersion } from '../../common/version.ts';
+
 import { COPYRIGHT } from '../../common/constants.ts';
+
 import { electronApi } from '../../common/electronApi.ts';
 import * as locApi from '../../libopencor/locApi.ts';
 
 defineEmits<(event: 'close') => void>();
-
-import { version } from '../../../package.json';
 </script>

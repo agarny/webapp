@@ -5,6 +5,8 @@ import {
   _wasmLocApi,
   cppVersion,
   EIssueType,
+  type File,
+  fileManager,
   type IIssue,
   type IWasmFile,
   type IWasmIssues,
@@ -29,6 +31,7 @@ export interface IWasmSedDocument {
   simulationCount: number;
   simulation(index: number): IWasmSedSimulation;
   instantiate(): IWasmSedInstance;
+  serialise(): string;
 }
 
 export class SedDocument {
@@ -51,9 +54,8 @@ export class SedDocument {
       ? _cppLocApi.sedDocumentIssues(this._cppDocumentId)
       : wasmIssuesToIssues(this._wasmSedDocument.issues);
 
-    //---OPENCOR---
-    // We only support a limited subset of SED-ML for now, so we need to check a few more things. Might wnat to check
-    // https://github.com/opencor/opencor/blob/master/src/plugins/support/SEDMLSupport/src/sedmlfile.cpp#L579-L1492.
+    // TODO: we only support a limited subset of SED-ML for now, so we need to check a few more things. Might wnat to
+    // check https://github.com/opencor/opencor/blob/master/src/plugins/support/SEDMLSupport/src/sedmlfile.cpp#L579-L1492.
 
     // Make sure that there is only one model.
 
@@ -79,7 +81,7 @@ export class SedDocument {
 
     // Make sure that the simulation is a uniform time course simulation.
 
-    const simulation = this.simulation(0) as SedSimulationUniformTimeCourse;
+    const simulation = this.simulation(0) as SedUniformTimeCourse;
 
     if (simulation.type() !== ESedSimulationType.UNIFORM_TIME_COURSE) {
       this._issues.push({
@@ -163,22 +165,26 @@ export class SedDocument {
     }
 
     if (type === ESedSimulationType.ANALYSIS) {
-      return new SedSimulationAnalysis(this._cppDocumentId, this._wasmSedDocument, index, type);
+      return new SedAnalysis(this._cppDocumentId, this._wasmSedDocument, index, type);
     }
 
     if (type === ESedSimulationType.STEADY_STATE) {
-      return new SedSimulationSteadyState(this._cppDocumentId, this._wasmSedDocument, index, type);
+      return new SedSteadyState(this._cppDocumentId, this._wasmSedDocument, index, type);
     }
 
     if (type === ESedSimulationType.ONE_STEP) {
-      return new SedSimulationOneStep(this._cppDocumentId, this._wasmSedDocument, index, type);
+      return new SedOneStep(this._cppDocumentId, this._wasmSedDocument, index, type);
     }
 
-    return new SedSimulationUniformTimeCourse(this._cppDocumentId, this._wasmSedDocument, index, type);
+    return new SedUniformTimeCourse(this._cppDocumentId, this._wasmSedDocument, index, type);
   }
 
   instantiate(): SedInstance {
     return new SedInstance(this._cppDocumentId, this._wasmSedDocument);
+  }
+
+  serialise(): string {
+    return cppVersion() ? _cppLocApi.sedDocumentSerialise(this._cppDocumentId) : this._wasmSedDocument.serialise();
   }
 }
 
@@ -189,6 +195,7 @@ export interface IWasmSedChangeAttribute {
 }
 
 interface IWasmSedModel {
+  file: IWasmFile;
   addChange(change: IWasmSedChangeAttribute): void;
   removeAllChanges(): void;
 }
@@ -207,9 +214,15 @@ export class SedModel extends SedIndex {
     }
   }
 
+  file(): File | null {
+    return fileManager.file(
+      cppVersion() ? _cppLocApi.sedModelFilePath(this._cppDocumentId, this._index) : this._wasmSedModel.file.path
+    );
+  }
+
   addChange(componentName: string, variableName: string, newValue: string): void {
     if (cppVersion()) {
-      _cppLocApi.sedDocumentModelAddChange(this._cppDocumentId, this._index, componentName, variableName, newValue);
+      _cppLocApi.sedModelAddChange(this._cppDocumentId, this._index, componentName, variableName, newValue);
     } else {
       this._wasmSedModel.addChange(new _wasmLocApi.SedChangeAttribute(componentName, variableName, newValue));
     }
@@ -217,7 +230,7 @@ export class SedModel extends SedIndex {
 
   removeAllChanges(): void {
     if (cppVersion()) {
-      _cppLocApi.sedDocumentModelRemoveAllChanges(this._cppDocumentId, this._index);
+      _cppLocApi.sedModelRemoveAllChanges(this._cppDocumentId, this._index);
     } else {
       this._wasmSedModel.removeAllChanges();
     }
@@ -251,98 +264,141 @@ export class SedSimulation extends SedIndex {
   }
 }
 
-export class SedSimulationAnalysis extends SedSimulation {}
+export class SedAnalysis extends SedSimulation {}
 
-export class SedSimulationSteadyState extends SedSimulation {}
+export class SedSteadyState extends SedSimulation {}
 
-interface IWasmSedSimulationOneStep extends IWasmSedSimulation {
+interface IWasmSedOneStep extends IWasmSedSimulation {
   step: number;
 }
 
-export class SedSimulationOneStep extends SedSimulation {
-  private _wasmSedSimulationOneStep: IWasmSedSimulationOneStep = {} as IWasmSedSimulationOneStep;
+export class SedOneStep extends SedSimulation {
+  private _wasmSedOneStep: IWasmSedOneStep = {} as IWasmSedOneStep;
 
   constructor(cppDocumentId: number, wasmSedDocument: IWasmSedDocument, index: number, type: ESedSimulationType) {
     super(cppDocumentId, wasmSedDocument, index, type);
 
     if (wasmVersion()) {
-      this._wasmSedSimulationOneStep = wasmSedDocument.simulation(index) as IWasmSedSimulationOneStep;
+      this._wasmSedOneStep = wasmSedDocument.simulation(index) as IWasmSedOneStep;
     }
   }
 
   step(): number {
-    return cppVersion()
-      ? _cppLocApi.sedDocumentSimulationOneStepStep(this._cppDocumentId, this._index)
-      : this._wasmSedSimulationOneStep.step;
+    return cppVersion() ? _cppLocApi.sedOneStepStep(this._cppDocumentId, this._index) : this._wasmSedOneStep.step;
   }
 }
 
-interface IWasmSedSimulationUniformTimeCourse extends IWasmSedSimulation {
+interface IWasmSedUniformTimeCourse extends IWasmSedSimulation {
   initialTime: number;
   outputStartTime: number;
   outputEndTime: number;
   numberOfSteps: number;
+  odeSolver: unknown;
 }
 
-export class SedSimulationUniformTimeCourse extends SedSimulation {
-  private _wasmSedSimulationUniformTimeCourse: IWasmSedSimulationUniformTimeCourse =
-    {} as IWasmSedSimulationUniformTimeCourse;
+export class SedUniformTimeCourse extends SedSimulation {
+  private _wasmSedUniformTimeCourse: IWasmSedUniformTimeCourse = {} as IWasmSedUniformTimeCourse;
 
   constructor(cppDocumentId: number, wasmSedDocument: IWasmSedDocument, index: number, type: ESedSimulationType) {
     super(cppDocumentId, wasmSedDocument, index, type);
 
     if (wasmVersion()) {
-      this._wasmSedSimulationUniformTimeCourse = wasmSedDocument.simulation(
-        index
-      ) as IWasmSedSimulationUniformTimeCourse;
+      this._wasmSedUniformTimeCourse = wasmSedDocument.simulation(index) as IWasmSedUniformTimeCourse;
     }
   }
 
   initialTime(): number {
     return cppVersion()
-      ? _cppLocApi.sedDocumentSimulationUniformTimeCourseInitialTime(this._cppDocumentId, this._index)
-      : this._wasmSedSimulationUniformTimeCourse.initialTime;
+      ? _cppLocApi.sedUniformTimeCourseInitialTime(this._cppDocumentId, this._index)
+      : this._wasmSedUniformTimeCourse.initialTime;
+  }
+
+  setInitialTime(value: number): void {
+    if (cppVersion()) {
+      _cppLocApi.sedUniformTimeCourseSetInitialTime(this._cppDocumentId, this._index, value);
+    } else {
+      this._wasmSedUniformTimeCourse.initialTime = value;
+    }
   }
 
   outputStartTime(): number {
     return cppVersion()
-      ? _cppLocApi.sedDocumentSimulationUniformTimeCourseOutputStartTime(this._cppDocumentId, this._index)
-      : this._wasmSedSimulationUniformTimeCourse.outputStartTime;
+      ? _cppLocApi.sedUniformTimeCourseOutputStartTime(this._cppDocumentId, this._index)
+      : this._wasmSedUniformTimeCourse.outputStartTime;
   }
 
   setOutputStartTime(value: number): void {
     if (cppVersion()) {
-      _cppLocApi.sedDocumentSimulationUniformTimeCourseSetOutputStartTime(this._cppDocumentId, this._index, value);
+      _cppLocApi.sedUniformTimeCourseSetOutputStartTime(this._cppDocumentId, this._index, value);
     } else {
-      this._wasmSedSimulationUniformTimeCourse.outputStartTime = value;
+      this._wasmSedUniformTimeCourse.outputStartTime = value;
     }
   }
 
   outputEndTime(): number {
     return cppVersion()
-      ? _cppLocApi.sedDocumentSimulationUniformTimeCourseOutputEndTime(this._cppDocumentId, this._index)
-      : this._wasmSedSimulationUniformTimeCourse.outputEndTime;
+      ? _cppLocApi.sedUniformTimeCourseOutputEndTime(this._cppDocumentId, this._index)
+      : this._wasmSedUniformTimeCourse.outputEndTime;
   }
 
   setOutputEndTime(value: number): void {
     if (cppVersion()) {
-      _cppLocApi.sedDocumentSimulationUniformTimeCourseSetOutputEndTime(this._cppDocumentId, this._index, value);
+      _cppLocApi.sedUniformTimeCourseSetOutputEndTime(this._cppDocumentId, this._index, value);
     } else {
-      this._wasmSedSimulationUniformTimeCourse.outputEndTime = value;
+      this._wasmSedUniformTimeCourse.outputEndTime = value;
     }
   }
 
   numberOfSteps(): number {
     return cppVersion()
-      ? _cppLocApi.sedDocumentSimulationUniformTimeCourseNumberOfSteps(this._cppDocumentId, this._index)
-      : this._wasmSedSimulationUniformTimeCourse.numberOfSteps;
+      ? _cppLocApi.sedUniformTimeCourseNumberOfSteps(this._cppDocumentId, this._index)
+      : this._wasmSedUniformTimeCourse.numberOfSteps;
   }
 
   setNumberOfSteps(value: number): void {
     if (cppVersion()) {
-      _cppLocApi.sedDocumentSimulationUniformTimeCourseSetNumberOfSteps(this._cppDocumentId, this._index, value);
+      _cppLocApi.sedUniformTimeCourseSetNumberOfSteps(this._cppDocumentId, this._index, value);
     } else {
-      this._wasmSedSimulationUniformTimeCourse.numberOfSteps = value;
+      this._wasmSedUniformTimeCourse.numberOfSteps = value;
+    }
+  }
+
+  cvode(): SolverCvode {
+    return new SolverCvode(this._cppDocumentId, this._wasmSedUniformTimeCourse, this._index);
+  }
+}
+
+interface IWasmSolverCvode {
+  maximumStep: number;
+}
+
+export class SolverCvode extends SedIndex {
+  private _cppDocumentId: number;
+  private _wasmSolverCvode: IWasmSolverCvode = {} as IWasmSolverCvode;
+
+  constructor(cppDocumentId: number, wasmSedUniformTimeCourse: IWasmSedUniformTimeCourse, index: number) {
+    super(index);
+
+    this._cppDocumentId = cppDocumentId;
+
+    if (wasmVersion()) {
+      this._wasmSolverCvode = wasmSedUniformTimeCourse.odeSolver as IWasmSolverCvode;
+    }
+  }
+
+  // TODO: this is only temporary until we have full support for our different solvers.
+
+  maximumStep(): number {
+    return cppVersion()
+      ? _cppLocApi.solverCvodeMaximumStep(this._cppDocumentId, this._index)
+      : this._wasmSolverCvode.maximumStep;
+  }
+
+  setMaximumStep(value: number): void {
+    if (cppVersion()) {
+      _cppLocApi.solverCvodeSetMaximumStep(this._cppDocumentId, this._index, value);
+    } else {
+      this._wasmSolverCvode.maximumStep = value;
     }
   }
 }
@@ -388,27 +444,27 @@ export class SedInstance {
 interface IWasmSedInstanceTask {
   voiName: string;
   voiUnit: string;
-  voiAsArray: number[];
+  voiAsArray: Float64Array;
   stateCount: number;
   stateName(index: number): string;
   stateUnit(index: number): string;
-  stateAsArray(index: number): number[];
+  stateAsArray(index: number): Float64Array;
   rateCount: number;
   rateName(index: number): string;
   rateUnit(index: number): string;
-  rateAsArray(index: number): number[];
+  rateAsArray(index: number): Float64Array;
   constantCount: number;
   constantName(index: number): string;
   constantUnit(index: number): string;
-  constantAsArray(index: number): number[];
+  constantAsArray(index: number): Float64Array;
   computedConstantCount: number;
   computedConstantName(index: number): string;
   computedConstantUnit(index: number): string;
-  computedConstantAsArray(index: number): number[];
+  computedConstantAsArray(index: number): Float64Array;
   algebraicVariableCount: number;
   algebraicVariableName(index: number): string;
   algebraicVariableUnit(index: number): string;
-  algebraicVariableAsArray(index: number): number[];
+  algebraicVariableAsArray(index: number): Float64Array;
 }
 
 export class SedInstanceTask extends SedIndex {
@@ -437,7 +493,7 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.voiUnit;
   }
 
-  voi(): number[] {
+  voi(): Float64Array {
     return cppVersion()
       ? _cppLocApi.sedInstanceTaskVoi(this._cppInstanceId, this._index)
       : this._wasmSedInstanceTask.voiAsArray;
@@ -461,7 +517,7 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.stateUnit(index);
   }
 
-  state(index: number): number[] {
+  state(index: number): Float64Array {
     return cppVersion()
       ? _cppLocApi.sedInstanceTaskState(this._cppInstanceId, this._index, index)
       : this._wasmSedInstanceTask.stateAsArray(index);
@@ -485,7 +541,7 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.rateUnit(index);
   }
 
-  rate(index: number): number[] {
+  rate(index: number): Float64Array {
     return cppVersion()
       ? _cppLocApi.sedInstanceTaskRate(this._cppInstanceId, this._index, index)
       : this._wasmSedInstanceTask.rateAsArray(index);
@@ -509,7 +565,7 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.constantUnit(index);
   }
 
-  constant(index: number): number[] {
+  constant(index: number): Float64Array {
     return cppVersion()
       ? _cppLocApi.sedInstanceTaskConstant(this._cppInstanceId, this._index, index)
       : this._wasmSedInstanceTask.constantAsArray(index);
@@ -533,7 +589,7 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.computedConstantUnit(index);
   }
 
-  computedConstant(index: number): number[] {
+  computedConstant(index: number): Float64Array {
     return cppVersion()
       ? _cppLocApi.sedInstanceTaskComputedConstant(this._cppInstanceId, this._index, index)
       : this._wasmSedInstanceTask.computedConstantAsArray(index);
@@ -557,7 +613,7 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.algebraicVariableUnit(index);
   }
 
-  algebraicVariable(index: number): number[] {
+  algebraicVariable(index: number): Float64Array {
     return cppVersion()
       ? _cppLocApi.sedInstanceTaskAlgebraicVariable(this._cppInstanceId, this._index, index)
       : this._wasmSedInstanceTask.algebraicVariableAsArray(index);

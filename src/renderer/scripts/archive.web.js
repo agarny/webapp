@@ -5,7 +5,7 @@ if (!fs.existsSync('dist')) {
   fs.mkdirSync('dist');
 }
 
-const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+const version = JSON.parse(fs.readFileSync('package.json')).version;
 
 tar.c(
   {

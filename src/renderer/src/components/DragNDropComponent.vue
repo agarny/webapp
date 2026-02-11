@@ -3,7 +3,7 @@
     <div
       class="message absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[1.5rem] leading-tight text-center rounded-2xl p-[0.5rem_1rem] bg-primary text-primary-contrast whitespace-nowrap"
     >
-      CellML files, SED-ML files, and COMBINE archives<br />
+      CellML files and COMBINE archives<br />
       can be dropped here.
     </div>
   </div>

@@ -23,24 +23,42 @@ export interface ICppLocApi {
   sedDocumentInstantiate: (documentId: number) => number;
   sedDocumentIssues: (documentId: number) => IIssue[];
   sedDocumentModelCount: (documentId: number) => number;
-  sedDocumentModelAddChange: (
+  sedDocumentSimulationCount: (documentId: number) => number;
+  sedDocumentSimulationType: (documentId: number, index: number) => number;
+  sedDocumentSerialise: (documentId: number) => string;
+
+  // SedModel API.
+
+  sedModelFilePath: (documentId: number, index: number) => string;
+  sedModelAddChange: (
     documentId: number,
     index: number,
     componentName: string,
     variableName: string,
     newValue: string
   ) => void;
-  sedDocumentModelRemoveAllChanges: (documentId: number, index: number) => void;
-  sedDocumentSimulationCount: (documentId: number) => number;
-  sedDocumentSimulationType: (documentId: number, index: number) => number;
-  sedDocumentSimulationUniformTimeCourseInitialTime: (documentId: number, index: number) => number;
-  sedDocumentSimulationUniformTimeCourseOutputStartTime: (documentId: number, index: number) => number;
-  sedDocumentSimulationUniformTimeCourseSetOutputStartTime: (documentId: number, index: number, value: number) => void;
-  sedDocumentSimulationUniformTimeCourseOutputEndTime: (documentId: number, index: number) => number;
-  sedDocumentSimulationUniformTimeCourseSetOutputEndTime: (documentId: number, index: number, value: number) => void;
-  sedDocumentSimulationUniformTimeCourseNumberOfSteps: (documentId: number, index: number) => number;
-  sedDocumentSimulationUniformTimeCourseSetNumberOfSteps: (documentId: number, index: number, value: number) => void;
-  sedDocumentSimulationOneStepStep: (documentId: number, index: number) => number;
+  sedModelRemoveAllChanges: (documentId: number, index: number) => void;
+
+  // SedOneStep API.
+
+  sedOneStepStep: (documentId: number, index: number) => number;
+
+  // SedUniformTimeCourse API.
+
+  sedUniformTimeCourseInitialTime: (documentId: number, index: number) => number;
+  sedUniformTimeCourseSetInitialTime: (documentId: number, index: number, value: number) => void;
+  sedUniformTimeCourseOutputStartTime: (documentId: number, index: number) => number;
+  sedUniformTimeCourseSetOutputStartTime: (documentId: number, index: number, value: number) => void;
+  sedUniformTimeCourseOutputEndTime: (documentId: number, index: number) => number;
+  sedUniformTimeCourseSetOutputEndTime: (documentId: number, index: number, value: number) => void;
+  sedUniformTimeCourseNumberOfSteps: (documentId: number, index: number) => number;
+  sedUniformTimeCourseSetNumberOfSteps: (documentId: number, index: number, value: number) => void;
+
+  // SolverCvode API.
+  // TODO: this is only temporary until we have full support for our different solvers.
+
+  solverCvodeMaximumStep: (documentId: number, index: number) => number;
+  solverCvodeSetMaximumStep: (documentId: number, index: number, value: number) => void;
 
   // SedInstance API.
 
@@ -52,27 +70,27 @@ export interface ICppLocApi {
 
   sedInstanceTaskVoiName: (instanceId: number, index: number) => string;
   sedInstanceTaskVoiUnit: (instanceId: number, index: number) => string;
-  sedInstanceTaskVoi: (instanceId: number, index: number) => number[];
+  sedInstanceTaskVoi: (instanceId: number, index: number) => Float64Array;
   sedInstanceTaskStateCount: (instanceId: number, index: number) => number;
   sedInstanceTaskStateName: (instanceId: number, index: number, stateIndex: number) => string;
   sedInstanceTaskStateUnit: (instanceId: number, index: number, stateIndex: number) => string;
-  sedInstanceTaskState: (instanceId: number, index: number, stateIndex: number) => number[];
+  sedInstanceTaskState: (instanceId: number, index: number, stateIndex: number) => Float64Array;
   sedInstanceTaskRateCount: (instanceId: number, index: number) => number;
   sedInstanceTaskRateName: (instanceId: number, index: number, rateIndex: number) => string;
   sedInstanceTaskRateUnit: (instanceId: number, index: number, rateIndex: number) => string;
-  sedInstanceTaskRate: (instanceId: number, index: number, rateIndex: number) => number[];
+  sedInstanceTaskRate: (instanceId: number, index: number, rateIndex: number) => Float64Array;
   sedInstanceTaskConstantCount: (instanceId: number, index: number) => number;
   sedInstanceTaskConstantName: (instanceId: number, index: number, constantIndex: number) => string;
   sedInstanceTaskConstantUnit: (instanceId: number, index: number, constantIndex: number) => string;
-  sedInstanceTaskConstant: (instanceId: number, index: number, constantIndex: number) => number[];
+  sedInstanceTaskConstant: (instanceId: number, index: number, constantIndex: number) => Float64Array;
   sedInstanceTaskComputedConstantCount: (instanceId: number, index: number) => number;
   sedInstanceTaskComputedConstantName: (instanceId: number, index: number, computedConstantIndex: number) => string;
   sedInstanceTaskComputedConstantUnit: (instanceId: number, index: number, computedConstantIndex: number) => string;
-  sedInstanceTaskComputedConstant: (instanceId: number, index: number, computedConstantIndex: number) => number[];
+  sedInstanceTaskComputedConstant: (instanceId: number, index: number, computedConstantIndex: number) => Float64Array;
   sedInstanceTaskAlgebraicVariableCount: (instanceId: number, index: number) => number;
   sedInstanceTaskAlgebraicVariableName: (instanceId: number, index: number, algebraicVariableIndex: number) => string;
   sedInstanceTaskAlgebraicVariableUnit: (instanceId: number, index: number, algebraicVariableIndex: number) => string;
-  sedInstanceTaskAlgebraicVariable: (instanceId: number, index: number, algebraicVariableIndex: number) => number[];
+  sedInstanceTaskAlgebraicVariable: (instanceId: number, index: number, algebraicVariableIndex: number) => Float64Array;
 
   // Version API.
 
@@ -115,7 +133,7 @@ export interface IWasmLocApi {
 export let _cppLocApi = {} as ICppLocApi;
 export let _wasmLocApi = {} as IWasmLocApi;
 
-export async function initialiseLocApi() {
+export const initialiseLocApi = async () => {
   // @ts-expect-error (window.locApi may or may not be defined which is why we test it)
   if (window.locApi) {
     // We are running OpenCOR, so libOpenCOR can be accessed using window.locApi.
@@ -128,7 +146,7 @@ export async function initialiseLocApi() {
     try {
       const libOpenCOR = (
         await import(
-          /* @vite-ignore */ corsProxyUrl('https://opencor.ws/libopencor/downloads/wasm/libopencor-0.20251204.0.js')
+          /* @vite-ignore */ corsProxyUrl('https://opencor.ws/libopencor/downloads/wasm/libopencor-0.20260211.0.js')
         )
       ).default;
 
@@ -137,7 +155,7 @@ export async function initialiseLocApi() {
       console.error("Failed to load libOpenCOR's WebAssembly module:", error);
     }
   }
-}
+};
 
 // Logger API.
 
@@ -154,7 +172,7 @@ export {
   SedDocument,
   SedInstance,
   SedInstanceTask,
-  SedSimulationUniformTimeCourse
+  SedUniformTimeCourse
 } from './locSedApi.ts';
 
 // UI JSON API.
@@ -172,7 +190,8 @@ export {
   type IUiJsonScalarInput,
   isScalarInput,
   isDiscreteInput,
-  uiJsonIssues
+  cleanUiJson,
+  validateUiJson
 } from './locUiJsonApi.ts';
 
 // Version API.

@@ -16,9 +16,9 @@ import {
 interface IWasmFileManagerInstance {
   files: {
     size(): number;
-    get(index: number): { fileName: string };
+    get(index: number): IWasmFile;
   };
-  unmanage(file: unknown): void;
+  unmanage(file: IWasmFile): void;
 }
 
 export interface IWasmFileManager {
@@ -45,6 +45,31 @@ class FileManager {
     return this._fileManager;
   }
 
+  file(path: string): File | null {
+    if (cppVersion()) {
+      const contents = _cppLocApi.fileContents(path);
+
+      if (contents) {
+        return new File(path, contents);
+      }
+
+      return null;
+    }
+
+    const fileManager = this.fileManager();
+    const files = fileManager.files;
+
+    for (let i = 0; i < files.size(); ++i) {
+      const file = files.get(i);
+
+      if (file.path === path) {
+        return new File(path, file.contents());
+      }
+    }
+
+    return null;
+  }
+
   unmanage(path: string): void {
     if (cppVersion()) {
       _cppLocApi.fileManagerUnmanage(path);
@@ -55,7 +80,7 @@ class FileManager {
       for (let i = 0; i < files.size(); ++i) {
         const file = files.get(i);
 
-        if (file.fileName === path) {
+        if (file.path === path) {
           fileManager.unmanage(file);
 
           break;
@@ -80,8 +105,9 @@ export enum EFileType {
 export interface IWasmFile {
   type: { value: EFileType };
   issues: IWasmIssues;
+  path: string;
   contents(): Uint8Array;
-  setContents(ptr: number, length: number): void;
+  setContents(contents: Uint8Array): void;
   childFileFromFileName(fileName: string): File | null;
 }
 
@@ -100,13 +126,7 @@ export class File {
     } else if (contents) {
       this._wasmFile = vue.markRaw(new _wasmLocApi.File(path));
 
-      const heapContentsPtr = _wasmLocApi._malloc(contents.length);
-
-      new Uint8Array(_wasmLocApi.HEAPU8.buffer, heapContentsPtr, contents.length).set(contents);
-
-      this._wasmFile.setContents(heapContentsPtr, contents.length);
-
-      _wasmLocApi._free(heapContentsPtr);
+      this._wasmFile.setContents(contents);
 
       this._issues = wasmIssuesToIssues(this._wasmFile.issues);
     } else {

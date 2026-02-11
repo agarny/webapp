@@ -46,7 +46,6 @@ interface IElectronApi {
   onOpen: (callback: (filePath: string) => void) => void;
   onOpenRemote: (callback: () => void) => void;
   onOpenSampleLorenz: (callback: () => void) => void;
-  onOpenSampleInteractiveLorenz: (callback: () => void) => void;
   onClose: (callback: () => void) => void;
   onCloseAll: (callback: () => void) => void;
   onResetAll: (callback: () => void) => void;

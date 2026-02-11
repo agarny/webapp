@@ -1,5 +1,6 @@
 import electron from 'electron';
 
+import { formatError } from '../renderer/src/common/common.ts';
 import { isMacOs, isPackaged } from '../renderer/src/common/electron.ts';
 
 import { mainWindow } from './index.ts';
@@ -10,7 +11,7 @@ let disabledMenu: electron.Menu | null = null;
 let recentFilePaths: string[] = [];
 let hasFiles = false;
 
-export function enableDisableMainMenu(enable: boolean): void {
+export const enableDisableMainMenu = (enable: boolean): void => {
   // Build our menu, if needed.
 
   if (enable && enabledMenu) {
@@ -107,12 +108,6 @@ export function enableDisableMainMenu(enable: boolean): void {
           label: 'Lorenz',
           click: () => {
             mainWindow?.webContents.send('open-sample-lorenz');
-          }
-        },
-        {
-          label: 'Interactive Lorenz',
-          click: () => {
-            mainWindow?.webContents.send('open-sample-interactive-lorenz');
           }
         }
       ]
@@ -243,7 +238,7 @@ export function enableDisableMainMenu(enable: boolean): void {
       label: 'Home Page',
       click: () => {
         electron.shell.openExternal('https://opencor.ws/').catch((error: unknown) => {
-          console.error('Failed to open the home page:', error);
+          console.error('Failed to open the home page:', formatError(error));
         });
       }
     });
@@ -252,7 +247,7 @@ export function enableDisableMainMenu(enable: boolean): void {
       label: 'Report Issue',
       click: () => {
         electron.shell.openExternal('https://github.com/opencor/webapp/issues/new').catch((error: unknown) => {
-          console.error('Failed to report an issue:', error);
+          console.error('Failed to report an issue:', formatError(error));
         });
       }
     });
@@ -295,9 +290,9 @@ export function enableDisableMainMenu(enable: boolean): void {
 
     electron.Menu.setApplicationMenu(enable ? enabledMenu : disabledMenu);
   }
-}
+};
 
-export function enableDisableFileCloseAndCloseAllMenuItems(enable: boolean): void {
+export const enableDisableFileCloseAndCloseAllMenuItems = (enable: boolean): void => {
   if (enabledMenu) {
     hasFiles = enable;
 
@@ -309,11 +304,11 @@ export function enableDisableFileCloseAndCloseAllMenuItems(enable: boolean): voi
       fileCloseAllMenu.enabled = hasFiles;
     }
   }
-}
+};
 
-export function updateReopenMenu(filePaths: string[]): void {
+export const updateReopenMenu = (filePaths: string[]): void => {
   enabledMenu = null;
   recentFilePaths = filePaths;
 
   enableDisableMainMenu(true);
-}
+};

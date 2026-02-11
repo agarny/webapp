@@ -4,6 +4,7 @@ import { COPYRIGHT } from '../renderer/src/common/constants.ts';
 
 import { ApplicationWindow } from './ApplicationWindow.ts';
 import { electronConf, type IElectronConfState } from './index.ts';
+import { formatError } from '../renderer/src/common/common.ts';
 
 export class SplashScreenWindow extends ApplicationWindow {
   constructor() {
@@ -28,7 +29,7 @@ export class SplashScreenWindow extends ApplicationWindow {
     });
 
     this.loadFile('./src/main/assets/splashscreen.html').catch((error: unknown) => {
-      console.error('Failed to load splash screen:', error);
+      console.error('Failed to load splash screen:', formatError(error));
     });
 
     // Initialise our Web contents.

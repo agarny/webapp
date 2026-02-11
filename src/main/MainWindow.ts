@@ -2,10 +2,10 @@ import electron from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateCheckResult } from 'electron-updater';
 import path from 'node:path';
 
-import { isHttpUrl, type ISettings } from '../renderer/src/common/common.ts';
+import { formatError, isDataUrlOmexFileName, isHttpUrl, type ISettings } from '../renderer/src/common/common.ts';
 import { FULL_URI_SCHEME, LONG_DELAY, SHORT_DELAY } from '../renderer/src/common/constants.ts';
 import { isLinux, isMacOs, isPackaged, isWindows } from '../renderer/src/common/electron.ts';
-/*---OPENCOR--- Enable once our GitHub integration is fully ready.
+/* TODO: enable once our GitHub integration is fully ready.
 import { deleteGitHubAccessToken } from '../renderer/src/common/gitHubIntegration';
 */
 
@@ -18,7 +18,7 @@ import type { SplashScreenWindow } from './SplashScreenWindow.ts';
 autoUpdater.autoDownload = false;
 autoUpdater.logger = null;
 
-export function checkForUpdates(atStartup: boolean): void {
+export const checkForUpdates = (atStartup: boolean): void => {
   // Check for updates, if requested and if OpenCOR is packaged.
 
   if (isPackaged() && electronConf.get('settings.general.checkForUpdatesAtStartup')) {
@@ -34,79 +34,79 @@ export function checkForUpdates(atStartup: boolean): void {
         }
       })
       .catch((error: unknown) => {
-        MainWindow.instance?.webContents.send(
-          'update-check-error',
-          error instanceof Error ? error.message : String(error)
-        );
+        MainWindow.instance?.webContents.send('update-check-error', formatError(error));
       });
   }
-}
+};
 
 autoUpdater.on('download-progress', (info: ProgressInfo) => {
   MainWindow.instance?.webContents.send('update-download-progress', info.percent);
 });
 
-export function downloadAndInstallUpdate(): void {
+export const downloadAndInstallUpdate = (): void => {
   autoUpdater
     .downloadUpdate()
     .then(() => {
       MainWindow.instance?.webContents.send('update-downloaded');
     })
     .catch((error: unknown) => {
-      MainWindow.instance?.webContents.send(
-        'update-download-error',
-        error instanceof Error ? error.message : String(error)
-      );
+      MainWindow.instance?.webContents.send('update-download-error', formatError(error));
     });
-}
+};
 
-export function installUpdateAndRestart(): void {
+export const installUpdateAndRestart = (): void => {
   autoUpdater.quitAndInstall(true, true);
-}
+};
 
-export function loadSettings(): ISettings {
+export const loadSettings = (): ISettings => {
   return electronConf.get('settings');
-}
+};
 
-export function saveSettings(settings: ISettings): void {
+export const saveSettings = (settings: ISettings): void => {
   electronConf.set('settings', settings);
-}
+};
 
 let _resetAll = false;
 
-export function resetAll(): void {
+export const resetAll = (): void => {
   _resetAll = true;
 
-  /*---OPENCOR--- Enable once our GitHub integration is fully ready.
+  /* TODO: enable once our GitHub integration is fully ready.
   deleteGitHubAccessToken();
 */
 
   electron.app.relaunch();
   electron.app.quit();
-}
+};
 
 let recentFilePaths: string[] = [];
 
-export function clearRecentFiles(): void {
+export const clearRecentFiles = (): void => {
   recentFilePaths = [];
 
   updateReopenMenu(recentFilePaths);
-}
+};
 
-export function fileClosed(filePath: string): void {
+export const fileClosed = (filePath: string): void => {
+  // Make sure that the file is not a COMBINE archive that was opened using a data URL.
+
+  if (isDataUrlOmexFileName(filePath)) {
+    return;
+  }
+
   recentFilePaths.unshift(filePath);
   recentFilePaths = recentFilePaths.slice(0, 10);
 
   updateReopenMenu(recentFilePaths);
-}
+};
 
-export function fileIssue(filePath: string): void {
+export const fileIssue = (filePath: string): void => {
   recentFilePaths = recentFilePaths.filter((recentFilePath) => recentFilePath !== filePath);
 
   updateReopenMenu(recentFilePaths);
-}
+};
 
-export function fileOpened(filePath: string): void {
+export const fileOpened = (filePath: string): void => {
   recentFilePaths = recentFilePaths.filter((recentFilePath) => recentFilePath !== filePath);
 
   updateReopenMenu(recentFilePaths);
@@ -116,23 +116,23 @@ export function fileOpened(filePath: string): void {
   // are no more files to reopen.
 
   MainWindow.instance?.reopenFilePathsAndSelectFilePath();
-}
+};
 
 let openedFilePaths: string[] = [];
 
-export function filesOpened(filePaths: string[]): void {
+export const filesOpened = (filePaths: string[]): void => {
   openedFilePaths = filePaths;
 
   if (!filePaths.length) {
     selectedFilePath = null;
   }
-}
+};
 
 let selectedFilePath: string | null = null;
 
-export function fileSelected(filePath: string): void {
+export const fileSelected = (filePath: string): void => {
   selectedFilePath = filePath;
-}
+};
 
 export class MainWindow extends ApplicationWindow {
   // Properties.
@@ -272,9 +272,17 @@ export class MainWindow extends ApplicationWindow {
         electronConf.set('app.files.recent', recentFilePaths);
 
         // Opened files and selected file.
+        // Note: make sure that no data URL OMEX file is to be reopened or selected.
 
-        electronConf.set('app.files.opened', openedFilePaths);
-        electronConf.set('app.files.selected', selectedFilePath);
+        const actualOpenedFilePaths = openedFilePaths.filter((filePath) => !isDataUrlOmexFileName(filePath));
+        let actualSelectedFilePath = selectedFilePath;
+
+        if (selectedFilePath && isDataUrlOmexFileName(selectedFilePath)) {
+          actualSelectedFilePath = actualOpenedFilePaths[0] || null;
+        }
+
+        electronConf.set('app.files.opened', actualOpenedFilePaths);
+        electronConf.set('app.files.selected', actualSelectedFilePath);
       }
     });
 
@@ -291,7 +299,7 @@ export class MainWindow extends ApplicationWindow {
     // so that the OAuth flow can proceed.
 
     this.webContents.setWindowOpenHandler((details) => {
-      function isFirebaseOauthPopup(url: string): boolean {
+      const isFirebaseOauthPopup = (url: string): boolean => {
         try {
           const parsedUrl = new URL(url);
 
@@ -303,7 +311,7 @@ export class MainWindow extends ApplicationWindow {
         } catch {
           return false;
         }
-      }
+      };
 
       if (isFirebaseOauthPopup(details.url)) {
         return {
@@ -329,7 +337,7 @@ export class MainWindow extends ApplicationWindow {
 
       if (isHttpUrl(details.url)) {
         electron.shell.openExternal(details.url).catch((error: unknown) => {
-          console.error(`Failed to open external URL (${details.url}):`, error);
+          console.error(`Failed to open external URL (${details.url}):`, formatError(error));
         });
       } else {
         console.warn(`Blocked attempt to open unsupported URL (${details.url}).`);
@@ -343,7 +351,7 @@ export class MainWindow extends ApplicationWindow {
     // Load the renderer URL.
 
     this.loadURL(rendererUrl).catch((error: unknown) => {
-      console.error(`Failed to load URL (${rendererUrl}):`, error);
+      console.error(`Failed to load URL (${rendererUrl}):`, formatError(error));
     });
   }
 
@@ -428,7 +436,7 @@ export class MainWindow extends ApplicationWindow {
         this.enableDisableUi(true);
       })
       .catch((error: unknown) => {
-        console.error('Failed to open file(s):', error);
+        console.error('Failed to open file(s):', formatError(error));
 
         this.enableDisableUi(true);
       });

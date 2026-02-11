@@ -16,14 +16,14 @@ export const useTheme = vueusecore.createGlobalState(() => {
   const isDarkMode = vue.ref(!prefersColorScheme.matches);
   const _theme = vue.ref<Theme>('system');
 
-  function updateLightAndDarkModes(prefersColorScheme: MediaQueryList | MediaQueryListEvent) {
+  const updateLightAndDarkModes = (prefersColorScheme: MediaQueryList | MediaQueryListEvent) => {
     isLightMode.value = prefersColorScheme.matches;
     isDarkMode.value = !prefersColorScheme.matches;
-  }
+  };
 
-  function updateDocumentClasses() {
+  const updateDocumentClasses = () => {
     document.documentElement.classList.toggle('opencor-dark-mode', isDarkMode.value);
-  }
+  };
 
   prefersColorScheme.addEventListener('change', (event) => {
     if (_theme.value === 'system') {
@@ -32,11 +32,11 @@ export const useTheme = vueusecore.createGlobalState(() => {
     }
   });
 
-  function theme(): Theme {
+  const theme = (): Theme => {
     return _theme.value;
-  }
+  };
 
-  function setTheme(newTheme: Theme | undefined) {
+  const setTheme = (newTheme: Theme | undefined) => {
     _theme.value = newTheme ?? 'system';
 
     if (_theme.value === 'light') {
@@ -50,15 +50,15 @@ export const useTheme = vueusecore.createGlobalState(() => {
     }
 
     updateDocumentClasses();
-  }
+  };
 
-  function useLightMode(): boolean {
+  const useLightMode = (): boolean => {
     return isLightMode.value;
-  }
+  };
 
-  function useDarkMode(): boolean {
+  const useDarkMode = (): boolean => {
     return isDarkMode.value;
-  }
+  };
 
   return {
     theme,

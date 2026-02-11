@@ -16,15 +16,15 @@ const firebaseEnvVarMap = {
   measurementId: 'VITE_FIREBASE_MEASUREMENT_ID'
 } as const;
 
-export function missingFirebaseKeys(): string[] {
-  function missingFirebaseKey(firebaseValue: unknown): boolean {
+export const missingFirebaseKeys = (): string[] => {
+  const missingFirebaseKey = (firebaseValue: unknown): boolean => {
     return !firebaseValue;
-  }
+  };
 
   return (Object.entries(firebaseEnvVarMap) as Array<[keyof typeof firebaseEnvVarMap, string]>)
     .filter(([prop]) => missingFirebaseKey((firebaseConfig as Record<string, unknown>)[prop as string]))
     .map(([, envName]) => envName);
-}
+};
 
 interface IFirebaseConfig {
   apiKey: string;

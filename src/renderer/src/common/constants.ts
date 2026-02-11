@@ -1,6 +1,7 @@
 export const URI_SCHEME: string = 'opencor';
 export const FULL_URI_SCHEME: string = `${URI_SCHEME}://`;
 
+export const NO_DELAY: number = 0;
 export const SHORT_DELAY: number = 69;
 export const MEDIUM_DELAY: number = 169;
 export const LONG_DELAY: number = 369;

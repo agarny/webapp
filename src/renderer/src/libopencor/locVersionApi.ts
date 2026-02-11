@@ -4,14 +4,14 @@ import { _cppLocApi, _wasmLocApi } from './locApi.ts';
 
 // Some general methods.
 
-export function cppVersion(): boolean {
+export const cppVersion = (): boolean => {
   return electronApi !== undefined;
-}
+};
 
-export function wasmVersion(): boolean {
+export const wasmVersion = (): boolean => {
   return !cppVersion();
-}
+};
 
-export function version(): string {
+export const version = (): string => {
   return cppVersion() ? _cppLocApi.version() : _wasmLocApi.versionString();
-}
+};

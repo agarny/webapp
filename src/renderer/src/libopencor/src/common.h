@@ -19,4 +19,4 @@ std::string toString(const Napi::Value &pValue);
 
 napi_value issues(const Napi::CallbackInfo &pInfo, libOpenCOR::IssuePtrs pIssues);
 
-napi_value doublesToNapiArray(const Napi::Env &pEnv, const std::vector<double> &pDoubles);
+napi_value doublesToNapiFloat64Array(const Napi::Env &pEnv, const std::vector<double> &pDoubles);

@@ -8,3 +8,4 @@ There are two versions of OpenCOR:
 2. **OpenCOR's Web app:** a [Web app](https://en.wikipedia.org/wiki/Web_application) that can be run on a Web browser.
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/opencor/webapp)
+![Alt](https://repobeats.axiom.co/api/embed/d0a1f79856e596650302d182fea50cdccfed853a.svg "Repobeats analytics image")

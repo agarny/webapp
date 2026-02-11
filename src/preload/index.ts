@@ -88,10 +88,6 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
     electron.ipcRenderer.on('open-sample-lorenz', () => {
       callback();
     }),
-  onOpenSampleInteractiveLorenz: (callback: () => void) =>
-    electron.ipcRenderer.on('open-sample-interactive-lorenz', () => {
-      callback();
-    }),
   onClose: (callback: () => void) =>
     electron.ipcRenderer.on('close', () => {
       callback();
@@ -165,32 +161,41 @@ electron.contextBridge.exposeInMainWorld('locApi', {
   sedDocumentIssues: (documentId: number) => loc.sedDocumentIssues(documentId),
   sedDocumentModelCount: (documentId: number) => loc.sedDocumentModelCount(documentId),
   sedDocumentSimulationCount: (documentId: number) => loc.sedDocumentSimulationCount(documentId),
-  sedDocumentModelAddChange: (
+  sedDocumentSimulationType: (documentId: number, index: number) => loc.sedDocumentSimulationType(documentId, index),
+  sedDocumentSerialise: (documentId: number) => loc.sedDocumentSerialise(documentId),
+  sedModelFilePath: (documentId: number, index: number) => loc.sedModelFilePath(documentId, index),
+  sedModelAddChange: (
     documentId: number,
     index: number,
     componentName: string,
     variableName: string,
     newValue: string
-  ) => loc.sedDocumentModelAddChange(documentId, index, componentName, variableName, newValue),
-  sedDocumentModelRemoveAllChanges: (documentId: number, index: number) =>
-    loc.sedDocumentModelRemoveAllChanges(documentId, index),
-  sedDocumentSimulationType: (documentId: number, index: number) => loc.sedDocumentSimulationType(documentId, index),
-  sedDocumentSimulationOneStepStep: (documentId: number, index: number) =>
-    loc.sedDocumentSimulationOneStepStep(documentId, index),
-  sedDocumentSimulationUniformTimeCourseInitialTime: (documentId: number, index: number) =>
-    loc.sedDocumentSimulationUniformTimeCourseInitialTime(documentId, index),
-  sedDocumentSimulationUniformTimeCourseOutputStartTime: (documentId: number, index: number) =>
-    loc.sedDocumentSimulationUniformTimeCourseOutputStartTime(documentId, index),
-  sedDocumentSimulationUniformTimeCourseSetOutputStartTime: (documentId: number, index: number, value: number) =>
-    loc.sedDocumentSimulationUniformTimeCourseSetOutputStartTime(documentId, index, value),
-  sedDocumentSimulationUniformTimeCourseOutputEndTime: (documentId: number, index: number) =>
-    loc.sedDocumentSimulationUniformTimeCourseOutputEndTime(documentId, index),
-  sedDocumentSimulationUniformTimeCourseSetOutputEndTime: (documentId: number, index: number, value: number) =>
-    loc.sedDocumentSimulationUniformTimeCourseSetOutputEndTime(documentId, index, value),
-  sedDocumentSimulationUniformTimeCourseNumberOfSteps: (documentId: number, index: number) =>
-    loc.sedDocumentSimulationUniformTimeCourseNumberOfSteps(documentId, index),
-  sedDocumentSimulationUniformTimeCourseSetNumberOfSteps: (documentId: number, index: number, value: number) =>
-    loc.sedDocumentSimulationUniformTimeCourseSetNumberOfSteps(documentId, index, value),
+  ) => loc.sedModelAddChange(documentId, index, componentName, variableName, newValue),
+  sedModelRemoveAllChanges: (documentId: number, index: number) => loc.sedModelRemoveAllChanges(documentId, index),
+  sedOneStepStep: (documentId: number, index: number) => loc.sedOneStepStep(documentId, index),
+  sedUniformTimeCourseInitialTime: (documentId: number, index: number) =>
+    loc.sedUniformTimeCourseInitialTime(documentId, index),
+  sedUniformTimeCourseSetInitialTime: (documentId: number, index: number, value: number) =>
+    loc.sedUniformTimeCourseSetInitialTime(documentId, index, value),
+  sedUniformTimeCourseOutputStartTime: (documentId: number, index: number) =>
+    loc.sedUniformTimeCourseOutputStartTime(documentId, index),
+  sedUniformTimeCourseSetOutputStartTime: (documentId: number, index: number, value: number) =>
+    loc.sedUniformTimeCourseSetOutputStartTime(documentId, index, value),
+  sedUniformTimeCourseOutputEndTime: (documentId: number, index: number) =>
+    loc.sedUniformTimeCourseOutputEndTime(documentId, index),
+  sedUniformTimeCourseSetOutputEndTime: (documentId: number, index: number, value: number) =>
+    loc.sedUniformTimeCourseSetOutputEndTime(documentId, index, value),
+  sedUniformTimeCourseNumberOfSteps: (documentId: number, index: number) =>
+    loc.sedUniformTimeCourseNumberOfSteps(documentId, index),
+  sedUniformTimeCourseSetNumberOfSteps: (documentId: number, index: number, value: number) =>
+    loc.sedUniformTimeCourseSetNumberOfSteps(documentId, index, value),
+
+  // SolverCvode API.
+  // TODO: this is only temporary until we have full support for our different solvers.
+
+  solverCvodeMaximumStep: (documentId: number, index: number) => loc.solverCvodeMaximumStep(documentId, index),
+  solverCvodeSetMaximumStep: (documentId: number, index: number, value: number) =>
+    loc.solverCvodeSetMaximumStep(documentId, index, value),
 
   // SedInstance API.
 

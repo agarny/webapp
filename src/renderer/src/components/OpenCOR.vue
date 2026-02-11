@@ -11,17 +11,18 @@
       :group="toastId"
       :pt:root:style="{ position: 'absolute' }"
     />
-    <BackgroundComponent v-show="(loadingOpencorMessageVisible || loadingModelMessageVisible) && omex" />
-    <BlockingMessageComponent message="Loading OpenCOR..." v-show="loadingOpencorMessageVisible" />
-    <BlockingMessageComponent message="Loading model..." v-show="loadingModelMessageVisible" />
-    <IssuesView v-if="issues.length" class="h-full" :issues="issues" />
+    <BackgroundComponent v-show="compBackgroundVisible" />
+    <BlockingMessageComponent v-show="loadingOpencorMessageVisible" message="Loading OpenCOR..." />
+    <BlockingMessageComponent v-show="loadingModelMessageVisible" message="Loading model..." />
+    <BlockingMessageComponent v-show="progressMessageVisible" :message="progressMessageMessage" :progress="progressMessageProgress" />
+    <IssuesView v-if="issues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="issues" />
     <div v-else class="h-full flex flex-col"
       @dragenter="onDragEnter"
       @dragover.prevent
       @drop.prevent="onDrop"
       @dragleave="onDragLeave"
     >
-      <input ref="files" type="file" multiple style="display: none" @change="onChange" />
+      <input ref="files" type="file" multiple style="display: none;" @change="onChange" />
       <DragNDropComponent v-show="dragAndDropCounter" />
       <MainMenu :id="mainMenuId" v-if="!electronApi && !omex"
         :isActive="compIsActive"
@@ -31,15 +32,14 @@
         @open="onOpenMenu"
         @openRemote="onOpenRemoteMenu"
         @openSampleLorenz="onOpenSampleLorenzMenu"
-        @openSampleInteractiveLorenz="onOpenSampleInteractiveLorenzMenu"
         @close="onCloseMenu"
         @closeAll="onCloseAllMenu"
         @settings="onSettingsMenu"
       />
-      <!-- ---OPENCOR--- Enable once our GitHub integration is fully ready.
+      <!-- TODO: enable once our GitHub integration is fully ready.
       <div v-if="firebaseConfig && !omex">
         <div class="absolute top-1 right-1 z-999">
-          <Button icon="pi pi-github" severity="secondary" :class="octokit ? 'connected-to-github' : 'disconnected-from-github'" rounded @click="onGitHubButtonClick" />
+          <Button icon="pi pi-github" outlined severity="secondary" :class="octokit ? 'connected-to-github' : 'disconnected-from-github'" rounded @click="onGitHubButtonClick" />
         </div>
         <YesNoQuestionDialog
           v-model:visible="disconnectFromGitHubVisible"
@@ -54,6 +54,7 @@
         :isActive="compIsActive"
         :uiEnabled="compUiEnabled"
         :simulationOnly="!!omex"
+        @error="onError"
       />
       <OpenRemoteDialog
         v-model:visible="openRemoteVisible"
@@ -69,8 +70,11 @@
         @yes="onResetAll"
         @no="resetAllVisible = false"
       />
-      <AboutDialog v-model:visible="aboutVisible" @close="aboutVisible = false" />
-      <!-- <CellDLEditorWidget /> -->
+      <AboutDialog
+        v-model:visible="aboutVisible"
+        @close="aboutVisible = false"
+      />
+      <CellDLEditorWidget />
     </div>
     <OkMessageDialog
       v-model:visible="updateErrorVisible"
@@ -99,7 +103,7 @@
 import primeVueAuraTheme from '@primeuix/themes/aura';
 import * as vueusecore from '@vueuse/core';
 
-/*---OPENCOR--- Enable once our GitHub integration is fully ready.
+/* TODO: enable once our GitHub integration is fully ready.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import { Octokit } from 'octokit';
@@ -118,15 +122,20 @@ import '../assets/app.css';
 import * as common from '../common/common.ts';
 import { FULL_URI_SCHEME, SHORT_DELAY, TOAST_LIFE } from '../common/constants.ts';
 import { electronApi } from '../common/electronApi.ts';
-/*---OPENCOR--- Enable once our GitHub integration is fully ready.
+/* TODO: enable once our GitHub integration is fully ready.
 import firebaseConfig, { missingFirebaseKeys } from '../common/firebaseConfig';
 */
 import * as locCommon from '../common/locCommon.ts';
+import * as version from '../common/version.ts';
 import * as vueCommon from '../common/vueCommon.ts';
 import type IContentsComponent from '../components/ContentsComponent.vue';
 import * as locApi from '../libopencor/locApi.ts';
 
+import { provideDialogState } from './dialogs/BaseDialog.vue';
+
 const props = defineProps<IOpenCORProps>();
+
+const { isDialogActive } = provideDialogState();
 
 const blockUi = vue.ref<vue.ComponentPublicInstance | null>(null);
 const toastId = vue.ref('opencorToast');
@@ -136,15 +145,15 @@ const contents = vue.ref<InstanceType<typeof IContentsComponent> | null>(null);
 const issues = vue.ref<locApi.IIssue[]>([]);
 const activeInstanceUid = vueCommon.activeInstanceUid();
 const connectingToGitHub = vue.ref<boolean>(false);
-/*---OPENCOR--- Enable once our GitHub integration is fully ready.
+/* TODO: enable once our GitHub integration is fully ready.
 const octokit = vue.ref<Octokit | null>(null);
 */
 
 // Keep track of which instance of OpenCOR is currently active.
 
-function activateInstance(): void {
+const activateInstance = (): void => {
   activeInstanceUid.value = String(crtInstance?.uid);
-}
+};
 
 const compIsActive = vue.computed(() => {
   return activeInstanceUid.value === String(crtInstance?.uid);
@@ -160,24 +169,46 @@ const compBlockUiEnabled = vue.computed(() => {
     !electronUiEnabled.value ||
     loadingOpencorMessageVisible.value ||
     loadingModelMessageVisible.value ||
+    progressMessageVisible.value ||
     connectingToGitHub.value
   );
 });
 
 const compUiEnabled = vue.computed(() => {
-  return (
-    !compBlockUiEnabled.value &&
-    !disconnectFromGitHubVisible.value &&
-    !openRemoteVisible.value &&
-    !settingsVisible.value &&
-    !resetAllVisible.value &&
-    !aboutVisible.value &&
-    !updateErrorVisible.value &&
-    !updateAvailableVisible.value &&
-    !updateDownloadProgressVisible.value &&
-    !updateNotAvailableVisible.value
-  );
+  return !compBlockUiEnabled.value && !isDialogActive.value;
 });
+
+// Provide access to our progress message features.
+
+export interface IProgressMessage {
+  show: (message: string) => void;
+  update: (percent: number) => void;
+  hide: () => void;
+}
+
+const show = (message: string): void => {
+  progressMessageMessage.value = message;
+  progressMessageProgress.value = 0;
+  progressMessageVisible.value = true;
+};
+
+const update = (percent: number): void => {
+  progressMessageProgress.value = percent;
+};
+
+const hide = (): void => {
+  progressMessageVisible.value = false;
+};
+
+vue.provide('progressMessage', {
+  show,
+  update,
+  hide
+});
+
+const progressMessageVisible = vue.ref<boolean>(false);
+const progressMessageMessage = vue.ref<string>('');
+const progressMessageProgress = vue.ref<number>(0);
 
 // Get the current Vue app instance to use some PrimeVue plugins and VueTippy.
 
@@ -217,7 +248,14 @@ const toast = useToast();
 //       OpenCOR's Web app.
 
 const locApiInitialised = vue.ref(false);
+const compBackgroundVisible = vue.computed(() => {
+  return (
+    (loadingOpencorMessageVisible.value || loadingModelMessageVisible.value || progressMessageVisible.value) &&
+    !!props.omex
+  );
+});
 const loadingOpencorMessageVisible = vue.ref<boolean>(false);
+const loadingModelMessageVisible = vue.ref<boolean>(false);
 
 // @ts-expect-error (window.locApi may or may not be defined which is why we test it)
 if (!window.locApi) {
@@ -226,6 +264,10 @@ if (!window.locApi) {
   vue.watch(locApiInitialised, (newLocApiInitialised: boolean) => {
     if (newLocApiInitialised) {
       loadingOpencorMessageVisible.value = false;
+
+      // We are now officially loaded, so start checking for a newer version of OpenCOR.
+
+      version.startCheck();
     }
   });
 }
@@ -234,7 +276,7 @@ void locApi.initialiseLocApi().then(() => {
   locApiInitialised.value = true;
 });
 
-/*---OPENCOR--- Enable once our GitHub integration is fully ready.
+/* TODO: enable once our GitHub integration is fully ready.
 // Initialise Firebase.
 // Note: we check whether a Firebase app is already initialised to avoid issues when hot-reloading during development
 //       and/or using OpenCOR as a Vue component within another application that also uses Firebase.
@@ -271,10 +313,10 @@ electronApi?.onAction((action: string) => {
   handleAction(action);
 });
 
-function handleAction(action: string): void {
-  function isAction(actionName: string, expectedActionName: string): boolean {
+const handleAction = (action: string): void => {
+  const isAction = (actionName: string, expectedActionName: string): boolean => {
     return actionName.localeCompare(expectedActionName, undefined, { sensitivity: 'base' }) === 0;
-  }
+  };
 
   const index = action.indexOf('/');
   const actionName = index !== -1 ? action.substring(0, index) : action;
@@ -304,7 +346,7 @@ function handleAction(action: string): void {
       });
     }
   }
-}
+};
 
 // Enable/disable the UI from Electron.
 
@@ -324,18 +366,6 @@ vue.watch(hasFiles, (newHasFiles: boolean) => {
   electronApi?.enableDisableFileCloseAndCloseAllMenuItems(newHasFiles);
 });
 
-// Loading model.
-
-const loadingModelMessageVisible = vue.ref<boolean>(false);
-
-function showLoadingModelMessage(): void {
-  loadingModelMessageVisible.value = true;
-}
-
-function hideLoadingModelMessage(): void {
-  loadingModelMessageVisible.value = false;
-}
-
 // Auto update.
 
 electronApi?.onCheckForUpdates(() => {
@@ -346,10 +376,10 @@ const updateErrorVisible = vue.ref<boolean>(false);
 const updateErrorTitle = vue.ref<string>('');
 const updateErrorIssue = vue.ref<string>('');
 
-function onUpdateErrorDialogClose(): void {
+const onUpdateErrorDialogClose = (): void => {
   updateErrorVisible.value = false;
   updateDownloadProgressVisible.value = false;
-}
+};
 
 const updateAvailableVisible = vue.ref<boolean>(false);
 const updateDownloadProgressVisible = vue.ref<boolean>(false);
@@ -361,13 +391,13 @@ electronApi?.onUpdateAvailable((version: string) => {
   updateVersion.value = version;
 });
 
-function onDownloadAndInstall(): void {
+const onDownloadAndInstall = (): void => {
   updateDownloadPercent.value = 0; // Just to be on the safe side.
   updateDownloadProgressVisible.value = true;
   updateAvailableVisible.value = false;
 
   electronApi?.downloadAndInstallUpdate();
-}
+};
 
 electronApi?.onUpdateDownloadError((issue: string) => {
   updateErrorTitle.value = 'Downloading Update...';
@@ -397,6 +427,18 @@ electronApi?.onUpdateCheckError((issue: string) => {
   updateErrorVisible.value = true;
 });
 
+// Handle errors.
+
+const onError = (message: string): void => {
+  toast.add({
+    severity: 'error',
+    group: toastId.value,
+    summary: 'Error',
+    detail: message,
+    life: TOAST_LIFE
+  });
+};
+
 // About dialog.
 
 const aboutVisible = vue.ref<boolean>(false);
@@ -405,13 +447,13 @@ electronApi?.onAbout(() => {
   onAboutMenu();
 });
 
-function onAboutMenu(): void {
+const onAboutMenu = (): void => {
   if (props.omex) {
     return;
   }
 
   aboutVisible.value = true;
-}
+};
 
 // Settings dialog.
 
@@ -421,51 +463,136 @@ electronApi?.onSettings(() => {
   onSettingsMenu();
 });
 
-function onSettingsMenu(): void {
+const onSettingsMenu = (): void => {
   if (props.omex) {
     return;
   }
 
   settingsVisible.value = true;
-}
+};
 
 // Open a file.
 
-function openFile(fileFilePathOrFileContents: string | Uint8Array | File): void {
-  // Check whether the file is already open and if so then select it.
+let globalOmexDataUrlCounter = 0;
 
-  const filePath = locCommon.filePath(fileFilePathOrFileContents);
+const openFile = (fileFilePathOrFileContents: string | Uint8Array | File): void => {
+  // Check whether we were passed a ZIP-CellML data URL.
 
-  if (contents.value?.hasFile(filePath) ?? false) {
-    contents.value?.selectFile(filePath);
+  let cellmlDataUrlFileName: string = '';
+  let omexDataUrlCounter: number = 0;
 
-    return;
-  }
+  locCommon.zipCellmlDataUrl(fileFilePathOrFileContents).then((zipCellmlDataUriInfo: locCommon.IDataUriInfo) => {
+    if (zipCellmlDataUriInfo.res) {
+      if (zipCellmlDataUriInfo.error) {
+        toast.add({
+          severity: 'error',
+          group: toastId.value,
+          summary: 'Opening a file',
+          detail: zipCellmlDataUriInfo.error,
+          life: TOAST_LIFE
+        });
 
-  // Retrieve a locApi.File object for the given file or file path and add it to the contents.
+        return;
+      }
 
-  if (locCommon.isRemoteFilePath(filePath)) {
-    showLoadingModelMessage();
-  }
+      cellmlDataUrlFileName = zipCellmlDataUriInfo.fileName as string;
+      fileFilePathOrFileContents = zipCellmlDataUriInfo.data as Uint8Array;
+    } else {
+      // Check whether we were passed a COMBINE archive data URL.
 
-  locCommon
-    .file(fileFilePathOrFileContents)
-    .then((file) => {
-      const fileType = file.type();
+      const combineArchiveDataUriInfo = locCommon.combineArchiveDataUrl(fileFilePathOrFileContents);
 
-      if (
-        fileType === locApi.EFileType.IRRETRIEVABLE_FILE ||
-        fileType === locApi.EFileType.UNKNOWN_FILE ||
-        (props.omex && fileType !== locApi.EFileType.COMBINE_ARCHIVE)
-      ) {
+      if (combineArchiveDataUriInfo.res) {
+        if (combineArchiveDataUriInfo.error) {
+          toast.add({
+            severity: 'error',
+            group: toastId.value,
+            summary: 'Opening a file',
+            detail: combineArchiveDataUriInfo.error,
+            life: TOAST_LIFE
+          });
+
+          return;
+        }
+
+        omexDataUrlCounter = ++globalOmexDataUrlCounter;
+        fileFilePathOrFileContents = combineArchiveDataUriInfo.data as Uint8Array;
+      }
+    }
+
+    // Check whether the file is already open and if so then select it.
+
+    const filePath = locCommon.filePath(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter);
+
+    if (contents.value?.hasFile(filePath) ?? false) {
+      contents.value?.selectFile(filePath);
+
+      return;
+    }
+
+    // Retrieve a locApi.File object for the given file or file path and add it to the contents.
+
+    if (locCommon.isRemoteFilePath(filePath)) {
+      loadingModelMessageVisible.value = true;
+    }
+
+    locCommon
+      .file(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter)
+      .then((file) => {
+        const fileType = file.type();
+
+        if (
+          fileType === locApi.EFileType.IRRETRIEVABLE_FILE ||
+          fileType === locApi.EFileType.UNKNOWN_FILE ||
+          fileType === locApi.EFileType.SEDML_FILE ||
+          (props.omex && fileType !== locApi.EFileType.COMBINE_ARCHIVE)
+        ) {
+          if (props.omex) {
+            void vue.nextTick(() => {
+              issues.value.push({
+                type: locApi.EIssueType.ERROR,
+                description:
+                  fileType === locApi.EFileType.IRRETRIEVABLE_FILE
+                    ? 'The file could not be retrieved.'
+                    : 'Only COMBINE archives are supported.'
+              });
+            });
+          } else {
+            toast.add({
+              severity: 'error',
+              group: toastId.value,
+              summary: 'Opening a file',
+              detail:
+                filePath +
+                '\n\n' +
+                (fileType === locApi.EFileType.IRRETRIEVABLE_FILE
+                  ? 'The file could not be retrieved.'
+                  : fileType === locApi.EFileType.SEDML_FILE
+                    ? 'SED-ML files are not currently supported.'
+                    : 'Only CellML files and COMBINE archives are supported.'),
+              life: TOAST_LIFE
+            });
+          }
+
+          electronApi?.fileIssue(filePath);
+        } else {
+          contents.value?.openFile(file);
+        }
+
+        if (locCommon.isRemoteFilePath(filePath)) {
+          loadingModelMessageVisible.value = false;
+        }
+      })
+      .catch((error: unknown) => {
+        if (locCommon.isRemoteFilePath(filePath)) {
+          loadingModelMessageVisible.value = false;
+        }
+
         if (props.omex) {
           void vue.nextTick(() => {
             issues.value.push({
               type: locApi.EIssueType.ERROR,
-              description:
-                fileType === locApi.EFileType.IRRETRIEVABLE_FILE
-                  ? 'The file could not be retrieved.'
-                  : 'Only COMBINE archives are supported.'
+              description: common.formatMessage(common.formatError(error))
             });
           });
         } else {
@@ -473,76 +600,48 @@ function openFile(fileFilePathOrFileContents: string | Uint8Array | File): void 
             severity: 'error',
             group: toastId.value,
             summary: 'Opening a file',
-            detail:
-              filePath +
-              '\n\n' +
-              (fileType === locApi.EFileType.IRRETRIEVABLE_FILE
-                ? 'The file could not be retrieved.'
-                : 'Only CellML files, SED-ML files, and COMBINE archives are supported.'),
+            detail: `${filePath}\n\n${common.formatMessage(common.formatError(error))}`,
             life: TOAST_LIFE
           });
         }
 
         electronApi?.fileIssue(filePath);
-      } else {
-        contents.value?.openFile(file);
-      }
-
-      if (locCommon.isRemoteFilePath(filePath)) {
-        hideLoadingModelMessage();
-      }
-    })
-    .catch((error: unknown) => {
-      if (locCommon.isRemoteFilePath(filePath)) {
-        hideLoadingModelMessage();
-      }
-
-      if (props.omex) {
-        void vue.nextTick(() => {
-          issues.value.push({
-            type: locApi.EIssueType.ERROR,
-            description: common.formatMessage(error instanceof Error ? error.message : String(error))
-          });
-        });
-      } else {
-        toast.add({
-          severity: 'error',
-          group: toastId.value,
-          summary: 'Opening a file',
-          detail: `${filePath}\n\n${common.formatMessage(error instanceof Error ? error.message : String(error))}`,
-          life: TOAST_LIFE
-        });
-      }
-
-      electronApi?.fileIssue(filePath);
-    });
-}
+      });
+  });
+};
 
 // Open file(s) dialog.
 
-function onChange(event: Event): void {
-  const files = (event.target as HTMLInputElement).files;
+const onChange = (event: Event): void => {
+  // Open the selected file(s).
 
-  if (files) {
-    for (const file of Array.from(files)) {
+  const input = event.target as HTMLInputElement;
+
+  if (input.files) {
+    for (const file of input.files) {
       openFile(file);
     }
   }
-}
+
+  // Reset the input.
+  // Note: this is needed to ensure that selecting the same file(s) again will trigger the change event.
+
+  input.value = '';
+};
 
 // Drag and drop.
 
 const dragAndDropCounter = vue.ref<number>(0);
 
-function onDragEnter(): void {
+const onDragEnter = (): void => {
   if (!compUiEnabled.value || props.omex) {
     return;
   }
 
   dragAndDropCounter.value += 1;
-}
+};
 
-function onDrop(event: DragEvent): void {
+const onDrop = (event: DragEvent): void => {
   if (!dragAndDropCounter.value) {
     return;
   }
@@ -556,15 +655,15 @@ function onDrop(event: DragEvent): void {
       openFile(file);
     }
   }
-}
+};
 
-function onDragLeave(): void {
+const onDragLeave = (): void => {
   if (!dragAndDropCounter.value) {
     return;
   }
 
   dragAndDropCounter.value -= 1;
-}
+};
 
 // Open.
 
@@ -572,13 +671,13 @@ electronApi?.onOpen((filePath: string) => {
   openFile(filePath);
 });
 
-function onOpenMenu(): void {
+const onOpenMenu = (): void => {
   if (props.omex) {
     return;
   }
 
   files.value?.click();
-}
+};
 
 // Open remote.
 
@@ -588,22 +687,22 @@ electronApi?.onOpenRemote(() => {
   openRemoteVisible.value = true;
 });
 
-function onOpenRemoteMenu(): void {
+const onOpenRemoteMenu = (): void => {
   if (props.omex) {
     return;
   }
 
   openRemoteVisible.value = true;
-}
+};
 
-function onOpenRemote(url: string): void {
+const onOpenRemote = (url: string): void => {
   // Note: no matter whether this is OpenCOR or OpenCOR's Web app, we always retrieve the file contents of a remote
   //       file. We could, in OpenCOR, rely on libOpenCOR to retrieve it for us, but this would block the UI. To
   //       retrieve the file here means that it is done asynchronously, which in turn means that the UI is not blocked
   //       and that we can show a spinning wheel to indicate that something is happening.
 
   openFile(url);
-}
+};
 
 // Open sample Lorenz.
 
@@ -611,27 +710,13 @@ electronApi?.onOpenSampleLorenz(() => {
   onOpenSampleLorenzMenu();
 });
 
-function onOpenSampleLorenzMenu(): void {
-  if (props.omex) {
-    return;
-  }
-
-  openFile('https://github.com/opencor/webapp/raw/refs/heads/main/tests/models/lorenz.omex');
-}
-
-// Open sample interactive Lorenz.
-
-electronApi?.onOpenSampleInteractiveLorenz(() => {
-  onOpenSampleInteractiveLorenzMenu();
-});
-
-function onOpenSampleInteractiveLorenzMenu(): void {
+const onOpenSampleLorenzMenu = (): void => {
   if (props.omex) {
     return;
   }
 
   openFile('https://github.com/opencor/webapp/raw/refs/heads/main/tests/models/ui/lorenz.omex');
-}
+};
 
 // Close.
 
@@ -639,13 +724,13 @@ electronApi?.onClose(() => {
   onCloseMenu();
 });
 
-function onCloseMenu(): void {
+const onCloseMenu = (): void => {
   if (props.omex) {
     return;
   }
 
   contents.value?.closeCurrentFile();
-}
+};
 
 // Close all.
 
@@ -653,13 +738,13 @@ electronApi?.onCloseAll(() => {
   onCloseAllMenu();
 });
 
-function onCloseAllMenu(): void {
+const onCloseAllMenu = (): void => {
   if (props.omex) {
     return;
   }
 
   contents.value?.closeAllFiles();
-}
+};
 
 // Reset all.
 
@@ -669,9 +754,9 @@ electronApi?.onResetAll(() => {
   resetAllVisible.value = true;
 });
 
-function onResetAll(): void {
+const onResetAll = (): void => {
   electronApi?.resetAll();
-}
+};
 
 // Select.
 
@@ -736,11 +821,40 @@ if (props.omex) {
             const action = vueusecore.useStorage('action', '');
 
             if (window.location.search) {
+              // Retrieve the action from the URL.
+
               action.value = window.location.search.substring(1);
 
-              window.location.search = '';
+              if (window.location.hash) {
+                action.value += window.location.hash;
+              }
+
+              // Ensure that the URL is cleaned up.
+
+              window.history.replaceState({}, document.title, window.location.pathname);
+
+              // Force a reload to complete the two-phase action handling:
+              //  1) On the first load, we extract the action from the URL and store it in localStorage.
+              //  2) After we have reloaded (with a clean URL), the `else if (action.value)` branch below reads and
+              //     processes the stored action.
+
+              window.location.reload();
             } else if (action.value) {
               setTimeout(() => {
+                if (!action.value.startsWith(FULL_URI_SCHEME)) {
+                  toast.add({
+                    severity: 'error',
+                    group: toastId.value,
+                    summary: 'Handling an action',
+                    detail: `${action.value}\n\nThe action could not be handled.`,
+                    life: TOAST_LIFE
+                  });
+
+                  action.value = '';
+
+                  return;
+                }
+
                 handleAction(action.value.slice(FULL_URI_SCHEME.length));
 
                 action.value = '';
@@ -773,7 +887,7 @@ vue.watch(compBlockUiEnabled, (newCompBlockUiEnabled: boolean) => {
 
 const disconnectFromGitHubVisible = vue.ref<boolean>(false);
 
-async function deleteGitHubAccessToken(silent: boolean = false): Promise<void> {
+const deleteGitHubAccessToken = async (silent: boolean = false): Promise<void> => {
   if (!electronApi) {
     return;
   }
@@ -788,15 +902,15 @@ async function deleteGitHubAccessToken(silent: boolean = false): Promise<void> {
         severity: 'warn',
         group: toastId.value,
         summary: 'Removing GitHub access token',
-        detail: common.formatMessage(error instanceof Error ? error.message : String(error)),
+        detail: common.formatMessage(common.formatError(error)),
         life: TOAST_LIFE
       });
     }
   }
-}
+};
 
-/*---OPENCOR--- Enable once our GitHub integration is fully ready.
-async function loadGitHubAccessToken(): Promise<void> {
+/* TODO: enable once our GitHub integration is fully ready.
+const loadGitHubAccessToken = async (): Promise<void> => {
   if (!electronApi || props.omex || !firebaseConfig) {
     return;
   }
@@ -826,9 +940,9 @@ async function loadGitHubAccessToken(): Promise<void> {
   } finally {
     connectingToGitHub.value = false;
   }
-}
+};
 
-async function saveGitHubAccessToken(accessToken: string): Promise<void> {
+const saveGitHubAccessToken = async (accessToken: string): Promise<void> => {
   if (!electronApi) {
     return;
   }
@@ -850,13 +964,13 @@ async function saveGitHubAccessToken(accessToken: string): Promise<void> {
       severity: 'warn',
       group: toastId.value,
       summary: 'Remembering GitHub access token',
-      detail: common.formatMessage(error instanceof Error ? error.message : String(error)),
+      detail: common.formatMessage(common.formatError(error)),
       life: TOAST_LIFE
     });
   }
-}
+};
 
-async function checkGitHubAccessToken(accessToken: string): Promise<void> {
+const checkGitHubAccessToken = async (accessToken: string): Promise<void> => {
   const client = new Octokit({ auth: accessToken });
   const user = await client.rest.users.getAuthenticated();
 
@@ -877,9 +991,9 @@ async function checkGitHubAccessToken(accessToken: string): Promise<void> {
   } catch (error: unknown) {
     console.warn(`Failed to retrieve repositories for user ${user.data.login}:`, error);
   }
-}
+};
 
-async function onDisconnectFromGitHub(): Promise<void> {
+const onDisconnectFromGitHub = async (): Promise<void> => {
   try {
     await firebase.auth().signOut();
 
@@ -895,15 +1009,15 @@ async function onDisconnectFromGitHub(): Promise<void> {
       severity: 'error',
       group: toastId.value,
       summary: 'GitHub sign-out',
-      detail: common.formatMessage(error instanceof Error ? error.message : String(error)),
+      detail: common.formatMessage(common.formatError(error)),
       life: TOAST_LIFE
     });
   } finally {
     disconnectFromGitHubVisible.value = false;
   }
-}
+};
 
-async function onGitHubButtonClick(): Promise<void> {
+const onGitHubButtonClick = async (): Promise<void> => {
   if (octokit.value) {
     disconnectFromGitHubVisible.value = true;
 
@@ -938,7 +1052,7 @@ async function onGitHubButtonClick(): Promise<void> {
       severity: 'error',
       group: toastId.value,
       summary: 'GitHub sign-in',
-      detail: common.formatMessage(error instanceof Error ? error.message : String(error)),
+      detail: common.formatMessage(common.formatError(error)),
       life: TOAST_LIFE
     });
   } finally {

@@ -2,7 +2,7 @@ import { AsyncEntry } from '@napi-rs/keyring';
 
 import electron from 'electron';
 
-export async function clearGitHubCache(): Promise<void> {
+export const clearGitHubCache = async (): Promise<void> => {
   await Promise.all(
     ['https://github.com', 'https://api.github.com', 'https://opencorapp.firebaseapp.com'].map(async (origin) => {
       try {
@@ -12,11 +12,11 @@ export async function clearGitHubCache(): Promise<void> {
       }
     })
   );
-}
+};
 
 let storeAvailable = true;
 
-function gitHubAccessTokenError(operation: string, error: unknown): void {
+const gitHubAccessTokenError = (operation: string, error: unknown): void => {
   if (storeAvailable) {
     console.warn(
       `Failed to ${operation} the GitHub access token using the system credential store. Subsequent attempts will be skipped.`,
@@ -25,9 +25,9 @@ function gitHubAccessTokenError(operation: string, error: unknown): void {
   }
 
   storeAvailable = false;
-}
+};
 
-function gitHubAccessTokenEntry(): AsyncEntry | null {
+const gitHubAccessTokenEntry = (): AsyncEntry | null => {
   if (!storeAvailable) {
     return null;
   }
@@ -39,9 +39,9 @@ function gitHubAccessTokenEntry(): AsyncEntry | null {
 
     return null;
   }
-}
+};
 
-export async function deleteGitHubAccessToken(): Promise<boolean> {
+export const deleteGitHubAccessToken = async (): Promise<boolean> => {
   const entry = gitHubAccessTokenEntry();
 
   if (!entry) {
@@ -55,9 +55,9 @@ export async function deleteGitHubAccessToken(): Promise<boolean> {
 
     return false;
   }
-}
+};
 
-export async function loadGitHubAccessToken(): Promise<string | null> {
+export const loadGitHubAccessToken = async (): Promise<string | null> => {
   const entry = gitHubAccessTokenEntry();
 
   if (!entry) {
@@ -73,9 +73,9 @@ export async function loadGitHubAccessToken(): Promise<string | null> {
 
     return null;
   }
-}
+};
 
-export async function saveGitHubAccessToken(token: string): Promise<boolean> {
+export const saveGitHubAccessToken = async (token: string): Promise<boolean> => {
   if (!token.trim()) {
     console.warn('Ignoring request to store an empty GitHub access token.');
 
@@ -97,4 +97,4 @@ export async function saveGitHubAccessToken(token: string): Promise<boolean> {
 
     return false;
   }
-}
+};

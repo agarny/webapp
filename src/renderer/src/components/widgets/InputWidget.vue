@@ -13,25 +13,15 @@
     </FloatLabel>
   </div>
   <div v-else>
-    <FloatLabel variant="on">
-      <InputText
-        v-model="scalarValueString"
-        v-keyfilter="{ pattern: /^[+-]?(\d*(\.\d*)?|\.d*)([eE][+-]?\d*)?$/, validateOnly: true }"
-        v-on:focusout="inputTextFocusOut"
-        v-on:keypress="inputTextKeyPress"
-        class="w-full"
-        size="small"
-      />
-      <label>{{ name }}</label>
-    </FloatLabel>
-    <Slider
-      v-model="scalarValue"
-      :min="minimumValue"
-      :max="maximumValue"
-      :step="stepValue"
-      @change="sliderChange"
-      class="w-full mt-3"
+    <InputScientificNumber v-model="value"
+      :label="name"
       size="small"
+      @update:model-value="inputTextValueUpdated"
+    />
+    <Slider v-model="value" class="w-full mt-3"
+      :min="minimumValue" :max="maximumValue" :step="compStepValue"
+      size="small"
+      @change="sliderChange"
     />
   </div>
 </template>
@@ -55,25 +45,41 @@ let oldValue = value.value;
 const discreteValue = vue.ref<locApi.IUiJsonDiscreteInputPossibleValue | undefined>(
   props.possibleValues?.find((possibleValue) => possibleValue.value === value.value)
 );
-const scalarValue = vue.ref<number>(value.value);
-const scalarValueString = vue.ref<string>(String(value.value));
+const compStepValue = vue.computed(() => {
+  if (props.stepValue !== undefined) {
+    return props.stepValue;
+  }
 
-// Some methods to handle a scalar value using an input text and a slider.
+  if (props.maximumValue !== undefined && props.minimumValue !== undefined) {
+    return 0.01 * (props.maximumValue - props.minimumValue);
+  }
 
-function emitChange(newValue: number) {
+  return 1;
+});
+
+vue.watch(
+  () => value.value,
+  (newValue) => {
+    oldValue = newValue;
+
+    if (props.possibleValues) {
+      discreteValue.value = props.possibleValues.find((pv) => pv.value === newValue);
+    }
+  },
+  { immediate: true }
+);
+
+// Some methods to handle a scalar value using an input component and a slider.
+
+const emitChange = (newValue: number) => {
   void vue.nextTick(() => {
     value.value = newValue;
-
-    if (!props.possibleValues) {
-      scalarValue.value = newValue;
-      scalarValueString.value = String(newValue); // This will properly format the input text.
-    }
 
     oldValue = newValue;
 
     emits('change', props.name, newValue);
   });
-}
+};
 
 interface ISelectChangeEvent {
   value: {
@@ -82,47 +88,33 @@ interface ISelectChangeEvent {
   };
 }
 
-function selectChange(event: ISelectChangeEvent) {
+const selectChange = (event: ISelectChangeEvent) => {
   if (event.value.value !== oldValue) {
     emitChange(event.value.value);
   }
-}
+};
 
-function inputTextChange(newValueString: string) {
-  if (!newValueString) {
-    newValueString = String(props.minimumValue);
-  }
-
-  if (props.minimumValue !== undefined && Number(newValueString) < props.minimumValue) {
-    newValueString = String(props.minimumValue);
-  }
-
-  if (props.maximumValue !== undefined && Number(newValueString) > props.maximumValue) {
-    newValueString = String(props.maximumValue);
-  }
-
-  const newValue = Number(newValueString);
-
+const inputTextValueUpdated = (newValue: number) => {
   if (newValue !== oldValue) {
-    emitChange(newValue);
+    let constrainedValue = newValue;
+
+    if (props.minimumValue !== undefined && constrainedValue < props.minimumValue) {
+      constrainedValue = props.minimumValue;
+    }
+
+    if (props.maximumValue !== undefined && constrainedValue > props.maximumValue) {
+      constrainedValue = props.maximumValue;
+    }
+
+    emitChange(constrainedValue);
   }
-}
+};
 
-function inputTextFocusOut(event: Event) {
-  inputTextChange((event.target as HTMLInputElement).value);
-}
-
-function inputTextKeyPress(event: KeyboardEvent) {
-  if (event.key === 'Enter') {
-    inputTextChange((event.target as HTMLInputElement).value);
-  }
-}
-
-function sliderChange(newValue: number | number[]) {
+const sliderChange = (newValue: number | number[]) => {
   const valueToEmit = Array.isArray(newValue) ? newValue[0] : newValue;
 
   if (valueToEmit !== undefined && valueToEmit !== oldValue) {
     emitChange(valueToEmit);
   }
-}
+};
 </script>

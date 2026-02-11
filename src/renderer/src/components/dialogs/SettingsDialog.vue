@@ -20,23 +20,23 @@ const emit = defineEmits<(event: 'close') => void>();
 
 const checkForUpdatesAtStartup = vue.ref(settings.general.checkForUpdatesAtStartup);
 
-function initialiseDialog() {
+const initialiseDialog = () => {
   // Note: we can come here as a result of hiding the dialog and this in case the dialog gets opened multiple times. We
   //       could do this when showing the dialog, but it might result in the UI flashing (e.g., a checkbox was checked
   //       and then it gets unchecked), hence we do it when hiding the dialog.
 
   checkForUpdatesAtStartup.value = settings.general.checkForUpdatesAtStartup;
-}
+};
 
 settings.onInitialised(() => {
   initialiseDialog();
 });
 
-function onOk() {
+const onOk = () => {
   settings.general.checkForUpdatesAtStartup = checkForUpdatesAtStartup.value;
 
   settings.save();
 
   emit('close');
-}
+};
 </script>

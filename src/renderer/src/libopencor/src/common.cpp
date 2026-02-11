@@ -57,13 +57,12 @@ napi_value issues(const Napi::CallbackInfo &pInfo, libOpenCOR::IssuePtrs pIssues
     return res;
 }
 
-napi_value doublesToNapiArray(const Napi::Env &pEnv, const std::vector<double> &pDoubles)
+napi_value doublesToNapiFloat64Array(const Napi::Env &pEnv, const std::vector<double> &pDoubles)
 {
-    auto array = Napi::Array::New(pEnv, pDoubles.size());
+    const size_t byteLength = pDoubles.size() * sizeof(double);
+    auto buffer = Napi::ArrayBuffer::New(pEnv, byteLength);
 
-    for (size_t i = 0; i < pDoubles.size(); ++i) {
-        array[i] = Napi::Number::New(pEnv, pDoubles[i]);
-    }
+    std::memcpy(buffer.Data(), pDoubles.data(), byteLength);
 
-    return array;
+    return Napi::Float64Array::New(pEnv, pDoubles.size(), buffer, 0);
 }

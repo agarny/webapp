@@ -11,7 +11,7 @@ import path from 'node:path';
 let rendererServer: http.Server | null = null;
 let rendererBaseUrl: string | null = null;
 
-export async function startRendererServer(): Promise<string> {
+export const startRendererServer = async (): Promise<string> => {
   // If we already have a base URL then return it.
 
   if (rendererBaseUrl) {
@@ -89,9 +89,9 @@ export async function startRendererServer(): Promise<string> {
   }
 
   return rendererBaseUrl;
-}
+};
 
-export async function stopRendererServer(): Promise<void> {
+export const stopRendererServer = async (): Promise<void> => {
   // Make sure that we have a server to stop.
 
   if (!rendererServer) {
@@ -116,4 +116,4 @@ export async function stopRendererServer(): Promise<void> {
 
   rendererServer = null;
   rendererBaseUrl = null;
-}
+};

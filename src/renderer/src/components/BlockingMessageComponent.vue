@@ -6,11 +6,22 @@
     <i class="block! pi pi-cog pi-spin text-center! text-[3rem]!" />
     <br />
     <span class="block text-center text-[1.5rem]">{{ message }}</span>
+    <ProgressBar v-if="progress !== undefined" class="w-100 h-1! mt-4"
+      :value="progress"
+      mode="determinate"
+      :showValue="false"
+      :pt="{
+        value: {
+          style: 'transition: none'
+        }
+      }"
+    />
   </Message>
 </template>
 
 <script setup lang="ts">
 defineProps<{
   message: string;
+  progress?: number;
 }>();
 </script>
