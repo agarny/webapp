@@ -528,7 +528,7 @@ const interactiveUiJsonEmpty = vue.computed(() => {
 
   return false;
 });
-const interactiveMath = common.mathJs.create(common.mathJs.all ?? {}, {});
+const interactiveMath = common.mathJs.create(common.mathJs.all, {});
 const interactiveModel = interactiveDocument.model(0);
 const interactiveData = vue.ref<IGraphPanelData[]>([]);
 let interactiveMargins: Record<string, IGraphPanelMargins> = {};
@@ -628,41 +628,45 @@ populateInputProperties(interactiveUiJson.value);
 
 // Import some element-wise functions to allow sin(array) instead of map(array, sin), for instance.
 
+const value = (v: unknown, i: number): number => {
+  return Array.isArray(v) ? v[i] : Number(v);
+};
+
 interactiveMath.import(
   {
     // Arithmetic operators.
 
-    pow: (x: mathjs.MathType, y: mathjs.MathType) => x.map((v: number) => v ** y),
-    sqrt: (x: mathjs.MathType) => x.map((v: number) => Math.sqrt(v)),
-    abs: (x: mathjs.MathType) => x.map((v: number) => Math.abs(v)),
-    exp: (x: mathjs.MathType) => x.map((v: number) => Math.exp(v)),
-    log: (x: mathjs.MathType) => x.map((v: number) => Math.log(v)),
-    log10: (x: mathjs.MathType) => x.map((v: number) => Math.log10(v)),
-    ceil: (x: mathjs.MathType) => x.map((v: number) => Math.ceil(v)),
-    floor: (x: mathjs.MathType) => x.map((v: number) => Math.floor(v)),
-    min: (x: mathjs.MathType, y: mathjs.MathType) => x.map((v: number, index: number) => Math.min(v, y[index])),
-    max: (x: mathjs.MathType, y: mathjs.MathType) => x.map((v: number, index: number) => Math.max(v, y[index])),
-    mod: (x: mathjs.MathType, y: mathjs.MathType) => x.map((v: number) => v % y),
+    pow: (x: number[], y: unknown) => x.map((v: number, i: number) => v ** value(y, i)),
+    sqrt: (x: number[]) => x.map((v: number) => Math.sqrt(v)),
+    abs: (x: number[]) => x.map((v: number) => Math.abs(v)),
+    exp: (x: number[]) => x.map((v: number) => Math.exp(v)),
+    log: (x: number[]) => x.map((v: number) => Math.log(v)),
+    log10: (x: number[]) => x.map((v: number) => Math.log10(v)),
+    ceil: (x: number[]) => x.map((v: number) => Math.ceil(v)),
+    floor: (x: number[]) => x.map((v: number) => Math.floor(v)),
+    min: (x: number[], y: unknown) => x.map((v: number, i: number) => Math.min(v, value(y, i))),
+    max: (x: number[], y: unknown) => x.map((v: number, i: number) => Math.max(v, value(y, i))),
+    mod: (x: number[], y: unknown) => x.map((v: number, i: number) => v % value(y, i)),
 
     // // Trigonometric operators.
 
-    sin: (x: mathjs.MathType) => x.map((v: number) => Math.sin(v)),
-    cos: (x: mathjs.MathType) => x.map((v: number) => Math.cos(v)),
-    tan: (x: mathjs.MathType) => x.map((v: number) => Math.tan(v)),
-    sinh: (x: mathjs.MathType) => x.map((v: number) => Math.sinh(v)),
-    cosh: (x: mathjs.MathType) => x.map((v: number) => Math.cosh(v)),
-    tanh: (x: mathjs.MathType) => x.map((v: number) => Math.tanh(v)),
-    asin: (x: mathjs.MathType) => x.map((v: number) => Math.asin(v)),
-    acos: (x: mathjs.MathType) => x.map((v: number) => Math.acos(v)),
-    atan: (x: mathjs.MathType) => x.map((v: number) => Math.atan(v)),
-    asinh: (x: mathjs.MathType) => x.map((v: number) => Math.asinh(v)),
-    acosh: (x: mathjs.MathType) => x.map((v: number) => Math.acosh(v)),
-    atanh: (x: mathjs.MathType) => x.map((v: number) => Math.atanh(v))
+    sin: (x: number[]) => x.map((v: number) => Math.sin(v)),
+    cos: (x: number[]) => x.map((v: number) => Math.cos(v)),
+    tan: (x: number[]) => x.map((v: number) => Math.tan(v)),
+    sinh: (x: number[]) => x.map((v: number) => Math.sinh(v)),
+    cosh: (x: number[]) => x.map((v: number) => Math.cosh(v)),
+    tanh: (x: number[]) => x.map((v: number) => Math.tanh(v)),
+    asin: (x: number[]) => x.map((v: number) => Math.asin(v)),
+    acos: (x: number[]) => x.map((v: number) => Math.acos(v)),
+    atan: (x: number[]) => x.map((v: number) => Math.atan(v)),
+    asinh: (x: number[]) => x.map((v: number) => Math.asinh(v)),
+    acosh: (x: number[]) => x.map((v: number) => Math.acosh(v)),
+    atanh: (x: number[]) => x.map((v: number) => Math.atanh(v))
   },
   { override: true }
 );
 
-const evaluateValue = (value: string): mathjs.MathType => {
+const evaluateValue = (value: string): unknown => {
   const parser = interactiveMath.parser();
   let index = -1;
 
@@ -683,7 +687,7 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
   // Show/hide the input widgets.
 
   interactiveUiJson.value.input.forEach((input: locApi.IUiJsonInput, index: number) => {
-    interactiveShowInput.value[index] = evaluateValue(input.visible ?? 'true');
+    interactiveShowInput.value[index] = evaluateValue(input.visible ?? 'true') as string;
   });
 
   // Update the SED-ML document.

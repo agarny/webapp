@@ -913,7 +913,17 @@ if (props.omex) {
               window.location.reload();
             } else if (action.value) {
               setTimeout(() => {
-                if (!action.value.startsWith(FULL_URI_SCHEME)) {
+                if (action.value.startsWith('forceReload=')) {
+                  // This action (parameter in fact) is used with a timestamp as an argument to force OpenCOR to reload
+                  // (following an update) without getting an error toast. So, we do nothing here and we just let the
+                  // reload to happen.
+                  // Note: the reload is triggered by the URL change that we do in reloadApp() in version.ts. This is
+                  //       done to bypass the cache and ensure that the latest version of OpenCOR is loaded. When the
+                  //       reload happens, the URL contains the forceReload action with a timestamp argument, but since
+                  //       we are reloading anyway, we can just ignore it and not show an error toast.
+                } else if (action.value.startsWith(FULL_URI_SCHEME)) {
+                  handleAction(action.value.slice(FULL_URI_SCHEME.length));
+                } else {
                   toast.add({
                     severity: 'error',
                     group: toastId.value,
@@ -921,13 +931,7 @@ if (props.omex) {
                     detail: `${action.value}\n\nThe action could not be handled.`,
                     life: TOAST_LIFE
                   });
-
-                  action.value = '';
-
-                  return;
                 }
-
-                handleAction(action.value.slice(FULL_URI_SCHEME.length));
 
                 action.value = '';
               }, SHORT_DELAY);

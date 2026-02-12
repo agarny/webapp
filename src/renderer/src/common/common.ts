@@ -208,7 +208,7 @@ export let mathJs: any = null;
 
 export const importMathJs = async (): Promise<void> => {
   try {
-    const module = await import('https://cdn.jsdelivr.net/npm/mathjs@15.1.0/+esm');
+    const module = await import('https://cdn.jsdelivr.net/npm/mathjs@15.1.1/+esm');
 
     // biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
     mathJs = (module as any).default ?? module;
