@@ -182,3 +182,39 @@ export const fileName = (filePath: string): string => {
 export const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
+
+// Import Math.js lazily.
+
+// biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
+export let mathJs: any = null;
+
+export const importMathJs = async (): Promise<void> => {
+  try {
+    const module = await import('https://cdn.jsdelivr.net/npm/mathjs@15.1.0/+esm');
+
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
+    mathJs = (module as any).default ?? module;
+  } catch (error: unknown) {
+    console.error('Failed to import Math.js:', formatError(error));
+
+    throw error;
+  }
+};
+
+// Import Plotly.js lazily.
+
+// biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
+export let plotlyJs: any = null;
+
+export const importPlotlyJs = async (): Promise<void> => {
+  try {
+    const module = await import('https://cdn.jsdelivr.net/npm/plotly.js-gl2d-dist-min@3.3.1/+esm');
+
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
+    plotlyJs = (module as any).default ?? module;
+  } catch (error: unknown) {
+    console.error('Failed to import Plotly.js:', formatError(error));
+
+    throw error;
+  }
+};

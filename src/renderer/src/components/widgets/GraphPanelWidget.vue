@@ -7,8 +7,6 @@
 </template>
 
 <script setup lang="ts">
-import Plotly from 'https://cdn.jsdelivr.net/npm/plotly.js-gl2d-dist-min@3.3.1/+esm';
-
 import ContextMenu from 'primevue/contextmenu';
 import type { MenuItem } from 'primevue/menuitem';
 import * as vue from 'vue';
@@ -21,6 +19,15 @@ import * as vueCommon from '../../common/vueCommon.ts';
 import type { IProgressMessage } from '../OpenCOR.vue';
 
 const CONTEXT_MENU_EVENT: string = 'graph-panel-context-menu-open';
+
+interface IPlotlyAxis {
+  range?: [number, number];
+}
+
+interface IPlotlyLayout {
+  xaxis?: IPlotlyAxis;
+  yaxis?: IPlotlyAxis;
+}
 
 export interface IGraphPanelPlotTrace {
   name: string;
@@ -64,7 +71,7 @@ const resize = (): Promise<unknown> => {
   return Promise.resolve()
     .then(() => {
       if (mainDiv.value) {
-        Plotly.Plots.resize(mainDiv.value);
+        common.plotlyJs.Plots.resize(mainDiv.value);
       }
     })
     .then(() => {
@@ -166,7 +173,7 @@ const zoomIn = (): void => {
     return;
   }
 
-  const layout = (mainDiv.value as unknown as { layout?: Partial<Plotly.Layout> }).layout;
+  const layout = (mainDiv.value as unknown as { layout?: IPlotlyLayout }).layout;
 
   if (!layout?.xaxis?.range || !layout?.yaxis?.range) {
     return;
@@ -180,7 +187,7 @@ const zoomIn = (): void => {
   const xSpan = 0.5 * (xRange[1] - xRange[0]);
   const ySpan = 0.5 * (yRange[1] - yRange[0]);
 
-  Plotly.relayout(mainDiv.value, {
+  common.plotlyJs.relayout(mainDiv.value, {
     'xaxis.range': [xCenter - 0.5 * xSpan, xCenter + 0.5 * xSpan],
     'yaxis.range': [yCenter - 0.5 * ySpan, yCenter + 0.5 * ySpan]
   });
@@ -193,7 +200,7 @@ const zoomOut = (): void => {
     return;
   }
 
-  const layout = (mainDiv.value as unknown as { layout?: Partial<Plotly.Layout> }).layout;
+  const layout = (mainDiv.value as unknown as { layout?: IPlotlyLayout }).layout;
 
   if (!layout?.xaxis?.range || !layout?.yaxis?.range) {
     return;
@@ -207,7 +214,7 @@ const zoomOut = (): void => {
   const xSpan = 0.5 * (xRange[1] - xRange[0]);
   const ySpan = 0.5 * (yRange[1] - yRange[0]);
 
-  Plotly.relayout(mainDiv.value, {
+  common.plotlyJs.relayout(mainDiv.value, {
     'xaxis.range': [xCenter - 2 * xSpan, xCenter + 2 * xSpan],
     'yaxis.range': [yCenter - 2 * ySpan, yCenter + 2 * ySpan]
   });
@@ -220,7 +227,7 @@ const resetZoom = (): void => {
     return;
   }
 
-  Plotly.relayout(mainDiv.value, {
+  common.plotlyJs.relayout(mainDiv.value, {
     'xaxis.autorange': true,
     'yaxis.autorange': true
   });
@@ -234,7 +241,7 @@ const copyToClipboard = async (): Promise<void> => {
   }
 
   try {
-    const imageData = await Plotly.toImage(mainDiv.value, {
+    const imageData = await common.plotlyJs.toImage(mainDiv.value, {
       format: 'png',
       width: mainDiv.value.clientWidth,
       height: mainDiv.value.clientHeight
@@ -259,7 +266,7 @@ const exportToImage = async (format: 'jpeg' | 'png' | 'svg' | 'webp'): Promise<v
   }
 
   try {
-    await Plotly.downloadImage(mainDiv.value, {
+    await common.plotlyJs.downloadImage(mainDiv.value, {
       format: format,
       width: mainDiv.value.clientWidth,
       height: mainDiv.value.clientHeight,
@@ -569,7 +576,7 @@ const updateMarginsAsync = (): void => {
     }
 
     if (Object.keys(relayoutUpdates).length) {
-      Plotly.relayout(mainDiv.value, relayoutUpdates);
+      common.plotlyJs.relayout(mainDiv.value, relayoutUpdates);
     }
 
     updatingMargins = false;
@@ -594,38 +601,39 @@ const updatePlot = (): void => {
     }
   }));
 
-  Plotly.react(
-    mainDiv.value,
-    traces,
-    {
-      // Note: the various keys can be found at https://plotly.com/javascript/reference/.
+  common.plotlyJs
+    .react(
+      mainDiv.value,
+      traces,
+      {
+        // Note: the various keys can be found at https://plotly.com/javascript/reference/.
 
-      ...themeData(),
-      margin: {
-        t: 0,
-        l: resolvedMargin(props.margins?.left, margins.value.left),
-        b: props.data.xAxisTitle ? 35 : 20,
-        r: resolvedMargin(props.margins?.right, margins.value.right),
-        pad: 0
+        ...themeData(),
+        margin: {
+          t: 0,
+          l: resolvedMargin(props.margins?.left, margins.value.left),
+          b: props.data.xAxisTitle ? 35 : 20,
+          r: resolvedMargin(props.margins?.right, margins.value.right),
+          pad: 0
+        },
+        showlegend: props.showLegend,
+        ...axesData()
       },
-      showlegend: props.showLegend,
-      ...axesData()
-    },
-    {
-      // Note: the various keys can be found at https://plotly.com/javascript/configuration-options/.
+      {
+        // Note: the various keys can be found at https://plotly.com/javascript/configuration-options/.
 
-      responsive: true,
-      displayModeBar: false,
-      doubleClickDelay: 1000,
-      scrollZoom: true,
-      showTips: false
-    }
-  )
+        responsive: true,
+        displayModeBar: false,
+        doubleClickDelay: 1000,
+        scrollZoom: true,
+        showTips: false
+      }
+    )
     .then(() => {
       if (!isVisible.value) {
         // Force Plotly to recalculate the layout after the plot is rendered to ensure that it has correct dimensions.
 
-        return Plotly.Plots.resize(mainDiv.value);
+        return common.plotlyJs.Plots.resize(mainDiv.value);
       }
     })
     .then(() => {
@@ -672,8 +680,10 @@ vue.onMounted(() => {
       emit('resetMargins');
     });
 
-    plotlyElement.on('plotly_relayout', (eventData: Partial<Plotly.Layout>) => {
-      if (eventData && (eventData['xaxis.range[0]'] || eventData['yaxis.range[0]'])) {
+    plotlyElement.on('plotly_relayout', (...args: unknown[]) => {
+      const eventData = args[0] as Record<string, unknown> | undefined;
+
+      if (eventData && ('xaxis.range[0]' in eventData || 'yaxis.range[0]' in eventData)) {
         emit('resetMargins');
       }
     });
@@ -699,7 +709,7 @@ vue.watch(
   () => {
     vue.nextTick(() => {
       if (mainDiv.value) {
-        Plotly.relayout(mainDiv.value, {
+        common.plotlyJs.relayout(mainDiv.value, {
           ...themeData(),
           ...axesData()
         });
@@ -715,7 +725,7 @@ vue.watch(
     vue
       .nextTick(() => {
         if (mainDiv.value) {
-          return Plotly.relayout(mainDiv.value, {
+          return common.plotlyJs.relayout(mainDiv.value, {
             'margin.l': resolvedMargin(props.margins?.left, margins.value.left),
             'margin.r': resolvedMargin(props.margins?.right, margins.value.right)
           });
@@ -735,11 +745,13 @@ vue.watch(
   () => {
     vue.nextTick(() => {
       if (mainDiv.value) {
-        Plotly.relayout(mainDiv.value, {
-          showlegend: props.showLegend
-        }).then(() => {
-          updateMarginsAsync();
-        });
+        common.plotlyJs
+          .relayout(mainDiv.value, {
+            showlegend: props.showLegend
+          })
+          .then(() => {
+            updateMarginsAsync();
+          });
       }
     });
   },

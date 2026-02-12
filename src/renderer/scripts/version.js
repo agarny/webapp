@@ -14,10 +14,10 @@ const oldPatchVersion = oldVersionParts[2];
 
 // Determine the new version based on the current version and the current date.
 
-const now = new Date().toISOString().split('T')[0].replace(/-/g, '');
+const now = new Date();
 
 const newMajorVersion = oldMajorVersion;
-const newMinorVersion = now;
+const newMinorVersion = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
 let newPatchVersion = 0;
 
 if (oldMinorVersion === newMinorVersion) {

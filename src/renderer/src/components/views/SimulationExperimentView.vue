@@ -239,8 +239,6 @@
 </template>
 
 <script setup lang="ts">
-import * as mathjs from 'https://cdn.jsdelivr.net/npm/mathjs@15.1.0/+esm';
-
 import * as vueusecore from '@vueuse/core';
 
 import JSZip from 'jszip';
@@ -530,7 +528,7 @@ const interactiveUiJsonEmpty = vue.computed(() => {
 
   return false;
 });
-const interactiveMath = mathjs.create(mathjs.all ?? {}, {});
+const interactiveMath = common.mathJs.create(common.mathJs.all ?? {}, {});
 const interactiveModel = interactiveDocument.model(0);
 const interactiveData = vue.ref<IGraphPanelData[]>([]);
 let interactiveMargins: Record<string, IGraphPanelMargins> = {};

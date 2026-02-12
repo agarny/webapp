@@ -12,7 +12,7 @@
       :pt:root:style="{ position: 'absolute' }"
     />
     <BackgroundComponent v-show="compBackgroundVisible" />
-    <BlockingMessageComponent v-show="loadingOpencorMessageVisible" message="Loading OpenCOR..." />
+    <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="compInitialisingOpencorMessageProgress" />
     <BlockingMessageComponent v-show="loadingModelMessageVisible" message="Loading model..." />
     <BlockingMessageComponent v-show="progressMessageVisible" :message="progressMessageMessage" :progress="progressMessageProgress" />
     <IssuesView v-if="issues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="issues" />
@@ -119,7 +119,7 @@ import type { IOpenCORProps } from '../../index.ts';
 
 import '../assets/app.css';
 import * as common from '../common/common.ts';
-import { FULL_URI_SCHEME, SHORT_DELAY, TOAST_LIFE } from '../common/constants.ts';
+import { FULL_URI_SCHEME, LONG_DELAY, SHORT_DELAY, TOAST_LIFE } from '../common/constants.ts';
 import { electronApi } from '../common/electronApi.ts';
 /* TODO: enable once our GitHub integration is fully ready.
 import firebaseConfig, { missingFirebaseKeys } from '../common/firebaseConfig';
@@ -166,7 +166,7 @@ const compIsActive = vue.computed(() => {
 const compBlockUiEnabled = vue.computed(() => {
   return (
     !electronUiEnabled.value ||
-    loadingOpencorMessageVisible.value ||
+    initialisingOpencorMessageVisible.value ||
     loadingModelMessageVisible.value ||
     progressMessageVisible.value ||
     connectingToGitHub.value
@@ -243,36 +243,93 @@ vueCommon.useTheme().setTheme(props.theme);
 const toast = useToast();
 
 // Asynchronously initialise our libOpenCOR API.
-// Note: we show the "Loading OpenCOR..." message only if window.locApi is not defined, which means that we are running
-//       OpenCOR's Web app.
 
-const locApiInitialised = vue.ref(false);
+// @ts-expect-error (window.locApi may or may not be defined which is why we test it)
+const locApiInitialised = vue.ref<boolean>(!!window.locApi);
+const mathJsInitialised = vue.ref<boolean>(false);
+const plotlyJsInitialised = vue.ref<boolean>(false);
 const compBackgroundVisible = vue.computed(() => {
   return (
-    (loadingOpencorMessageVisible.value || loadingModelMessageVisible.value || progressMessageVisible.value) &&
+    (initialisingOpencorMessageVisible.value || loadingModelMessageVisible.value || progressMessageVisible.value) &&
     !!props.omex
   );
 });
-const loadingOpencorMessageVisible = vue.ref<boolean>(false);
+const initialisingOpencorMessageVisible = vue.ref<boolean>(true);
+const compOpencorInitialised = vue.computed(() => {
+  return locApiInitialised.value && mathJsInitialised.value && plotlyJsInitialised.value;
+});
+const compInitialisingOpencorMessageProgress = vue.computed(() => {
+  const total = 3;
+  let count = 0;
+
+  if (locApiInitialised.value) {
+    count += 1;
+  }
+  if (mathJsInitialised.value) {
+    count += 1;
+  }
+  if (plotlyJsInitialised.value) {
+    count += 1;
+  }
+
+  return Math.round((100 * count) / total);
+});
 const loadingModelMessageVisible = vue.ref<boolean>(false);
 
-// @ts-expect-error (window.locApi may or may not be defined which is why we test it)
-if (!window.locApi) {
-  loadingOpencorMessageVisible.value = true;
+const initialisationError = (error: unknown): void => {
+  if (!issues.value.length) {
+    issues.value.push({
+      type: locApi.EIssueType.INFORMATION,
+      description: 'An error occurred while initialising OpenCOR. Please check your setup and reload the page.'
+    });
+  }
 
-  vue.watch(locApiInitialised, (newLocApiInitialised: boolean) => {
-    if (newLocApiInitialised) {
-      loadingOpencorMessageVisible.value = false;
-
-      // We are now officially loaded, so start checking for a newer version of OpenCOR.
-
-      version.startCheck();
-    }
+  issues.value.splice(Math.max(0, issues.value.length - 1), 0, {
+    type: locApi.EIssueType.ERROR,
+    description: common.formatMessage(common.formatError(error))
   });
-}
 
-void locApi.initialiseLocApi().then(() => {
-  locApiInitialised.value = true;
+  initialisingOpencorMessageVisible.value = false;
+};
+
+void locApi
+  .initialiseLocApi()
+  .then(() => {
+    locApiInitialised.value = true;
+  })
+  .catch((error: unknown) => {
+    initialisationError(error);
+  });
+
+void common
+  .importMathJs()
+  .then(() => {
+    mathJsInitialised.value = true;
+  })
+  .catch((error: unknown) => {
+    initialisationError(error);
+  });
+
+void common
+  .importPlotlyJs()
+  .then(() => {
+    plotlyJsInitialised.value = true;
+  })
+  .catch((error: unknown) => {
+    initialisationError(error);
+  });
+
+vue.watch(compOpencorInitialised, async (newCompOpencorInitialised: boolean) => {
+  if (newCompOpencorInitialised) {
+    // OpenCOR is now fully initialised, so we can hide the loading message (after a long delay to give the user a
+    // chance to see that the loading has reached 100%) and then check for updates.
+
+    await common.sleep(LONG_DELAY);
+
+    initialisingOpencorMessageVisible.value = false;
+
+    version.startCheck();
+  }
 });
 
 /* TODO: enable once our GitHub integration is fully ready.
@@ -794,8 +851,8 @@ vue.onMounted(() => {
 // carry on as normal (i.e. the whole OpenCOR UI will be shown).
 
 if (props.omex) {
-  vue.watch(locApiInitialised, (newLocApiInitialised: boolean) => {
-    if (newLocApiInitialised && props.omex) {
+  vue.watch(compOpencorInitialised, (newCompOpencorInitialised: boolean) => {
+    if (newCompOpencorInitialised && props.omex) {
       openFile(props.omex);
     }
   });
@@ -815,8 +872,8 @@ if (props.omex) {
         // Handle the action passed to our Web app, if any.
         // Note: to use vue.nextTick() doesn't do the trick, so we have no choice but to use setTimeout().
 
-        vue.watch(locApiInitialised, (newLocApiInitialised: boolean) => {
-          if (newLocApiInitialised) {
+        vue.watch(compOpencorInitialised, (newCompOpencorInitialised: boolean) => {
+          if (newCompOpencorInitialised) {
             const action = vueusecore.useStorage('action', '');
 
             if (window.location.search) {
@@ -895,7 +952,7 @@ const deleteGitHubAccessToken = async (silent: boolean = false): Promise<void> =
     await electronApi.deleteGitHubAccessToken();
   } catch (error: unknown) {
     if (silent) {
-      console.warn('Failed to remove the stored GitHub access token:', error);
+      console.warn('Failed to remove the stored GitHub access token:', common.formatError(error));
     } else {
       toast.add({
         severity: 'warn',
@@ -919,7 +976,7 @@ const loadGitHubAccessToken = async (): Promise<void> => {
   try {
     gitHubAccessToken = await electronApi.loadGitHubAccessToken();
   } catch (error: unknown) {
-    console.warn('Failed to load the GitHub access token:', error);
+    console.warn('Failed to load the GitHub access token:', common.formatError(error));
 
     return;
   }
@@ -933,7 +990,7 @@ const loadGitHubAccessToken = async (): Promise<void> => {
   try {
     await checkGitHubAccessToken(gitHubAccessToken);
   } catch (error: unknown) {
-    console.warn('Stored GitHub access token is no longer valid. Clearing it.', error);
+    console.warn('Stored GitHub access token is no longer valid. Clearing it.', common.formatError(error));
 
     await deleteGitHubAccessToken(true);
   } finally {
@@ -988,7 +1045,7 @@ const checkGitHubAccessToken = async (accessToken: string): Promise<void> => {
       console.log(`- ${repo.name} (${repo.private ? 'private' : 'public'}): ${repo.html_url}`);
     }
   } catch (error: unknown) {
-    console.warn(`Failed to retrieve repositories for user ${user.data.login}:`, error);
+    console.warn(`Failed to retrieve repositories for user ${user.data.login}:`, common.formatError(error));
   }
 };
 

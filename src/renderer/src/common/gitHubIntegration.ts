@@ -2,13 +2,15 @@ import { AsyncEntry } from '@napi-rs/keyring';
 
 import electron from 'electron';
 
+import { formatError } from './common.ts';
+
 export const clearGitHubCache = async (): Promise<void> => {
   await Promise.all(
     ['https://github.com', 'https://api.github.com', 'https://opencorapp.firebaseapp.com'].map(async (origin) => {
       try {
         await electron.session.defaultSession.clearStorageData({ origin });
       } catch (error: unknown) {
-        console.warn(`Failed to clear storage data for ${origin}:`, error);
+        console.warn(`Failed to clear storage data for ${origin}:`, formatError(error));
       }
     })
   );
@@ -35,7 +37,7 @@ const gitHubAccessTokenEntry = (): AsyncEntry | null => {
   try {
     return new AsyncEntry('OpenCOR', 'GitHub access token');
   } catch (error: unknown) {
-    gitHubAccessTokenError('initialise', error);
+    gitHubAccessTokenError('initialise', formatError(error));
 
     return null;
   }
@@ -51,7 +53,7 @@ export const deleteGitHubAccessToken = async (): Promise<boolean> => {
   try {
     return await entry.deleteCredential();
   } catch (error: unknown) {
-    gitHubAccessTokenError('delete', error);
+    gitHubAccessTokenError('delete', formatError(error));
 
     return false;
   }
@@ -69,7 +71,7 @@ export const loadGitHubAccessToken = async (): Promise<string | null> => {
 
     return password ?? null;
   } catch (error: unknown) {
-    gitHubAccessTokenError('load', error);
+    gitHubAccessTokenError('load', formatError(error));
 
     return null;
   }
@@ -93,7 +95,7 @@ export const saveGitHubAccessToken = async (token: string): Promise<boolean> => 
 
     return true;
   } catch (error: unknown) {
-    gitHubAccessTokenError('store', error);
+    gitHubAccessTokenError('store', formatError(error));
 
     return false;
   }

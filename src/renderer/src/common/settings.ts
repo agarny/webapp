@@ -1,4 +1,4 @@
-import type { ISettings, ISettingsGeneral } from './common.ts';
+import { formatError, type ISettings, type ISettingsGeneral } from './common.ts';
 import { electronApi } from './electronApi.ts';
 
 class Settings {
@@ -56,7 +56,10 @@ class Settings {
           this._settings = JSON.parse(raw);
         }
       } catch (error: unknown) {
-        console.error('Failed to load the settings from the local storage, so resetting to defaults:', error);
+        console.error(
+          'Failed to load the settings from the local storage, so resetting to defaults:',
+          formatError(error)
+        );
 
         this.reset();
       }
@@ -72,7 +75,7 @@ class Settings {
       try {
         window.localStorage.setItem('settings', JSON.stringify(this._settings));
       } catch (error: unknown) {
-        console.error('Failed to save the settings to the local storage:', error);
+        console.error('Failed to save the settings to the local storage:', formatError(error));
       }
     }
   }
