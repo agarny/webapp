@@ -183,6 +183,24 @@ export const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
+// Import CellDL Editor lazily.
+
+// biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
+export let celldlEditor: any = null;
+
+export const importCelldlEditor = async (): Promise<void> => {
+  try {
+    const module = await import('https://cdn.jsdelivr.net/npm/@celldl/editor@0.20260212.0/+esm');
+
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
+    celldlEditor = (module as any).default ?? module;
+  } catch (error: unknown) {
+    console.error('Failed to import CellDL Editor:', formatError(error));
+
+    throw error;
+  }
+}
+
 // Import Math.js lazily.
 
 // biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
