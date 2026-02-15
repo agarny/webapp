@@ -240,7 +240,7 @@ const createLazyInitialiser = (url: string, assign: (module: Module) => void, na
         const response = await fetch(/* @vite-ignore */ cssUrl, { mode: 'cors' });
 
         if (!response.ok) {
-          throw new Error(`Failed to load ${name ?? 'stylesheet'}: ${response.statusText}`);
+          throw new Error(`Failed to load ${name}'s stylesheet: ${response.statusText}`);
         }
 
         const style = document.createElement('style');
@@ -252,7 +252,7 @@ const createLazyInitialiser = (url: string, assign: (module: Module) => void, na
         injectedCss.add(cssUrl);
       }
     } catch (error: unknown) {
-      console.error(`Failed to import ${name ?? url}:`, formatError(error));
+      console.error(`Failed to import ${name}:`, formatError(error));
 
       throw error;
     }
