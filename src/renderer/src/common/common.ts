@@ -268,7 +268,8 @@ export const initialiseCelldlEditor = createLazyInitialiser(
   (module: Module) => {
     celldlEditor = module;
   },
-  'CellDL Editor'
+  'CellDL Editor',
+  'https://cdn.jsdelivr.net/npm/@celldl/editor@0.20260212.0/dist/CellDLEditor.css'
 );
 
 // Initialise jsonschema lazily.
