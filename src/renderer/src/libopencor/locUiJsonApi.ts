@@ -1,5 +1,3 @@
-import * as jsonschema from 'jsonschema';
-
 import * as common from '../common/common.ts';
 
 import { EIssueType, type IIssue } from './locLoggerApi.ts';
@@ -121,8 +119,8 @@ export const validateUiJson = (uiJson: IUiJson | undefined): IIssue[] => {
 
   // Check the UI JSON against our schema.
 
-  const validator = new jsonschema.Validator();
-  const schema: jsonschema.Schema = {
+  const validator = new common.jsonSchema.Validator();
+  const schema: Record<string, unknown> = {
     additionalProperties: false,
     properties: {
       input: {

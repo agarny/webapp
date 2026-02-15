@@ -12,9 +12,6 @@
       :pt:root:style="{ position: 'absolute' }"
     />
     <BackgroundComponent v-show="compBackgroundVisible" />
-    <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="compInitialisingOpencorMessageProgress" />
-    <BlockingMessageComponent v-show="loadingModelMessageVisible" message="Loading model..." />
-    <BlockingMessageComponent v-show="progressMessageVisible" :message="progressMessageMessage" :progress="progressMessageProgress" />
     <IssuesView v-if="issues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="issues" />
     <div v-else class="h-full flex flex-col"
       @dragenter="onDragEnter"
@@ -50,51 +47,56 @@
         />
       </div>
       -->
-      <ContentsComponent ref="contents" class="grow min-h-0"
-        :isActive="compIsActive"
-        :uiEnabled="compUiEnabled"
-        :simulationOnly="!!omex"
-        @error="onError"
-      />
-      <OpenRemoteDialog
-        v-model:visible="openRemoteVisible"
-        @openRemote="onOpenRemote"
-        @close="openRemoteVisible = false"
-      />
-      <SettingsDialog v-model:visible="settingsVisible" @close="settingsVisible = false" />
-      <YesNoQuestionDialog
-        v-model:visible="resetAllVisible"
-        title="Reset All..."
-        question="You are about to reset all of your settings. Do you want to proceed?"
-        severity="danger"
-        @yes="onResetAll"
-        @no="resetAllVisible = false"
-      />
-      <AboutDialog
-        v-model:visible="aboutVisible"
-        @close="aboutVisible = false"
-      />
+      <div class="grow relative">
+        <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="compInitialisingOpencorMessageProgress" />
+        <BlockingMessageComponent v-show="loadingModelMessageVisible" message="Loading model..." />
+        <BlockingMessageComponent v-show="progressMessageVisible" :message="progressMessageMessage" :progress="progressMessageProgress" />
+        <OkMessageDialog
+          v-model:visible="updateErrorVisible"
+          :title="updateErrorTitle"
+          :message="updateErrorIssue"
+          @ok="onUpdateErrorDialogClose"
+        />
+        <YesNoQuestionDialog
+          v-model:visible="updateAvailableVisible"
+          title="Check for Updates..."
+          :question="'Version ' + updateVersion + ' is available. Do you want to download it and install it?'"
+          @yes="onDownloadAndInstall"
+          @no="updateAvailableVisible = false"
+        />
+        <UpdateDownloadProgressDialog v-model:visible="updateDownloadProgressVisible" :percent="updateDownloadPercent" />
+        <OkMessageDialog
+          v-model:visible="updateNotAvailableVisible"
+          title="Check for Updates..."
+          message="No updates are available at this time."
+          @ok="updateNotAvailableVisible = false"
+        />
+        <ContentsComponent ref="contents" class="grow min-h-0"
+          :isActive="compIsActive"
+          :uiEnabled="compUiEnabled"
+          :simulationOnly="!!omex"
+          @error="onError"
+        />
+        <OpenRemoteDialog
+          v-model:visible="openRemoteVisible"
+          @openRemote="onOpenRemote"
+          @close="openRemoteVisible = false"
+        />
+        <SettingsDialog v-model:visible="settingsVisible" @close="settingsVisible = false" />
+        <YesNoQuestionDialog
+          v-model:visible="resetAllVisible"
+          title="Reset All..."
+          question="You are about to reset all of your settings. Do you want to proceed?"
+          severity="danger"
+          @yes="onResetAll"
+          @no="resetAllVisible = false"
+        />
+        <AboutDialog
+          v-model:visible="aboutVisible"
+          @close="aboutVisible = false"
+        />
+      </div>
     </div>
-    <OkMessageDialog
-      v-model:visible="updateErrorVisible"
-      :title="updateErrorTitle"
-      :message="updateErrorIssue"
-      @ok="onUpdateErrorDialogClose"
-    />
-    <YesNoQuestionDialog
-      v-model:visible="updateAvailableVisible"
-      title="Check for Updates..."
-      :question="'Version ' + updateVersion + ' is available. Do you want to download it and install it?'"
-      @yes="onDownloadAndInstall"
-      @no="updateAvailableVisible = false"
-    />
-    <UpdateDownloadProgressDialog v-model:visible="updateDownloadProgressVisible" :percent="updateDownloadPercent" />
-    <OkMessageDialog
-      v-model:visible="updateNotAvailableVisible"
-      title="Check for Updates..."
-      message="No updates are available at this time."
-      @ok="updateNotAvailableVisible = false"
-    />
   </BlockUI>
 </template>
 
@@ -112,12 +114,11 @@ import primeVueConfirmationService from 'primevue/confirmationservice';
 import primeVueToastService from 'primevue/toastservice';
 import { useToast } from 'primevue/usetoast';
 import * as vue from 'vue';
-import vueTippy from 'vue-tippy';
-import 'tippy.js/dist/tippy.css';
 
 import type { IOpenCORProps } from '../../index.ts';
 
 import '../assets/app.css';
+import '../assets/primeicons-assets.ts';
 import * as common from '../common/common.ts';
 import { FULL_URI_SCHEME, LONG_DELAY, SHORT_DELAY, TOAST_LIFE } from '../common/constants.ts';
 import { electronApi } from '../common/electronApi.ts';
@@ -151,11 +152,11 @@ const octokit = vue.ref<Octokit | null>(null);
 // Keep track of which instance of OpenCOR is currently active.
 
 const activateInstance = (): void => {
-  activeInstanceUid.value = String(crtInstance?.uid);
+  activeInstanceUid.value = crtInstanceUid;
 };
 
 const compIsActive = vue.computed(() => {
-  return activeInstanceUid.value === String(crtInstance?.uid);
+  return activeInstanceUid.value === crtInstanceUid;
 });
 
 // Determine whether the component UI should be blocked/enabled.
@@ -209,15 +210,15 @@ const progressMessageVisible = vue.ref<boolean>(false);
 const progressMessageMessage = vue.ref<string>('');
 const progressMessageProgress = vue.ref<number>(0);
 
-// Get the current Vue app instance to use some PrimeVue plugins and VueTippy.
+// Get the current Vue app instance to use some PrimeVue plugins.
 
 const crtInstance = vue.getCurrentInstance();
+const crtInstanceUid = String(crtInstance?.uid);
+const crtVueAppInstance = crtInstance?.appContext.app || null;
 
-if (crtInstance) {
-  const app = crtInstance.appContext.app;
-
-  if (!app.config.globalProperties.$primevue) {
-    app.use(primeVueConfig as unknown as vue.Plugin, {
+if (crtVueAppInstance) {
+  if (!crtVueAppInstance.config.globalProperties.$primevue) {
+    crtVueAppInstance.use(primeVueConfig as unknown as vue.Plugin, {
       theme: {
         preset: primeVueAuraTheme,
         options: {
@@ -227,28 +228,30 @@ if (crtInstance) {
     });
   }
 
-  if (!app.config.globalProperties.$confirm) {
-    app.use(primeVueConfirmationService as unknown as vue.Plugin);
+  if (!crtVueAppInstance.config.globalProperties.$confirm) {
+    crtVueAppInstance.use(primeVueConfirmationService as unknown as vue.Plugin);
   }
 
-  if (!app.config.globalProperties.$toast) {
-    app.use(primeVueToastService as unknown as vue.Plugin);
+  if (!crtVueAppInstance.config.globalProperties.$toast) {
+    crtVueAppInstance.use(primeVueToastService as unknown as vue.Plugin);
   }
-
-  app.use(vueTippy);
 }
 
 vueCommon.useTheme().setTheme(props.theme);
 
 const toast = useToast();
 
-// Asynchronously initialise our libOpenCOR API.
+// Initialise OpenCOR's external dependencies.
 
 // @ts-expect-error (window.locApi may or may not be defined which is why we test it)
 const locApiInitialised = vue.ref<boolean>(!!window.locApi);
 const celldlEditorInitialised = vue.ref<boolean>(false);
+const jsonSchemaInitialised = vue.ref<boolean>(false);
+const jsZipInitialised = vue.ref<boolean>(false);
 const mathJsInitialised = vue.ref<boolean>(false);
 const plotlyJsInitialised = vue.ref<boolean>(false);
+const vueTippyInitialised = vue.ref<boolean>(false);
+const xxhashInitialised = vue.ref<boolean>(false);
 const compBackgroundVisible = vue.computed(() => {
   return (
     (initialisingOpencorMessageVisible.value || loadingModelMessageVisible.value || progressMessageVisible.value) &&
@@ -257,10 +260,19 @@ const compBackgroundVisible = vue.computed(() => {
 });
 const initialisingOpencorMessageVisible = vue.ref<boolean>(true);
 const compOpencorInitialised = vue.computed(() => {
-  return locApiInitialised.value && celldlEditorInitialised.value && mathJsInitialised.value && plotlyJsInitialised.value;
+  return (
+    locApiInitialised.value &&
+    celldlEditorInitialised.value &&
+    jsonSchemaInitialised.value &&
+    jsZipInitialised.value &&
+    mathJsInitialised.value &&
+    plotlyJsInitialised.value &&
+    vueTippyInitialised.value &&
+    xxhashInitialised.value
+  );
 });
 const compInitialisingOpencorMessageProgress = vue.computed(() => {
-  const total = 4;
+  const total = 8;
   let count = 0;
 
   if (locApiInitialised.value) {
@@ -271,11 +283,27 @@ const compInitialisingOpencorMessageProgress = vue.computed(() => {
     count += 1;
   }
 
+  if (jsonSchemaInitialised.value) {
+    count += 1;
+  }
+
+  if (jsZipInitialised.value) {
+    count += 1;
+  }
+
   if (mathJsInitialised.value) {
     count += 1;
   }
 
   if (plotlyJsInitialised.value) {
+    count += 1;
+  }
+
+  if (vueTippyInitialised.value) {
+    count += 1;
+  }
+
+  if (xxhashInitialised.value) {
     count += 1;
   }
 
@@ -318,7 +346,25 @@ void common
   });
 
 void common
-  .importMathJs()
+  .initialiseJsonSchema()
+  .then(() => {
+    jsonSchemaInitialised.value = true;
+  })
+  .catch((error: unknown) => {
+    initialisationError(error);
+  });
+
+void common
+  .initialiseJsZip()
+  .then(() => {
+    jsZipInitialised.value = true;
+  })
+  .catch((error: unknown) => {
+    initialisationError(error);
+  });
+
+void common
+  .initialiseMathJs()
   .then(() => {
     mathJsInitialised.value = true;
   })
@@ -327,7 +373,7 @@ void common
   });
 
 void common
-  .importPlotlyJs()
+  .initialisePlotlyJs()
   .then(() => {
     plotlyJsInitialised.value = true;
   })
@@ -335,14 +381,43 @@ void common
     initialisationError(error);
   });
 
+void common
+  .initialiseVueTippy()
+  .then(() => {
+    vueTippyInitialised.value = true;
+  })
+  .catch((error: unknown) => {
+    initialisationError(error);
+  });
+
+void common
+  .initialiseXxhash()
+  .then(() => {
+    xxhashInitialised.value = true;
+  })
+  .catch((error: unknown) => {
+    initialisationError(error);
+  });
+
+// Finish initialising OpenCOR.
+
 vue.watch(compOpencorInitialised, async (newCompOpencorInitialised: boolean) => {
   if (newCompOpencorInitialised) {
-    // OpenCOR is now fully initialised, so we can hide the loading message (after a long delay to give the user a
-    // chance to see that the loading has reached 100%) and then check for updates.
+    // OpenCOR is now fully initialised, so we can finalise a few things, namely let the current Vue app instance use
+    // VueTippy.
+
+    if (crtVueAppInstance) {
+      crtVueAppInstance.use(common.vueTippy);
+    }
+
+    // Now, we can hide the loading message (but after a long delay so that the user gets a chance to see that the
+    // initialisation has reached 100%).
 
     await common.sleep(LONG_DELAY);
 
     initialisingOpencorMessageVisible.value = false;
+
+    // We are all done, so let's start checking for a new version of OpenCOR.
 
     version.startCheck();
   }
@@ -843,8 +918,8 @@ vue.onMounted(() => {
 
   // Customise our IDs.
 
-  toastId.value = `opencorToast${String(crtInstance?.uid)}`;
-  mainMenuId.value = `opencorMainMenu${String(crtInstance?.uid)}`;
+  toastId.value = `opencorToast${crtInstanceUid}`;
+  mainMenuId.value = `opencorMainMenu${crtInstanceUid}`;
 
   // Make ourselves the active instance.
 

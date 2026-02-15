@@ -145,7 +145,9 @@ export const initialiseLocApi = async (): Promise<void> => {
 
     try {
       const libOpenCOR = (
-        await import(corsProxyUrl('https://opencor.ws/libopencor/downloads/wasm/libopencor-0.20260211.0.js'))
+        await import(
+          /* @vite-ignore */ corsProxyUrl('https://opencor.ws/libopencor/downloads/wasm/libopencor-0.20260211.0.js')
+        )
       ).default;
 
       _wasmLocApi = (await libOpenCOR()) as IWasmLocApi;

@@ -4,6 +4,7 @@ import vuePlugin from '@vitejs/plugin-vue';
 
 import path from 'node:path';
 import vitePlugin from 'unplugin-vue-components/vite';
+import { visualizer as visualizerPlugin } from 'rollup-plugin-visualizer';
 import * as vite from 'vite';
 
 export default vite.defineConfig({
@@ -27,10 +28,26 @@ export default vite.defineConfig({
   plugins: [
     // Note: this must be in sync with electron.vite.config.ts.
 
+    {
+      // Plugin to strip unneeded PrimeIcons files.
+
+      name: 'strip-unneeded-primeicons-files',
+      generateBundle(_options, bundle) {
+        for (const fileName of Object.keys(bundle)) {
+          if (fileName.includes('assets/primeicons') && /\.(eot|svg|ttf|woff)$/.test(fileName)) {
+            delete bundle[fileName];
+          }
+        }
+      }
+    },
     tailwindcssPlugin(),
     vuePlugin(),
     vitePlugin({
       resolvers: [primeVueAutoImportResolver.PrimeVueResolver()]
+    }),
+    visualizerPlugin({
+      filename: 'dist/stats.html',
+      gzipSize: true
     })
   ],
   server: {

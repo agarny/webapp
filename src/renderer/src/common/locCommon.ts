@@ -1,8 +1,6 @@
-import JSZip from 'jszip';
-
 import * as locApi from '../libopencor/locApi.ts';
 
-import { corsProxyUrl, formatError, formatMessage, OMEX_PREFIX, sha256 } from './common.ts';
+import * as common from './common.ts';
 import { electronApi } from './electronApi.ts';
 
 // Some file-related methods.
@@ -41,7 +39,7 @@ const zipDataFromDataUrl = (dataUrl: string | Uint8Array | File, mimeType: strin
   } catch (error: unknown) {
     return {
       res: true,
-      error: `The data URL contains invalid Base64 encoding (${formatMessage(formatError(error), false)}).`
+      error: `The data URL contains invalid Base64 encoding (${common.formatMessage(common.formatError(error), false)}).`
     };
   }
 
@@ -80,7 +78,7 @@ export const zipCellmlDataUrl = async (dataUrl: string | Uint8Array | File): Pro
     // Unzip the data.
 
     try {
-      const jsZip = new JSZip();
+      const jsZip = new common.jsZip();
       const zip = await jsZip.loadAsync(zipDataUrl.data);
 
       // Make sure that the ZIP file contains only one file.
@@ -116,7 +114,7 @@ export const zipCellmlDataUrl = async (dataUrl: string | Uint8Array | File): Pro
     } catch (error: unknown) {
       return {
         res: true,
-        error: `The data URL of MIME type ${mimeType} contains an invalid ZIP file (${formatMessage(formatError(error), false)}).`
+        error: `The data URL of MIME type ${mimeType} contains an invalid ZIP file (${common.formatMessage(common.formatError(error), false)}).`
       };
     }
   }
@@ -164,14 +162,14 @@ export const filePath = (
   return dataUrlFileName
     ? dataUrlFileName
     : dataUrlCounter
-      ? `${OMEX_PREFIX}${dataUrlCounter}`
+      ? `${common.OMEX_PREFIX}${dataUrlCounter}`
       : fileFilePathOrFileContents instanceof File
         ? electronApi
           ? electronApi.filePath(fileFilePathOrFileContents)
           : fileFilePathOrFileContents.name
         : typeof fileFilePathOrFileContents === 'string'
           ? fileFilePathOrFileContents
-          : sha256(fileFilePathOrFileContents);
+          : common.xxh64(fileFilePathOrFileContents);
 };
 
 export const file = (
@@ -184,7 +182,7 @@ export const file = (
       return new Promise((resolve, reject) => {
         // First try fetching the URL through OpenCOR's CORS proxy.
 
-        fetch(corsProxyUrl(fileFilePathOrFileContents))
+        fetch(common.corsProxyUrl(fileFilePathOrFileContents))
           .then((response) => {
             if (response.ok) {
               return response.arrayBuffer();
@@ -199,7 +197,7 @@ export const file = (
             // the file directly otherwise we re-throw the error.
 
             if (!(error instanceof TypeError)) {
-              throw new Error(formatError(error));
+              throw new Error(common.formatError(error));
             }
 
             return fetch(fileFilePathOrFileContents).then((response) => {
@@ -220,7 +218,7 @@ export const file = (
             );
           })
           .catch((error: unknown) => {
-            reject(new Error(formatError(error)));
+            reject(new Error(common.formatError(error)));
           });
       });
     }
@@ -254,7 +252,7 @@ export const file = (
         resolve(new locApi.File(filePath(fileFilePathOrFileContents, dataUrlFileName, dataUrlCounter), fileContents));
       })
       .catch((error: unknown) => {
-        reject(new Error(formatError(error)));
+        reject(new Error(common.formatError(error)));
       });
   });
 };

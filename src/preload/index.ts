@@ -1,5 +1,7 @@
 import electron from 'electron';
-import * as systemInformation from 'systeminformation';
+import { exec as _exec } from 'node:child_process';
+import { promises as fs } from 'node:fs';
+import { promisify } from 'node:util';
 
 // @ts-expect-error (libOpenCOR.node is a native module)
 import loc from '../../dist/libOpenCOR/Release/libOpenCOR.node';
@@ -7,25 +9,77 @@ import loc from '../../dist/libOpenCOR/Release/libOpenCOR.node';
 import type { ISettings } from '../renderer/src/common/common.ts';
 import type { ISplashScreenInfo } from '../renderer/src/common/electronApi.ts';
 
+const exec = promisify(_exec);
+
+const _operatingSystem = await (async (): Promise<string> => {
+  const safeExec = async (cmd: string): Promise<string | null> => {
+    try {
+      const { stdout } = await exec(cmd);
+
+      return stdout?.toString().trim() || null;
+    } catch {
+      return null;
+    }
+  };
+
+  let operatingSystem: string = '';
+
+  if (process.platform === 'win32') {
+    const res = await safeExec('wmic os get Caption');
+
+    if (res) {
+      const lines = res
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (lines[1]) {
+        operatingSystem = lines[1].replace(/^Microsoft\s+/, '');
+      }
+    }
+
+    operatingSystem = operatingSystem || 'Windows';
+  } else if (process.platform === 'linux') {
+    let res: string | null = null;
+
+    try {
+      res = await fs.readFile('/etc/os-release', 'utf8');
+    } catch {}
+
+    const match = res?.match(/^PRETTY_NAME=(?:")?(.*?)(?:")?$|^NAME=(?:")?(.*?)(?:")?$/m) || null;
+
+    if (match) {
+      operatingSystem = (match[1] || match[2] || '').replace(/"/g, '').trim();
+    }
+
+    if (!operatingSystem) {
+      res = await safeExec('lsb_release -ds');
+
+      operatingSystem = res?.replace(/^"|"$/g, '') || '';
+    }
+
+    operatingSystem = operatingSystem || 'Linux';
+  } else if (process.platform === 'darwin') {
+    const nameRes = await safeExec('sw_vers -productName');
+    const versionRes = await safeExec('sw_vers -productVersion');
+
+    if (nameRes || versionRes) {
+      operatingSystem = `${nameRes || 'macOS'} ${versionRes || ''}`.trim();
+    }
+
+    operatingSystem = operatingSystem || 'macOS';
+  }
+  return `${operatingSystem || process.platform} (${process.arch === 'x64' ? 'Intel' : 'ARM'})`;
+})();
+
 // Some bridging between our main process and renderer process.
 // Note: this must be in sync with src/electronApi.ts.
-
-const osInfo = await systemInformation.osInfo();
 
 electron.contextBridge.exposeInMainWorld('electronApi', {
   // Some general methods.
 
   operatingSystem: () => {
-    const architecture = osInfo.arch === 'x64' ? 'Intel' : 'ARM';
-
-    if (osInfo.platform === 'Windows') {
-      // Note: osInfo.distro returns something like "Microsoft Windows 11 Pro", but we want it to return
-      //       "Windows 11 Pro", so we remove the "Microsoft " part.
-
-      return `${osInfo.distro.replace('Microsoft ', '')} (${architecture})`;
-    }
-
-    return `${osInfo.distro} ${osInfo.release} (${architecture})`;
+    return _operatingSystem;
   },
 
   // Splash screen window.

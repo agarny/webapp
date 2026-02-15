@@ -86,7 +86,7 @@
           </Splitter>
         </SplitterPanel>
         <SplitterPanel v-if="!simulationOnly" :size="11">
-          <Editor :id="editorId" class="border-none h-full" :readonly="true" v-model="standardConsoleContents" />
+          <div :id="editorId" class="h-full console overflow-y-auto px-2 py-1 leading-[1.42] text-[13px]" aria-readonly="true" v-html="standardConsoleContents"></div>
         </SplitterPanel>
       </Splitter>
     </div>
@@ -241,7 +241,6 @@
 <script setup lang="ts">
 import * as vueusecore from '@vueuse/core';
 
-import JSZip from 'jszip';
 import * as vue from 'vue';
 
 import * as colors from '../../common/colors.ts';
@@ -357,7 +356,7 @@ const onRun = (): void => {
     }
 
     void vue.nextTick(() => {
-      const consoleElement = document.getElementById(editorId.value)?.getElementsByClassName('ql-editor')[0];
+      const consoleElement = document.getElementById(editorId.value);
 
       if (consoleElement) {
         consoleElement.scrollTop = consoleElement.scrollHeight;
@@ -378,7 +377,7 @@ const onDownloadCombineArchive = (): void => {
   // Create and download a COMBINE archive that contains a manifest file, a CellML file, a SED-ML file, and a UI JSON
   // file.
 
-  const zip = new JSZip();
+  const jsZip = new common.jsZip();
   const baseFileName = common.fileName(interactiveFile.path()).replace(/\.[^/.]+$/, '');
   const modelFile = interactiveModel.file();
 
@@ -388,7 +387,7 @@ const onDownloadCombineArchive = (): void => {
     return;
   }
 
-  zip.file(
+  jsZip.file(
     'manifest.xml',
     `<?xml version='1.0' encoding='UTF-8' standalone='yes'?>
 <omexManifest xmlns="http://identifiers.org/combine.specifications/omex-manifest">
@@ -399,11 +398,11 @@ const onDownloadCombineArchive = (): void => {
 </omexManifest>
 `
   );
-  zip.file('model.cellml', modelFile.contents());
-  zip.file('document.sedml', interactiveDocument.serialise().replace(modelFile.path(), 'model.cellml'));
-  zip.file('simulation.json', JSON.stringify(interactiveUiJson.value, null, 2));
+  jsZip.file('model.cellml', modelFile.contents());
+  jsZip.file('document.sedml', interactiveDocument.serialise().replace(modelFile.path(), 'model.cellml'));
+  jsZip.file('simulation.json', JSON.stringify(interactiveUiJson.value, null, 2));
 
-  zip
+  jsZip
     .generateAsync({
       type: 'blob',
       compression: 'DEFLATE'
@@ -1100,6 +1099,10 @@ if (common.isDesktop()) {
   outline-color: var(--p-text-color);
 }
 
+.console {
+  font-family: Helvetica, Arial, sans-serif;
+}
+
 .empty-state {
   color: var(--p-text-muted-color);
   border: 1px dashed var(--p-content-border-color);
@@ -1161,14 +1164,6 @@ if (common.isDesktop()) {
 .run-card-live {
   border-style: dashed;
   border-color: var(--p-primary-color);
-}
-
-:deep(.ql-editor) {
-  padding: 0.25rem 0.5rem;
-}
-
-:deep(.ql-editor > *) {
-  cursor: default;
 }
 
 .toolbar-button:hover {

@@ -1,5 +1,4 @@
-import SHA256 from 'crypto-js/sha256';
-import { UAParser } from 'ua-parser-js';
+import xxhash from 'xxhash-wasm';
 
 import { electronApi } from './electronApi.ts';
 
@@ -14,23 +13,55 @@ export interface ISettings {
 }
 
 // Some methods to determine the operating system, whether the application is running on a mobile device, etc.
+// Note: the order of the checks in osName() is important. For instance, we need to check for "iPhone" before checking
+//       for "Mac" since the user agent of iPhones contains both "iPhone" and "Mac".
 
-const uaParser = new UAParser();
+const osName = (): string => {
+  try {
+    const userAgent = window.navigator.userAgent;
+
+    if (/Android/i.test(userAgent)) {
+      return 'Android';
+    }
+
+    if (/iPhone|iPad|iPod/i.test(userAgent)) {
+      return 'iOS';
+    }
+
+    if (/Windows/i.test(userAgent)) {
+      return 'Windows';
+    }
+
+    if (/Linux/i.test(userAgent)) {
+      return 'Linux';
+    }
+
+    if (/Mac/i.test(userAgent)) {
+      return 'macOS';
+    }
+
+    return 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
+};
 
 export const isWindows = (): boolean => {
-  return uaParser.getOS().name === 'Windows';
+  return osName() === 'Windows';
 };
 
 export const isLinux = (): boolean => {
-  return uaParser.getOS().name === 'Linux';
+  return osName() === 'Linux';
 };
 
 export const isMacOs = (): boolean => {
-  return uaParser.getOS().name === 'macOS';
+  return osName() === 'macOS';
 };
 
 export const isDesktop = (): boolean => {
-  return uaParser.getOS().name === 'Windows' || uaParser.getOS().name === 'Linux' || uaParser.getOS().name === 'macOS';
+  const currentOSName = osName();
+
+  return currentOSName === 'Windows' || currentOSName === 'Linux' || currentOSName === 'macOS';
 };
 
 // A method to determine whether the Ctrl or Cmd key is pressed, depending on the operating system.
@@ -45,7 +76,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
   electronApi?.enableDisableMainMenu(enable);
 };
 
-// A method to determine whether a given file name indicates a data URL OMEX file.
+// A method to determine whether a file name indicates a data URL OMEX file.
 
 export const OMEX_PREFIX = 'OMEX #';
 
@@ -53,7 +84,7 @@ export const isDataUrlOmexFileName = (fileName: string): boolean => {
   return fileName.startsWith(OMEX_PREFIX);
 };
 
-// A method to determine whether a given URL is an HTTP or HTTPS URL.
+// A method to determine whether a URL is an HTTP or HTTPS URL.
 
 export const isHttpUrl = (url: string): boolean => {
   try {
@@ -65,19 +96,25 @@ export const isHttpUrl = (url: string): boolean => {
   }
 };
 
-// A method to get the CORS proxy URL for a given URL.
+// A method to get the CORS proxy URL for a URL.
 
 export const corsProxyUrl = (url: string): string => {
   return `https://cors-proxy.opencor.workers.dev/?url=${url}`;
 };
 
-// A method to return the SHA-256 hash of some data.
+// A method to compute the XXH64 value of some data.
 
-export const sha256 = (data: string | Uint8Array): string => {
-  return SHA256(data).toString();
+let _xxhash: Awaited<ReturnType<typeof xxhash>>;
+
+export const initialiseXxhash = async (): Promise<void> => {
+  _xxhash = await xxhash();
 };
 
-// A method to format a given number of milliseconds into a string.
+export const xxh64 = (data: Uint8Array): string => {
+  return _xxhash.h64Raw(data).toString(16).padStart(16, '0');
+};
+
+// A method to format a number of milliseconds into a string.
 
 export const formatTime = (time: number): string => {
   const ms = Math.floor(time % 1000);
@@ -144,7 +181,7 @@ export const isDivisible = (a: number, b: number): boolean => {
   return Number.isInteger(a / b);
 };
 
-// A method to trigger a browser download for a given file.
+// A method to trigger a browser download for a file.
 
 export const downloadFile = (filename: string, content: string | Blob, type: string): void => {
   const link = document.createElement('a');
@@ -163,7 +200,7 @@ export const downloadFile = (filename: string, content: string | Blob, type: str
   URL.revokeObjectURL(url);
 };
 
-// A method to get the file name from a given file path.
+// A method to get the file name from a file path.
 
 export const fileName = (filePath: string): string => {
   const res = filePath.split(/(\\|\/)/g).pop() || '';
@@ -177,62 +214,120 @@ export const fileName = (filePath: string): string => {
   }
 };
 
-// A method to sleep for a given number of milliseconds.
+// A method to sleep for a number of milliseconds.
 
 export const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
+// A method to create a lazy initialiser for a module, which imports the module and optionally its CSS.
+
+// biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
+type Module = any;
+
+const injectedCss = new Set<string>();
+
+const createLazyInitialiser = (url: string, assign: (module: Module) => void, name: string, cssUrl?: string) => {
+  return async (): Promise<void> => {
+    try {
+      const module = await import(/* @vite-ignore */ url);
+
+      assign((module as Module).default ?? module);
+
+      // Fetch any CSS for the module and inject it into the page if we haven't already done so.
+
+      if (cssUrl && !injectedCss.has(cssUrl)) {
+        const response = await fetch(/* @vite-ignore */ cssUrl, { mode: 'cors' });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load ${name ?? 'stylesheet'}: ${response.statusText}`);
+        }
+
+        const style = document.createElement('style');
+
+        style.textContent = await response.text();
+
+        document.head.appendChild(style);
+
+        injectedCss.add(cssUrl);
+      }
+    } catch (error: unknown) {
+      console.error(`Failed to import ${name ?? url}:`, formatError(error));
+
+      throw error;
+    }
+  };
+};
+
 // Import CellDL Editor lazily.
 
-// biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
-export let celldlEditor: any = null;
+export let celldlEditor: Module = null;
 
-export const importCelldlEditor = async (): Promise<void> => {
-  try {
-    const module = await import('https://cdn.jsdelivr.net/npm/@celldl/editor@0.20260212.0/+esm');
+export const initialiseCelldlEditor = createLazyInitialiser(
+  'https://cdn.jsdelivr.net/npm/@celldl/editor@0.20260212.0/+esm',
+  (module: Module) => {
+    celldlEditor = module;
+  },
+  'CellDL Editor'
+);
 
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
-    celldlEditor = (module as any).default ?? module;
-  } catch (error: unknown) {
-    console.error('Failed to import CellDL Editor:', formatError(error));
+// Initialise jsonschema lazily.
 
-    throw error;
-  }
-}
+export let jsonSchema: Module = null;
 
-// Import Math.js lazily.
+export const initialiseJsonSchema = createLazyInitialiser(
+  'https://cdn.jsdelivr.net/npm/jsonschema@1.5.0/+esm',
+  (module: Module) => {
+    jsonSchema = module;
+  },
+  'jsonschema'
+);
 
-// biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
-export let mathJs: any = null;
+// Initialise JSZip lazily.
 
-export const importMathJs = async (): Promise<void> => {
-  try {
-    const module = await import('https://cdn.jsdelivr.net/npm/mathjs@15.1.1/+esm');
+export let jsZip: Module = null;
 
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
-    mathJs = (module as any).default ?? module;
-  } catch (error: unknown) {
-    console.error('Failed to import Math.js:', formatError(error));
+export const initialiseJsZip = createLazyInitialiser(
+  'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm',
+  (module: Module) => {
+    jsZip = module;
+  },
+  'JSZip'
+);
 
-    throw error;
-  }
-};
+// Initialise Math.js lazily.
 
-// Import Plotly.js lazily.
+export let mathJs: Module = null;
 
-// biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
-export let plotlyJs: any = null;
+export const initialiseMathJs = createLazyInitialiser(
+  'https://cdn.jsdelivr.net/npm/mathjs@15.1.1/+esm',
+  (module: Module) => {
+    mathJs = module;
+  },
+  'Math.js'
+);
 
-export const importPlotlyJs = async (): Promise<void> => {
-  try {
-    const module = await import('https://cdn.jsdelivr.net/npm/plotly.js-gl2d-dist-min@3.3.1/+esm');
+// Initialise Plotly.js lazily.
 
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic import requires any type
-    plotlyJs = (module as any).default ?? module;
-  } catch (error: unknown) {
-    console.error('Failed to import Plotly.js:', formatError(error));
+export let plotlyJs: Module = null;
 
-    throw error;
-  }
-};
+export const initialisePlotlyJs = createLazyInitialiser(
+  'https://cdn.jsdelivr.net/npm/plotly.js-gl2d-dist-min@3.3.1/+esm',
+  (module: Module) => {
+    plotlyJs = module;
+  },
+  'Plotly.js'
+);
+
+// Initialise VueTippy lazily (also injects its CSS once).
+
+export let vueTippy: Module = null;
+
+export const initialiseVueTippy = createLazyInitialiser(
+  'https://cdn.jsdelivr.net/npm/vue-tippy@6.7.1/+esm',
+  (module: Module) => {
+    vueTippy = module;
+  },
+  'VueTippy',
+  'https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.css'
+);
