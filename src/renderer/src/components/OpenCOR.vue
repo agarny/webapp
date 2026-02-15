@@ -337,7 +337,7 @@ void locApi
   });
 
 void common
-  .importCelldlEditor()
+  .initialiseCelldlEditor()
   .then(() => {
     celldlEditorInitialised.value = true;
   })
