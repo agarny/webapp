@@ -1,16 +1,25 @@
 <template>
-  <CellDLEditor
+  <component :is="common.celldlEditor"
     :editorCommand="celldlEditorCommand"
     @editorData="onEditorData"
     @error="onError" />
 </template>
 
 <script setup lang="ts">
-import { CellDLEditor, type CellDLEditorCommand, type EditorData } from '@celldl/editor';
-import '@celldl/editor/style.css';
 import * as vueusecore from '@vueuse/core';
 
 import * as vue from 'vue';
+
+import * as common from '../../common/common.ts';
+
+type CellDLEditorCommand = {
+  command: string;
+  options?: Record<string, unknown>
+};
+type EditorData = {
+  kind: string;
+  data?: unknown
+};
 
 const celldlEditorCommand = vue.ref<CellDLEditorCommand>({
   command: ''
