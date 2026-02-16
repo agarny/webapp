@@ -245,7 +245,6 @@ const toast = useToast();
 
 // @ts-expect-error (window.locApi may or may not be defined which is why we test it)
 const locApiInitialised = vue.ref<boolean>(!!window.locApi);
-const celldlEditorInitialised = vue.ref<boolean>(false);
 const jsonSchemaInitialised = vue.ref<boolean>(false);
 const jsZipInitialised = vue.ref<boolean>(false);
 const mathJsInitialised = vue.ref<boolean>(false);
@@ -262,7 +261,6 @@ const initialisingOpencorMessageVisible = vue.ref<boolean>(true);
 const compOpencorInitialised = vue.computed(() => {
   return (
     locApiInitialised.value &&
-    celldlEditorInitialised.value &&
     jsonSchemaInitialised.value &&
     jsZipInitialised.value &&
     mathJsInitialised.value &&
@@ -272,14 +270,10 @@ const compOpencorInitialised = vue.computed(() => {
   );
 });
 const compInitialisingOpencorMessageProgress = vue.computed(() => {
-  const total = 8;
+  const total = 7;
   let count = 0;
 
   if (locApiInitialised.value) {
-    count += 1;
-  }
-
-  if (celldlEditorInitialised.value) {
     count += 1;
   }
 
@@ -331,15 +325,6 @@ void locApi
   .initialiseLocApi()
   .then(() => {
     locApiInitialised.value = true;
-  })
-  .catch((error: unknown) => {
-    initialisationError(error);
-  });
-
-void common
-  .initialiseCelldlEditor()
-  .then(() => {
-    celldlEditorInitialised.value = true;
   })
   .catch((error: unknown) => {
     initialisationError(error);
