@@ -1,6 +1,6 @@
 <template>
   <div class="w-full h-full" style="background-color: var(--p-content-background); color: var(--p-content-color);">
-    <iframe ref="iframeRef" class="w-full h-full"
+    <iframe ref="iframeRef" :class="['w-full h-full', { 'pointer-events-none': dragNDropActive }]"
       :srcdoc="iframeHtml"
     ></iframe>
     <BlockingMessageComponent v-if="!editorReady"
@@ -37,6 +37,12 @@ type IframeMessage =
     }
   | {
       type: 'celldl-editor-ready';
+    }
+  | {
+      type: 'celldl-editor-dragenter';
+    }
+  | {
+      type: 'celldl-editor-dragleave';
     };
 
 const celldlEditorCommand = vue.ref<CellDLEditorCommand>({ command: '' });
@@ -50,6 +56,7 @@ const emit = defineEmits<{
 
 const iframeRef = vue.ref<HTMLIFrameElement | null>(null);
 const editorReady = vue.ref(false);
+const dragNDropActive = vue.ref(false);
 
 // Forward local `celldlEditorCommand` changes to the iframe.
 
@@ -115,6 +122,16 @@ const onIframeMessage = (event: MessageEvent<IframeMessage>) => {
           '*'
         );
       }
+
+      break;
+    }
+    case 'celldl-editor-dragenter': {
+      dragNDropActive.value = true;
+
+      break;
+    }
+    case 'celldl-editor-dragleave': {
+      dragNDropActive.value = false;
 
       break;
     }

@@ -11,6 +11,9 @@
       margin: 0;
       background-color: #ffffff; /* Light version of --p-content-background. */
       color: #334155; /* Light version of --p-content-color. */
+      font-family:
+        Inter, -apple-system, "system-ui", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans",
+        "Helvetica Neue", sans-serif;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -45,7 +48,11 @@
 
         // Notify our parent that we are ready.
 
-        parent.postMessage({ type: 'celldl-editor-ready' }, '*');
+        const postMessageToParent = (type, payload) => {
+          parent.postMessage(payload === undefined ? { type } : { type, payload }, '*');
+        };
+
+        postMessageToParent('celldl-editor-ready');
 
         // Listen for commands from our parent.
 
@@ -65,6 +72,14 @@
           // Apply the payload to our reactive editorCommand object.
 
           Object.assign(editorCommand, event.data.payload);
+        });
+
+        window.addEventListener('dragenter', () => {
+          postMessageToParent('celldl-editor-dragenter');
+        });
+
+        window.addEventListener('dragleave', () => {
+          postMessageToParent('celldl-editor-dragleave');
         });
       } catch (error) {
         parent.postMessage({ type: 'celldl-editor-error', payload: String(error) }, '*');
