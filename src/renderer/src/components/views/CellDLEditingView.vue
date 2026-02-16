@@ -1,86 +1,131 @@
 <template>
-  <component :is="common.celldlEditor"
-    :editorCommand="celldlEditorCommand"
-    @editorData="onEditorData"
-    @error="onError" />
+  <div class="w-full h-full" style="background-color: var(--p-content-background); color: var(--p-content-color);">
+    <iframe ref="iframeRef" class="w-full h-full"
+      :srcdoc="iframeHtml"
+    ></iframe>
+    <BlockingMessageComponent v-if="!editorReady"
+      message="Loading the CellDL editing view..."
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import * as vueusecore from '@vueuse/core';
-
 import * as vue from 'vue';
 
-import * as common from '../../common/common.ts';
+import iframeHtml from './CellDLEditingView.html?raw';
 
 type CellDLEditorCommand = {
   command: string;
-  options?: Record<string, unknown>
+  options?: Record<string, unknown>;
 };
 type EditorData = {
   kind: string;
-  data?: unknown
+  data?: unknown;
+};
+type IframeMessage =
+  | {
+      type: 'celldl-editor-command';
+      payload?: CellDLEditorCommand;
+    }
+  | {
+      type: 'celldl-editor-data';
+      payload: EditorData;
+    }
+  | {
+      type: 'celldl-editor-error';
+      payload: string;
+    }
+  | {
+      type: 'celldl-editor-ready';
+    };
+
+const celldlEditorCommand = vue.ref<CellDLEditorCommand>({ command: '' });
+
+defineExpose({ celldlEditorCommand });
+
+const emit = defineEmits<{
+  (event: 'editor-data', payload: EditorData): void;
+  (event: 'editor-error', payload: string): void;
+}>();
+
+const iframeRef = vue.ref<HTMLIFrameElement | null>(null);
+const editorReady = vue.ref(false);
+
+// Forward local `celldlEditorCommand` changes to the iframe.
+
+vue.watch(
+  celldlEditorCommand,
+  (newCelldlEditorCommand) => {
+    const contentWindow = iframeRef.value?.contentWindow;
+
+    if (contentWindow) {
+      contentWindow.postMessage({ type: 'celldl-editor-command', payload: newCelldlEditorCommand }, '*');
+    }
+  },
+  { deep: true }
+);
+
+// Receive events from the iframe and forward them to our local handlers.
+
+const onIframeMessage = (event: MessageEvent<IframeMessage>) => {
+  // Make sure that the message is from our iframe and that it has the expected shape.
+
+  if (event.source !== iframeRef.value?.contentWindow) {
+    return;
+  }
+
+  // Make sure that the message has the expected shape.
+
+  if (!event.data || typeof event.data.type !== 'string') {
+    return;
+  }
+
+  // Handle the message based on its type.
+
+  switch (event.data.type) {
+    case 'celldl-editor-data':
+      emit('editor-data', event.data.payload);
+
+      if (event.data.payload.kind === 'export') {
+        // Handle export as before.
+      } else {
+        // Process other kinds.
+      }
+
+      break;
+    case 'celldl-editor-error':
+      emit('editor-error', event.data.payload);
+
+      break;
+    case 'celldl-editor-ready': {
+      // Mark the editor as ready.
+
+      editorReady.value = true;
+
+      // Send any pending command.
+
+      const contentWindow = iframeRef.value?.contentWindow;
+
+      if (contentWindow && celldlEditorCommand.value.command) {
+        contentWindow.postMessage(
+          {
+            type: 'celldl-editor-command',
+            payload: celldlEditorCommand.value
+          },
+          '*'
+        );
+      }
+
+      break;
+    }
+  }
 };
 
-const celldlEditorCommand = vue.ref<CellDLEditorCommand>({
-  command: ''
+vue.onMounted(() => {
+  window.addEventListener('message', onIframeMessage);
 });
 
-vueusecore.useEventListener(document, 'file-edited', (_: Event) => {
-  // The current diagram has has been modified, so update any local state (e.g., add a modified indicator to the
-  // diagram's title).
+vue.onUnmounted(() => {
+  window.removeEventListener('message', onIframeMessage);
 });
-
-async function onEditorData(data: EditorData) {
-  if (data.kind === 'export') {
-    // const uri = 'https://example.org/some_uri_to_identify_the_celldl_source_';
-    // const cellmlObject = celldl2cellml(uri, data.data);
-    // if (cellmlObject.cellml) {
-    //   // Save `cellmlObject.cellml`.
-    // } else if (cellmlObject.issues) {
-    //   window.alert(cellmlObject.issues.join('\n'));
-    // }
-  } else {
-    // Process `data.data`.
-  }
-}
-
-function onError(msg: string) {
-  window.alert(msg);
-}
-
-/*
-The editor is initialised with a blank window.
-
-1. To load a CellDL diagram set:
-
-  celldlEditorCommand.value = {
-    command: 'file',
-    options: {
-      action: 'open',
-      data: celldlSource,
-      name: filename
-    }
-  }
-
-2. To get serialised CellDL from the editing window set:
-
-  celldlEditorCommand.value = {
-    command: 'file',
-    options: {
-      action: 'data',
-      kind: 'export'
-    }
-  }
-
-with `kind` set as appropriate. This will result in an `editorData` event, to be handled as above.
-
-3. To clear the editing window set:
-
-  celldlEditorCommand.value = {
-    command: 'file',
-    options: {
-      action: 'close'
-    }
-  }
-*/
 </script>

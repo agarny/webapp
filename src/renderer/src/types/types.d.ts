@@ -7,3 +7,9 @@ declare module 'libopencor' {
 declare module 'plotly.js-gl2d-dist-min' {
   export default Plotly;
 }
+
+declare module '*.html?raw' {
+  const src: string;
+
+  export default src;
+}

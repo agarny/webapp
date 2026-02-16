@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@celldl/editor@0.20260217.1/dist/CellDLEditor.css" />
+    <style>
+    html,
+    body,
+    #app {
+      height: 100%;
+      margin: 0;
+      background-color: #ffffff; /* Light version of --p-content-background. */
+      color: #334155; /* Light version of --p-content-color. */
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html,
+      body,
+      #app {
+        background-color: #18181b; /* Dark version of --p-content-background. */
+        color: #ffffff; /* Dark version of --p-content-color. */
+      }
+    }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+    (async () => {
+      try {
+        const vue = await import('https://cdn.jsdelivr.net/npm/vue@3.4.21/+esm');
+        const celldlEditor = (await import('https://cdn.jsdelivr.net/npm/@celldl/editor@0.20260217.1/+esm')).default;
+        const editorCommand = vue.reactive({ command: '' });
+
+        const App = {
+          setup() {
+            const onEditorData = (data) => parent.postMessage({ type: 'celldl-editor-data', payload: data }, '*');
+            const onError = (msg) => parent.postMessage({ type: 'celldl-editor-error', payload: msg }, '*');
+
+            return () => vue.h(celldlEditor, { editorCommand, onEditorData, onError });
+          }
+        };
+
+        vue.createApp(App).mount('#app');
+
+        // Notify our parent that we are ready.
+
+        parent.postMessage({ type: 'celldl-editor-ready' }, '*');
+
+        // Listen for commands from our parent.
+
+        window.addEventListener('message', (event) => {
+          // Make sure that the message is from our parent and that it has the expected type.
+
+          if (event.source !== parent || event.data.type !== 'celldl-editor-command') {
+            return;
+          }
+
+          // Make sure the payload is an object.
+
+          if (!event.data.payload || typeof event.data.payload !== 'object') {
+            return;
+          }
+
+          // Apply the payload to our reactive editorCommand object.
+
+          Object.assign(editorCommand, event.data.payload);
+        });
+      } catch (error) {
+        parent.postMessage({ type: 'celldl-editor-error', payload: String(error) }, '*');
+      }
+    })();
+    </script>
+  </body>
+</html>
