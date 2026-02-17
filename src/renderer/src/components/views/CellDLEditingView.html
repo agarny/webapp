@@ -41,18 +41,22 @@
             const onError = (msg) => parent.postMessage({ type: 'celldl-editor-error', payload: msg }, '*');
 
             return () => vue.h(celldlEditor, { editorCommand, onEditorData, onError });
+          },
+
+          // Ensure our parent is notified only once CellDL Editor is actually mounted.
+
+          mounted() {
+            parent.postMessage({ type: 'celldl-editor-ready' }, '*');
           }
         };
 
         vue.createApp(App).mount('#app');
 
-        // Notify our parent that we are ready.
+        // Helper to post messages to our parent.
 
         const postMessageToParent = (type, payload) => {
           parent.postMessage(payload === undefined ? { type } : { type, payload }, '*');
         };
-
-        postMessageToParent('celldl-editor-ready');
 
         // Listen for commands from our parent.
 
