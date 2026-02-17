@@ -12,6 +12,8 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
+import { LONG_DELAY } from '../../common/constants.ts';
+
 import iframeHtml from './CellDLEditingView.html?raw';
 
 type CellDLEditorCommand = {
@@ -105,23 +107,24 @@ const onIframeMessage = (event: MessageEvent<IframeMessage>) => {
 
       break;
     case 'celldl-editor-ready': {
-      // Mark the editor as ready.
+      // Mark the editor as ready and send any pending comand, but after a long delay.
+      // Note: the long delay is so that we get a chance to see the loading message before the editor is ready.
 
-      editorReady.value = true;
+      setTimeout(() => {
+        editorReady.value = true;
 
-      // Send any pending command.
+        const contentWindow = iframeRef.value?.contentWindow;
 
-      const contentWindow = iframeRef.value?.contentWindow;
-
-      if (contentWindow && celldlEditorCommand.value.command) {
-        contentWindow.postMessage(
-          {
-            type: 'celldl-editor-command',
-            payload: celldlEditorCommand.value
-          },
-          '*'
-        );
-      }
+        if (contentWindow && celldlEditorCommand.value.command) {
+          contentWindow.postMessage(
+            {
+              type: 'celldl-editor-command',
+              payload: celldlEditorCommand.value
+            },
+            '*'
+          );
+        }
+      }, LONG_DELAY);
 
       break;
     }
