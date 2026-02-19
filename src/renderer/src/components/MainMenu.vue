@@ -23,20 +23,12 @@
     <template #end>
       <button v-if="updateAvailable" class="update-link flex mr-1 text-xs px-1.5 py-0.5 cursor-pointer rounded-sm border border-transparent bg-transparent"
         type="button" title="Click to reload and update"
-        @click="onUpdateClick"
+        @click="emit('updateAvailable')"
       >
         New version available!
       </button>
     </template>
   </Menubar>
-
-  <YesNoQuestionDialog
-    v-model:visible="updateConfirmVisible"
-    title="Update Available..."
-    :question="'Version ' + latestVersion + ' is available. Do you want to reload and update now?'"
-    @yes="onUpdate"
-    @no="updateConfirmVisible = false"
-  />
 </template>
 
 <script setup lang="ts">
@@ -63,10 +55,12 @@ const emit = defineEmits<{
   (event: 'openRemote'): void;
   (event: 'openSampleLorenz'): void;
   (event: 'settings'): void;
+  (event: 'updateAvailable'): void;
 }>();
 
 const isWindowsOrLinux = common.isWindows() || common.isLinux();
 const isMacOs = common.isMacOs();
+const updateAvailable = version.updateAvailable;
 
 const items = [
   {
@@ -155,22 +149,6 @@ const items = [
     ]
   }
 ];
-
-// Handle the click on the update link button by showing a Yes/No dialog.
-
-const updateConfirmVisible = vue.ref(false);
-const updateAvailable = version.updateAvailable;
-const latestVersion = version.latestVersion;
-
-const onUpdateClick = () => {
-  updateConfirmVisible.value = true;
-};
-
-const onUpdate = () => {
-  updateConfirmVisible.value = false;
-
-  version.reloadApp();
-};
 
 // A few things that can only be done when the component is mounted.
 

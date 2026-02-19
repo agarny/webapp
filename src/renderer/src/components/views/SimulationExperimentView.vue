@@ -755,7 +755,7 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
     // Note: we replace `*` and `/` (but not `.*` and `./`) with `.*` and `./`, respectively, to ensure element-wise
     //       operations.
 
-    return parser.evaluate(value.replace(/(?<!\.)\*(?!\.)/g, '.*').replace(/(?<!\.)\/(?!\.)/g, './'));
+    return new Float64Array(parser.evaluate(value.replace(/(?<!\.)\*(?!\.)/g, '.*').replace(/(?<!\.)\/(?!\.)/g, './')));
   };
 
   try {

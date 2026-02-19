@@ -32,6 +32,7 @@
         @close="onCloseMenu"
         @closeAll="onCloseAllMenu"
         @settings="onSettingsMenu"
+        @updateAvailable="onUpdateAvailable"
       />
       <!-- TODO: enable once our GitHub integration is fully ready.
       <div v-if="firebaseConfig && !omex">
@@ -47,55 +48,54 @@
         />
       </div>
       -->
-      <div class="grow relative">
-        <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="compInitialisingOpencorMessageProgress" />
-        <BlockingMessageComponent v-show="loadingModelMessageVisible" message="Loading model..." />
-        <BlockingMessageComponent v-show="progressMessageVisible" :message="progressMessageMessage" :progress="progressMessageProgress" />
-        <OkMessageDialog
-          v-model:visible="updateErrorVisible"
-          :title="updateErrorTitle"
-          :message="updateErrorIssue"
-          @ok="onUpdateErrorDialogClose"
-        />
-        <YesNoQuestionDialog
-          v-model:visible="updateAvailableVisible"
-          title="Check for Updates..."
-          :question="'Version ' + updateVersion + ' is available. Do you want to download it and install it?'"
-          @yes="onDownloadAndInstall"
-          @no="updateAvailableVisible = false"
-        />
-        <UpdateDownloadProgressDialog v-model:visible="updateDownloadProgressVisible" :percent="updateDownloadPercent" />
-        <OkMessageDialog
-          v-model:visible="updateNotAvailableVisible"
-          title="Check for Updates..."
-          message="No updates are available at this time."
-          @ok="updateNotAvailableVisible = false"
-        />
-        <ContentsComponent ref="contents" class="grow min-h-0"
-          :isActive="compIsActive"
-          :uiEnabled="compUiEnabled"
-          :simulationOnly="!!omex"
-          @error="onError"
-        />
-        <OpenRemoteDialog
-          v-model:visible="openRemoteVisible"
-          @openRemote="onOpenRemote"
-          @close="openRemoteVisible = false"
-        />
-        <SettingsDialog v-model:visible="settingsVisible" @close="settingsVisible = false" />
-        <YesNoQuestionDialog
-          v-model:visible="resetAllVisible"
-          title="Reset All..."
-          question="You are about to reset all of your settings. Do you want to proceed?"
-          severity="danger"
-          @yes="onResetAll"
-          @no="resetAllVisible = false"
-        />
-        <AboutDialog
-          v-model:visible="aboutVisible"
-          @close="aboutVisible = false"
-        />
-      </div>
+      <ContentsComponent ref="contents" class="grow min-h-0"
+        :isActive="compIsActive"
+        :uiEnabled="compUiEnabled"
+        :simulationOnly="!!omex"
+        @error="onError"
+      />
+      <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="compInitialisingOpencorMessageProgress" />
+      <BlockingMessageComponent v-show="loadingModelMessageVisible" message="Loading model..." />
+      <BlockingMessageComponent v-show="progressMessageVisible" :message="progressMessageMessage" :progress="progressMessageProgress" />
+      <OkMessageDialog v-model:visible="updateErrorVisible"
+        :title="updateErrorTitle"
+        :message="updateErrorIssue"
+        @ok="onUpdateErrorDialogClose"
+      />
+      <YesNoQuestionDialog v-model:visible="desktopUpdateAvailableVisible"
+        title="Check for Updates..."
+        :question="'Version ' + updateVersion + ' is available. Do you want to download it and install it?'"
+        @yes="onDownloadAndInstall"
+        @no="desktopUpdateAvailableVisible = false"
+      />
+      <UpdateDownloadProgressDialog v-model:visible="updateDownloadProgressVisible"
+        :percent="updateDownloadPercent"
+      />
+      <OkMessageDialog v-model:visible="updateNotAvailableVisible"
+        title="Check for Updates..."
+        message="No updates are available at this time."
+        @ok="updateNotAvailableVisible = false"
+      />
+      <OpenRemoteDialog v-model:visible="openRemoteVisible"
+        @openRemote="onOpenRemote"
+        @close="openRemoteVisible = false"
+      />
+      <SettingsDialog v-model:visible="settingsVisible"
+        @close="settingsVisible = false"
+      />
+      <YesNoQuestionDialog v-model:visible="resetAllVisible"
+        title="Reset All..."
+        question="You are about to reset all of your settings. Do you want to proceed?"
+        severity="danger"
+        @yes="onResetAll"
+        @no="resetAllVisible = false"
+      />
+      <AboutDialog v-model:visible="aboutVisible"
+        @close="aboutVisible = false"
+      />
+      <UpdateAvailableDialog v-model:visible="webUpdateAvailableVisible"
+        @close="webUpdateAvailableVisible = false"
+      />
     </div>
   </BlockUI>
 </template>
@@ -162,7 +162,10 @@ const compIsActive = vue.computed(() => {
 // Determine whether the component UI should be blocked/enabled.
 // Note: compBlockUiEnabled is used to determine whether PrimeVue's BlockUI component should be enabled, whereas
 //       compUiEnabled is used to determine whether the UI should be enabled (it checks whether various dialogs are
-//       visible since those dialogs block the UI).
+//       visible since those dialogs block the UI). Whether a dialog is visible or not is tracked in compUiEnabled
+//       rather than compBlockUiEnabled because we don't want to show the BlockUI's overlay when a dialog is open
+//       since a dialog already has some overlaying effect and the BlockUI's overlay would just make things look darker
+//       and worse.
 
 const compBlockUiEnabled = vue.computed(() => {
   return (
@@ -513,20 +516,20 @@ const onUpdateErrorDialogClose = (): void => {
   updateDownloadProgressVisible.value = false;
 };
 
-const updateAvailableVisible = vue.ref<boolean>(false);
+const desktopUpdateAvailableVisible = vue.ref<boolean>(false);
 const updateDownloadProgressVisible = vue.ref<boolean>(false);
 const updateVersion = vue.ref<string>('');
 const updateDownloadPercent = vue.ref<number>(0);
 
 electronApi?.onUpdateAvailable((version: string) => {
-  updateAvailableVisible.value = true;
+  desktopUpdateAvailableVisible.value = true;
   updateVersion.value = version;
 });
 
 const onDownloadAndInstall = (): void => {
   updateDownloadPercent.value = 0; // Just to be on the safe side.
   updateDownloadProgressVisible.value = true;
-  updateAvailableVisible.value = false;
+  desktopUpdateAvailableVisible.value = false;
 
   electronApi?.downloadAndInstallUpdate();
 };
@@ -601,6 +604,14 @@ const onSettingsMenu = (): void => {
   }
 
   settingsVisible.value = true;
+};
+
+// Update available dialog.
+
+const webUpdateAvailableVisible = vue.ref(false);
+
+const onUpdateAvailable = () => {
+  webUpdateAvailableVisible.value = true;
 };
 
 // Open a file.
@@ -927,8 +938,8 @@ vue.onMounted(() => {
 // carry on as normal (i.e. the whole OpenCOR UI will be shown).
 
 if (props.omex) {
-  vue.watch(compOpencorInitialised, (newCompOpencorInitialised: boolean) => {
-    if (newCompOpencorInitialised && props.omex) {
+  vue.watch(initialisingOpencorMessageVisible, (newInitialisingOpencorMessageVisible: boolean) => {
+    if (!newInitialisingOpencorMessageVisible && props.omex) {
       openFile(props.omex);
     }
   });
@@ -948,8 +959,8 @@ if (props.omex) {
         // Handle the action passed to our Web app, if any.
         // Note: to use vue.nextTick() doesn't do the trick, so we have no choice but to use setTimeout().
 
-        vue.watch(compOpencorInitialised, (newCompOpencorInitialised: boolean) => {
-          if (newCompOpencorInitialised) {
+        vue.watch(initialisingOpencorMessageVisible, (newInitialisingOpencorMessageVisible: boolean) => {
+          if (!newInitialisingOpencorMessageVisible) {
             const action = vueusecore.useStorage('action', '');
 
             if (window.location.search) {
@@ -973,15 +984,7 @@ if (props.omex) {
               window.location.reload();
             } else if (action.value) {
               setTimeout(() => {
-                if (action.value.startsWith('forceReload=')) {
-                  // This action (parameter in fact) is used with a timestamp as an argument to force OpenCOR to reload
-                  // (following an update) without getting an error toast. So, we do nothing here and we just let the
-                  // reload to happen.
-                  // Note: the reload is triggered by the URL change that we do in reloadApp() in version.ts. This is
-                  //       done to bypass the cache and ensure that the latest version of OpenCOR is loaded. When the
-                  //       reload happens, the URL contains the forceReload action with a timestamp argument, but since
-                  //       we are reloading anyway, we can just ignore it and not show an error toast.
-                } else if (action.value.startsWith(FULL_URI_SCHEME)) {
+                if (action.value.startsWith(FULL_URI_SCHEME)) {
                   handleAction(action.value.slice(FULL_URI_SCHEME.length));
                 } else {
                   toast.add({
@@ -1019,6 +1022,7 @@ vue.watch(compBlockUiEnabled, (newCompBlockUiEnabled: boolean) => {
   }
 });
 
+/* TODO: enable once our GitHub integration is fully ready.
 // GitHub integration.
 
 const disconnectFromGitHubVisible = vue.ref<boolean>(false);
@@ -1045,7 +1049,6 @@ const deleteGitHubAccessToken = async (silent: boolean = false): Promise<void> =
   }
 };
 
-/* TODO: enable once our GitHub integration is fully ready.
 const loadGitHubAccessToken = async (): Promise<void> => {
   if (!electronApi || props.omex || !firebaseConfig) {
     return;

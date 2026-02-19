@@ -109,18 +109,6 @@ const startCheck = (): void => {
   }
 };
 
-// Reload the Web app to get the latest version (force cache bypass).
-
-const reloadApp = (): void => {
-  const url = new URL(window.location.href);
-
-  url.searchParams.set('forceReload', Date.now().toString());
-
-  window.location.replace(url.toString());
-  // Note: we use replace() so that the current page doesn't get saved in the session history. This means user is not
-  //       able to click "Back" and end up on a page that might be broken due to the update.
-};
-
 // Export the version checking functions and state.
 
-export { currentVersion, latestVersion, reloadApp, startCheck, updateAvailable };
+export { currentVersion, latestVersion, startCheck, updateAvailable };

@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog header="Open Remote..." style="width: 39rem;">
+  <BaseDialog header="Open Remote..." class="w-169">
     <div class="items-center mt-2 mb-4">
       <FloatLabel variant="on">
         <InputText autofocus fluid v-model="url" @keyup.enter="emitOpenRemote" />
