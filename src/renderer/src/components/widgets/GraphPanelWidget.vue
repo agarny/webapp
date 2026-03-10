@@ -7,8 +7,8 @@
 </template>
 
 <script setup lang="ts">
-import ContextMenu from 'primevue/contextmenu';
-import type { MenuItem } from 'primevue/menuitem';
+import ContextMenu from '@primevue-ce/primevue/contextmenu';
+import type { MenuItem } from '@primevue-ce/primevue/menuitem';
 import * as vue from 'vue';
 
 import * as colors from '../../common/colors.ts';

@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import primeVueAuraTheme from '@primeuix/themes/aura';
+import primeVueAuraTheme from '@primeuix-ce/themes/aura';
 import * as vueusecore from '@vueuse/core';
 
 /* TODO: enable once our GitHub integration is fully ready.
@@ -110,11 +110,11 @@ import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import { Octokit } from 'octokit';
 */
-import BlockUI from 'primevue/blockui';
-import primeVueConfig from 'primevue/config';
-import primeVueConfirmationService from 'primevue/confirmationservice';
-import primeVueToastService from 'primevue/toastservice';
-import { useToast } from 'primevue/usetoast';
+import BlockUI from '@primevue-ce/primevue/blockui';
+import primeVueConfig from '@primevue-ce/primevue/config';
+import primeVueConfirmationService from '@primevue-ce/primevue/confirmationservice';
+import primeVueToastService from '@primevue-ce/primevue/toastservice';
+import { useToast } from '@primevue-ce/primevue/usetoast';
 import * as vue from 'vue';
 
 import type { IOpenCOREmits, IOpenCORProps } from '../../index.ts';

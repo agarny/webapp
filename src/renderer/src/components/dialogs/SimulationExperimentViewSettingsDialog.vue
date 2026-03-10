@@ -744,7 +744,7 @@
 </template>
 
 <script setup lang="ts">
-import Popover from 'primevue/popover';
+import Popover from '@primevue-ce/primevue/popover';
 import * as vue from 'vue';
 
 import * as locApi from '../../libopencor/locApi.ts';

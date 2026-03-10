@@ -244,7 +244,7 @@
 <script setup lang="ts">
 import * as vueusecore from '@vueuse/core';
 
-import Popover from 'primevue/popover';
+import Popover from '@primevue-ce/primevue/popover';
 import * as vue from 'vue';
 
 import type { IOpenCORSimulationDataEvent } from '../../../index.ts';

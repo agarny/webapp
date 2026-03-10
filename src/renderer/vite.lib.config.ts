@@ -1,4 +1,4 @@
-import * as primeVueAutoImportResolver from '@primevue/auto-import-resolver';
+import * as primeVueAutoImportResolver from '@primevue-ce/auto-import-resolver';
 import tailwindcssPlugin from '@tailwindcss/vite';
 import vuePlugin from '@vitejs/plugin-vue';
 
