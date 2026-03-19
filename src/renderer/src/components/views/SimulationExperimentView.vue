@@ -425,10 +425,56 @@ const onDownloadCombineArchive = (): void => {
 };
 
 const populateInputProperties = (currentUiJson: locApi.IUiJson) => {
+  // Populate our input values and visibility based on the input definitions in the UI JSON.
+
   interactiveInputValues.value = currentUiJson.input.map((input: locApi.IUiJsonInput) => input.defaultValue);
   interactiveShowInput.value = currentUiJson.input.map(
     (input: locApi.IUiJsonInput) => (input.visible ?? 'true') !== 'false'
   );
+
+  // Update our external data values.
+
+  Object.keys(interactiveExternalDataValues).forEach((key) => {
+    delete interactiveExternalDataValues[key];
+  });
+
+  for (const externalData of currentUiJson.output.externalData ?? []) {
+    const transformedVoi = new Float64Array(externalData.voiValues.length);
+
+    for (let index = 0; index < externalData.voiValues.length; ++index) {
+      const calibreVoi = externalData.voiValues[index];
+
+      try {
+        const evaluated = dependencies._mathJs.evaluate(externalData.voiExpression, { voi: calibreVoi });
+        const result = Number(evaluated);
+
+        transformedVoi[index] = Number.isFinite(result) ? result : NaN;
+      } catch {
+        transformedVoi[index] = NaN;
+      }
+    }
+
+    const seriesByName = Object.fromEntries(
+      externalData.dataSeries.map((entry) => [entry.name, Float64Array.from(entry.values)])
+    );
+
+    for (const entry of externalData.data) {
+      if (!entry.id) {
+        continue;
+      }
+
+      const quoteSeries = seriesByName[entry.name];
+
+      if (quoteSeries) {
+        interactiveExternalDataValues[entry.id] = {
+          x: transformedVoi,
+          y: quoteSeries
+        };
+      }
+    }
+  }
+
+  // Update our mapping of interactive data IDs to simulation data information.
 
   Object.keys(interactiveIdToInfo).forEach((key) => {
     delete interactiveIdToInfo[key];
@@ -552,6 +598,7 @@ const interactiveUiJson = vue.ref<locApi.IUiJson>(
 const interactiveUiJsonEmpty = vue.computed<boolean>(() => {
   if (
     interactiveUiJson.value.input.length === 0 &&
+    (interactiveUiJson.value.output.externalData?.length ?? 0) === 0 &&
     interactiveUiJson.value.output.plots.length === 0 &&
     interactiveUiJson.value.parameters.length === 0
   ) {
@@ -578,6 +625,46 @@ const interactiveInstanceIssues = vue.ref<locApi.IIssue[]>([]);
 const interactiveInputValues = vue.ref<number[]>([]);
 const interactiveShowInput = vue.ref<boolean[]>([]);
 const interactiveIdToInfo: Record<string, locCommon.ISimulationDataInfo> = {};
+interface IExternalDataMapping {
+  x: Float64Array;
+  y: Float64Array;
+}
+const interactiveExternalDataValues: Record<string, IExternalDataMapping> = {};
+
+const interpolateValueArray = (queryX: Float64Array, sourceX: Float64Array, sourceY: Float64Array): Float64Array => {
+  const result = new Float64Array(queryX.length);
+
+  if (sourceX.length === 0 || sourceY.length === 0 || sourceX.length !== sourceY.length) {
+    return result;
+  }
+
+  let j = 0;
+
+  for (let i = 0; i < queryX.length; ++i) {
+    const xq = queryX[i];
+
+    while (j + 1 < sourceX.length && sourceX[j + 1] < xq) {
+      ++j;
+    }
+
+    if (xq <= sourceX[0]) {
+      result[i] = sourceY[0];
+    } else if (xq >= sourceX[sourceX.length - 1]) {
+      result[i] = sourceY[sourceY.length - 1];
+    } else {
+      const x0 = sourceX[j];
+      const x1 = sourceX[j + 1];
+      const y0 = sourceY[j];
+      const y1 = sourceY[j + 1];
+      const t = (xq - x0) / (x1 - x0);
+
+      result[i] = y0 + t * (y1 - y0);
+    }
+  }
+
+  return result;
+};
+
 const interactiveRuns = vue.ref<ISimulationRun[]>([
   {
     id: 'live',
@@ -820,7 +907,7 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
     return;
   }
 
-  // Update our scope with the latest simulation data.
+  // Update our scope with the latest simulation/external data.
 
   for (const data of interactiveUiJson.value.output.data) {
     const info = interactiveIdToInfo[data.id];
@@ -829,6 +916,26 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
       scope[data.id] = locCommon.simulationDataValue(interactiveInstanceTask, info).data;
     } else {
       scope[data.id] = common.EMPTY_FLOAT64_ARRAY;
+    }
+  }
+
+  const simulationVoi = interactiveInstanceTask ? interactiveInstanceTask.voi() : new Float64Array([]);
+
+  for (const externalData of interactiveUiJson.value.output.externalData ?? []) {
+    for (const data of externalData.data) {
+      if (!data.id) {
+        continue;
+      }
+
+      const externalDataMapping = interactiveExternalDataValues[data.id];
+
+      if (externalDataMapping && simulationVoi.length > 0) {
+        scope[data.id] = interpolateValueArray(simulationVoi, externalDataMapping.x, externalDataMapping.y);
+      } else if (externalDataMapping) {
+        scope[data.id] = externalDataMapping.y;
+      } else {
+        scope[data.id] = common.EMPTY_FLOAT64_ARRAY;
+      }
     }
   }
 

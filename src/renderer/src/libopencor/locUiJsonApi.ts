@@ -36,6 +36,7 @@ export interface IUiJsonScalarInput {
 
 export interface IUiJsonOutput {
   data: IUiJsonOutputData[];
+  externalData?: IUiJsonOutputExternalData[];
   plots: IUiJsonOutputPlot[];
 }
 
@@ -44,10 +45,17 @@ export interface IUiJsonOutputData {
   name: string;
 }
 
-export interface IUiJsonOutputPlotAdditionalTrace {
-  xValue: string;
-  yValue: string;
-  name?: string;
+export interface IUiJsonOutputExternalData {
+  data: IUiJsonOutputData[];
+  dataSeries: IUiJsonOutputExternalDataSeries[];
+  description?: string;
+  voiExpression: string;
+  voiValues: number[];
+}
+
+export interface IUiJsonOutputExternalDataSeries {
+  name: string;
+  values: number[];
 }
 
 export interface IUiJsonOutputPlot {
@@ -57,6 +65,12 @@ export interface IUiJsonOutputPlot {
   yValue: string;
   name?: string;
   additionalTraces?: IUiJsonOutputPlotAdditionalTrace[];
+}
+
+export interface IUiJsonOutputPlotAdditionalTrace {
+  xValue: string;
+  yValue: string;
+  name?: string;
 }
 
 export interface IUiJsonParameter {
@@ -206,7 +220,6 @@ export const validateUiJson = (uiJson: IUiJson | undefined): IIssue[] => {
       },
       output: {
         additionalProperties: false,
-        minItems: 1,
         properties: {
           data: {
             items: {
@@ -223,8 +236,73 @@ export const validateUiJson = (uiJson: IUiJson | undefined): IIssue[] => {
               },
               type: 'object'
             },
-            minItems: 1,
             required: true,
+            type: 'array'
+          },
+          externalData: {
+            items: {
+              additionalProperties: false,
+              properties: {
+                data: {
+                  items: {
+                    additionalProperties: false,
+                    properties: {
+                      id: {
+                        type: 'string'
+                      },
+                      name: {
+                        required: true,
+                        type: 'string'
+                      }
+                    },
+                    type: 'object'
+                  },
+                  required: true,
+                  type: 'array'
+                },
+                dataSeries: {
+                  items: {
+                    additionalProperties: false,
+                    properties: {
+                      name: {
+                        required: true,
+                        type: 'string'
+                      },
+                      values: {
+                        items: {
+                          required: true,
+                          type: 'number'
+                        },
+                        minItems: 1,
+                        required: true,
+                        type: 'array'
+                      }
+                    },
+                    type: 'object'
+                  },
+                  minItems: 1,
+                  required: true,
+                  type: 'array'
+                },
+                description: {
+                  type: 'string'
+                },
+                voiExpression: {
+                  required: true,
+                  type: 'string'
+                },
+                voiValues: {
+                  items: {
+                    required: true,
+                    type: 'number'
+                  },
+                  minItems: 1,
+                  required: true,
+                  type: 'array'
+                }
+              },
+              type: 'object'
+            },
             type: 'array'
           },
           plots: {
@@ -485,6 +563,136 @@ export const validateUiJson = (uiJson: IUiJson | undefined): IIssue[] => {
         type: EIssueType.WARNING,
         description: 'UI JSON: an output data name must not be empty.'
       });
+    }
+  }
+
+  if (uiJson.output.externalData !== undefined && uiJson.output.externalData !== null) {
+    for (const outputExternalData of uiJson.output.externalData) {
+      if (!outputExternalData.voiExpression) {
+        res.push({
+          type: EIssueType.WARNING,
+          description: 'UI JSON: an output external data VOI expression must not be empty.'
+        });
+      } else {
+        try {
+          dependencies._mathJs.parse(outputExternalData.voiExpression);
+        } catch (error: unknown) {
+          res.push({
+            type: EIssueType.WARNING,
+            description:
+              'UI JSON: an output external data VOI expression is invalid (' +
+              common.formatMessage(common.formatError(error), false) +
+              ').'
+          });
+        }
+      }
+
+      if (!outputExternalData.voiValues.length) {
+        res.push({
+          type: EIssueType.WARNING,
+          description: 'UI JSON: an output external data VOI values must not be empty.'
+        });
+      }
+
+      const outputExternalDataSeriesNames: Record<string, boolean> = {};
+
+      for (const outputExternalDataSeries of outputExternalData.dataSeries) {
+        if (outputExternalDataSeriesNames[outputExternalDataSeries.name]) {
+          res.push({
+            type: EIssueType.WARNING,
+            description:
+              'UI JSON: an output external data series name must be unique (' +
+              outputExternalDataSeries.name +
+              ' is used more than once).'
+          });
+        }
+
+        outputExternalDataSeriesNames[outputExternalDataSeries.name] = true;
+
+        if (!outputExternalDataSeries.name) {
+          res.push({
+            type: EIssueType.WARNING,
+            description: 'UI JSON: an output external data series name must not be empty.'
+          });
+        }
+
+        if (!outputExternalDataSeries.values.length) {
+          res.push({
+            type: EIssueType.WARNING,
+            description: 'UI JSON: an output external data series values must not be empty.'
+          });
+        }
+
+        if (outputExternalDataSeries.values.length !== outputExternalData.voiValues.length) {
+          res.push({
+            type: EIssueType.WARNING,
+            description:
+              'UI JSON: an output external data series values length (' +
+              String(outputExternalDataSeries.values.length) +
+              ') must match the VOI values length (' +
+              String(outputExternalData.voiValues.length) +
+              ').'
+          });
+        }
+      }
+
+      const outputExternalDataIds: Record<string, boolean> = {};
+
+      for (const outputExternalDataEntry of outputExternalData.data) {
+        if (!outputExternalDataEntry.id) {
+          res.push({
+            type: EIssueType.WARNING,
+            description: 'UI JSON: an output external data id must not be empty.'
+          });
+        }
+
+        if (outputExternalDataIds[outputExternalDataEntry.id]) {
+          res.push({
+            type: EIssueType.WARNING,
+            description: `UI JSON: an output external data id must be unique (${outputExternalDataEntry.id} is used more than once).`
+          });
+        }
+
+        outputExternalDataIds[outputExternalDataEntry.id] = true;
+
+        if (outputExternalDataEntry.id && outputIdUsed[outputExternalDataEntry.id]) {
+          res.push({
+            type: EIssueType.WARNING,
+            description:
+              'UI JSON: an output data id must be globally unique across simulation and external data (' +
+              outputExternalDataEntry.id +
+              ' is used more than once).'
+          });
+        }
+
+        if (outputExternalDataEntry.id) {
+          outputIdUsed[outputExternalDataEntry.id] = true;
+        }
+
+        if (!outputExternalDataEntry.name) {
+          res.push({
+            type: EIssueType.WARNING,
+            description: 'UI JSON: an output external data name must not be empty.'
+          });
+        }
+
+        if (!outputExternalDataSeriesNames[outputExternalDataEntry.name]) {
+          res.push({
+            type: EIssueType.WARNING,
+            description:
+              'UI JSON: an output external data name (' +
+              outputExternalDataEntry.name +
+              ') must match one of the data series names for that external data set.'
+          });
+        }
+      }
+
+      if (!outputExternalData.dataSeries.length) {
+        res.push({
+          type: EIssueType.WARNING,
+          description: 'UI JSON: an output external data series entries must not be empty.'
+        });
+      }
     }
   }
 
