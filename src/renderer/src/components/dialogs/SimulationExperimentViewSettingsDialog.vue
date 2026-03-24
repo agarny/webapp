@@ -1084,7 +1084,10 @@ const solversSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
 const uiJsonIssues = vue.computed<locApi.IIssue[]>(() => {
   // Validate our local UI JSON and return any issues.
 
-  return validateUiJson(localSettings.value.interactive.uiJson);
+  return validateUiJson(localSettings.value.interactive.uiJson, {
+    allModelParameters: props.allModelParameters,
+    editableModelParameters: props.editableModelParameters
+  });
 });
 
 const plotTraceCount = (plot: locApi.IUiJsonOutputPlot): number => {

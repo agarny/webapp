@@ -592,7 +592,12 @@ const interactiveModel = interactiveDocument.model(0);
 const interactiveLiveData = vue.ref<IGraphPanelData[]>([]);
 let interactiveMargins: Record<string, IGraphPanelMargins> = {};
 const interactiveCompMargins = vue.ref<IGraphPanelMargins>();
-const interactiveUiJsonIssues = vue.ref<locApi.IIssue[]>(locApi.validateUiJson(interactiveUiJson.value));
+const interactiveUiJsonIssues = vue.ref<locApi.IIssue[]>(
+  locApi.validateUiJson(interactiveUiJson.value, {
+    allModelParameters: interactiveAllModelParameters.value,
+    editableModelParameters: interactiveEditableModelParameters.value
+  })
+);
 const interactiveInstanceIssues = vue.ref<locApi.IIssue[]>([]);
 const interactiveInputValues = vue.ref<number[]>([]);
 const interactiveShowInput = vue.ref<boolean[]>([]);
@@ -1490,7 +1495,10 @@ const onInteractiveSettingsOk = (settings: ISimulationExperimentViewSettings): v
 
   // Validate the new UI JSON settings.
 
-  interactiveUiJsonIssues.value = locApi.validateUiJson(settings.interactive.uiJson);
+  interactiveUiJsonIssues.value = locApi.validateUiJson(settings.interactive.uiJson, {
+    allModelParameters: interactiveAllModelParameters.value,
+    editableModelParameters: interactiveEditableModelParameters.value
+  });
 
   if (interactiveUiJsonIssues.value.length > 0) {
     return;
