@@ -164,6 +164,8 @@ export {
   type IUiJsonInput,
   type IUiJsonOutput,
   type IUiJsonOutputData,
+  type IUiJsonOutputExternalData,
+  type IUiJsonOutputExternalDataSeries,
   type IUiJsonOutputPlot,
   type IUiJsonOutputPlotAdditionalTrace,
   type IUiJsonParameter,

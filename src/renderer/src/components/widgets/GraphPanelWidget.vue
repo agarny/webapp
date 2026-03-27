@@ -17,6 +17,7 @@ import * as colors from '../../common/colors';
 import * as common from '../../common/common';
 import { LONG_DELAY, NO_DELAY, SHORT_DELAY } from '../../common/constants';
 import * as dependencies from '../../common/dependencies';
+import * as math from '../../common/math';
 import * as vueCommon from '../../common/vueCommon';
 
 import type { IProgressMessage } from '../OpenCOR.vue';
@@ -36,9 +37,9 @@ export interface IGraphPanelPlotTrace {
   name: string;
   traceId?: string;
   xValue: string;
-  x: Float64Array;
+  x: math.FloatArray;
   yValue: string;
-  y: Float64Array;
+  y: math.FloatArray;
   color: string;
   zorder?: number;
 }

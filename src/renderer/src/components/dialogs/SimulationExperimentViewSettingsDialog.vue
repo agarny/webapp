@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog header="Interactive Mode Settings" class="w-210 h-180"
+  <BaseDialog header="Interactive Mode Settings" class="w-270 h-210"
     @keydown.prevent.enter="onOk"
     @cancel="onCancel"
   >
@@ -114,6 +114,10 @@
                     <i class="pi pi-database mr-2"></i>Simulation data
                     <span class="ml-2 badge">{{ localSettings.interactive.uiJson.output.data.length }}</span>
                   </Tab>
+                  <Tab value="externalData">
+                    <i class="pi pi-download mr-2"></i>External data
+                    <span class="ml-2 badge">{{ externalDataCount }}</span>
+                  </Tab>
                   <Tab value="plots">
                     <i class="pi pi-chart-line mr-2"></i>Plots
                     <span class="ml-2 badge">{{ localSettings.interactive.uiJson.output.plots.length }}</span>
@@ -129,7 +133,7 @@
                         <div>
                           <h3 class="section-title">Simulation inputs</h3>
                           <p class="section-description">
-                            Configure the simulation inputs that a user can modify and that will be available to set the model parameters.
+                            Configure the simulation inputs that a user can modify and that will be made available for setting model parameters.
                           </p>
                         </div>
                         <div class="flex-1"></div>
@@ -248,7 +252,7 @@
                                     <p class="text-muted-color mb-2">No possible values are configured.</p>
                                   </div>
                                   <div v-else class="possible-values-list">
-                                    <div v-for="(possibleValue, possibleValueIndex) in input.possibleValues" :key="`possibleValue${possibleValueIndex}`" class="entry-row">
+                                    <div v-for="(possibleValue, possibleValueIndex) in input.possibleValues" :key="`possible_value_${possibleValueIndex}`" class="entry-row">
                                       <span class="index index-secondary">{{ Number(possibleValueIndex) + 1 }}</span>
                                       <FloatLabel variant="on" class="flex-1">
                                         <InputText v-model="possibleValue.name" class="w-full" size="small" />
@@ -364,7 +368,7 @@
                         <div>
                           <h3 class="section-title">Simulation data</h3>
                           <p class="section-description">
-                            Configure the simulation data to be retrieved and that will be available for plotting.
+                            Configure the simulation data to be made available for plotting.
                           </p>
                         </div>
                         <div class="flex-1"></div>
@@ -413,6 +417,155 @@
                                 size="small"
                                 @click="removeSimulationData(dataIndex)"
                               />
+                            </div>
+                          </div>
+                        </div>
+                      </ScrollPanel>
+                    </div>
+                  </TabPanel>
+
+                  <!-- External data -->
+
+                  <TabPanel value="externalData" class="h-full">
+                    <div class="h-full flex flex-col">
+                      <div class="section-header section-header-interactive">
+                        <i class="pi pi-download text-primary"></i>
+                        <div>
+                          <h3 class="section-title">External data</h3>
+                          <p class="section-description">
+                            Import and configure the external data to be made available for plotting.
+                          </p>
+                        </div>
+                        <div class="flex-1"></div>
+                        <div class="external-data-drop-zone" :class="{ 'external-data-drop-zone-active': externalDataFileDragging }"
+                          @dragover.prevent="onExternalDataFileDragOver"
+                          @drop.prevent="onExternalDataFileDrop"
+                          @dragleave="onExternalDataFileDragLeave"
+                        >
+                          <input ref="externalDataFileRef" class="hidden"
+                            type="file" multiple
+                            accept=".csv,text/csv"
+                            @change="onExternalDataFileInputChange"
+                          />
+                          <Button class="m-2"
+                            icon="pi pi-folder-open"
+                            label="Import"
+                            outlined
+                            size="small"
+                            @click="importExternalDataFromFile"
+                          />
+                          <div class="external-data-url" :class="{ 'external-data-url-active': externalDataFileDragging }">
+                            <FloatLabel variant="on" class="flex-1">
+                              <InputText v-model="externalDataUrl" class="w-full" size="small" />
+                              <label>URL</label>
+                            </FloatLabel>
+                            <Button
+                              icon="pi pi-link"
+                              label="Import"
+                              outlined
+                              size="small"
+                              :disabled="!isExternalDataUrlValid"
+                              @click="importExternalDataFromUrl"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <ScrollPanel class="min-h-0 mt-1.25">
+                        <div class="flex flex-col gap-4">
+                          <!-- Empty state -->
+
+                          <div v-if="!(localSettings.interactive.uiJson.output.externalData ?? []).length" class="empty-state">
+                            <i class="pi pi-info-circle empty-state-icon"></i>
+                            <p class="text-muted-color mb-2">No external data is configured.</p>
+                          </div>
+
+                          <!-- External data files -->
+
+                          <div v-for="(externalDataFile, externalDataFileIndex) in (localSettings.interactive.uiJson.output.externalData ?? [])" :key="`external_data_file_${externalDataFileIndex}`">
+                            <div class="card-item">
+                              <div class="card-header">
+                                <div class="flex items-center gap-2">
+                                  <span class="item-badge">{{ Number(externalDataFileIndex) + 1 }}</span>
+                                  <span class="font-medium">{{ externalDataDescription(externalDataFile, externalDataFileIndex) }}</span>
+                                  <Tag :value="`${externalDataSeries(externalDataFile).length} external data series`" severity="info" size="small" />
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <Button
+                                    icon="pi pi-plus"
+                                    label="Add external data"
+                                    outlined
+                                    severity="info"
+                                    size="small"
+                                    @click="addExternalData(externalDataFileIndex)"
+                                  />
+                                  <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text rounded
+                                    size="small"
+                                    @click="removeExternalDataFile(externalDataFileIndex)"
+                                  />
+                                </div>
+                              </div>
+                              <div class="card-body">
+                              <!-- Description and VOI expression -->
+
+                                <div class="form-row">
+                                  <FloatLabel variant="on" class="flex-1">
+                                    <InputText v-model="externalDataFile.description" class="w-full" size="small"
+                                      v-tippy="{
+                                        allowHTML: true,
+                                        content: externalDataDescriptionTooltip(),
+                                        placement: 'bottom-start'
+                                      }"
+                                    />
+                                    <label>Description (optional)</label>
+                                  </FloatLabel>
+                                  <FloatLabel variant="on" class="flex-1">
+                                    <InputText v-model="externalDataFile.voiExpression" class="w-full" size="small"
+                                      v-tippy="{
+                                        allowHTML: true,
+                                        content: externalDataVoiExpressionTooltip(),
+                                        placement: 'bottom-start'
+                                      }"
+                                    />
+                                    <label>VOI expression (optional)</label>
+                                  </FloatLabel>
+                                </div>
+
+                                <!-- External data entries -->
+
+                                <div v-if="!externalDataEntries(externalDataFile).length" class="empty-state empty-state-tight">
+                                  <i class="pi pi-info-circle empty-state-icon"></i>
+                                  <p class="text-muted-color mb-2">No external data is configured for this CSV file.</p>
+                                </div>
+                                <div v-else class="entries-list">
+                                  <div v-for="(externalData, externalDataIndex) in externalDataEntries(externalDataFile)" :key="`external_data_${externalDataFileIndex}_${externalDataIndex}`" class="entry-row">
+                                    <span class="index index-secondary">{{ Number(externalDataIndex) + 1 }}</span>
+                                    <FloatLabel variant="on" class="flex-1">
+                                      <InputText v-model="externalData.id" class="w-full" size="small" />
+                                      <label>ID</label>
+                                    </FloatLabel>
+                                    <FloatLabel variant="on" class="flex-1">
+                                      <Select v-model="externalData.name"
+                                        class="w-full" panelClass="model-parameter-filter"
+                                        size="small"
+                                        editable
+                                        filter filterMode="lenient"
+                                        :options="externalDataSeries(externalDataFile)"
+                                      />
+                                      <label>External data</label>
+                                    </FloatLabel>
+                                    <Button
+                                      icon="pi pi-times"
+                                      text rounded
+                                      severity="secondary"
+                                      size="small"
+                                      @click="removeExternalData(externalDataFileIndex, externalDataIndex)"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -745,9 +898,12 @@ import * as vue from 'vue';
 
 import * as locApi from '../../libopencor/locApi';
 import * as common from '../../common/common';
+import { TOAST_LIFE } from '../../common/constants';
 import * as locUiJsonApi from '../../libopencor/locUiJsonApi';
 import { validateUiJson } from '../../libopencor/locUiJsonApi';
 import { EIssueType } from '../../libopencor/locLoggerApi';
+
+import { useOpenCORToast } from '../OpenCORToast';
 
 export interface ISimulationExperimentViewSettings {
   simulation: {
@@ -783,6 +939,18 @@ const emit = defineEmits<{
 const DEFAULT_TAB = 'interactive';
 const DEFAULT_INTERACTIVE_TAB = 'simulationInputs';
 
+const addToast = useOpenCORToast();
+const localSettings = vue.ref<ISimulationExperimentViewSettings>(JSON.parse(JSON.stringify(props.settings)));
+// Note: we need to do a deep copy here (using JSON.parse(JSON.stringify())) to make sure that any changes made to
+//       nested objects in our local settings are not reflected in the original settings.
+
+if (!localSettings.value.interactive.uiJson.output.externalData) {
+  // Make sure we have an array for the external data so that we can use it without having to check for its existence
+  // first.
+
+  localSettings.value.interactive.uiJson.output.externalData = [];
+}
+
 const simulationSettingsIssuesPopoverRef = vue.ref<InstanceType<typeof Popover> | null>(null);
 const solversSettingsIssuesPopoverRef = vue.ref<InstanceType<typeof Popover> | null>(null);
 const uiJsonIssuesPopoverRef = vue.ref<InstanceType<typeof Popover> | null>(null);
@@ -792,7 +960,42 @@ const activeInteractiveTab = vue.ref(DEFAULT_INTERACTIVE_TAB);
 const showSimulationSettingsIssuesPanel = vue.ref(false);
 const showSolversSettingsIssuesPanel = vue.ref(false);
 const showUiJsonIssuesPanel = vue.ref(false);
-const localSettings = vue.ref<ISimulationExperimentViewSettings>(JSON.parse(JSON.stringify(props.settings)));
+const externalDataFileRef = vue.ref<HTMLInputElement | null>(null);
+const externalDataFileDragging = vue.ref(false);
+const externalDataUrl = vue.ref('');
+const isExternalDataUrlValid = vue.computed<boolean>(() => {
+  const url = externalDataUrl.value.trim();
+
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+});
+
+const externalDataSeries = (externalData: locApi.IUiJsonOutputExternalData): string[] => {
+  return externalData.dataSeries.map((dataSerie) => {
+    return dataSerie.name;
+  });
+};
+
+const externalDataEntries = (externalData: locApi.IUiJsonOutputExternalData): locApi.IUiJsonOutputData[] => {
+  return externalData.data;
+};
+
+const externalDataCount = vue.computed<number>(() => {
+  return (
+    localSettings.value.interactive.uiJson.output.externalData?.reduce((res, externalData) => {
+      return res + externalData.data.length;
+    }, 0) || 0
+  );
+});
 const numberOfDataPoints = vue.computed<string>(() => {
   // Our total number of data points.
   // Note: only calculate when simulation settings are valid.
@@ -888,6 +1091,22 @@ const plotTraceCount = (plot: locApi.IUiJsonOutputPlot): number => {
   return 1 + (plot.additionalTraces?.length ?? 0);
 };
 
+const externalDataDescriptionTooltip = (): string => {
+  return `
+    You can provide a description for the external data or leave it empty to have a description generated automatically as follows: <strong>External data #&lt;N&gt;</strong>.<br />
+    <br />
+    If you provide a description, you can use HTML tags for formatting (e.g., <code>&lt;em&gt;My external data&lt;/em&gt;</code> will render as <em>My external data</em>).
+  `;
+};
+
+const externalDataVoiExpressionTooltip = (): string => {
+  return `
+    You can provide the value of the VOI expression using an algebraic expression that includes <code>voi</code> or leave it empty in which case the VOI values from the CSV file will be used directly without any transformation.<br />
+    <br />
+    For example, to convert the VOI to a different unit, you can use an expression like <code>1000 * voi</code>.
+  `;
+};
+
 const traceNameTooltip = (): string => {
   return `
     You can provide a name for the trace or leave it empty to have a name generated automatically as follows: <strong>&lt;Y value&gt; <i>vs.</i> &lt;X value&gt;</strong>.<br />
@@ -907,7 +1126,7 @@ const xyParameterValueTooltip = (value: string, idType: string, idPrefix: string
 };
 
 const xyValueTooltip = (xAxis: boolean): string => {
-  return xyParameterValueTooltip(`${xAxis ? 'X' : 'Y'} axis`, 'simulation data', 'simulation_data');
+  return xyParameterValueTooltip(`${xAxis ? 'X' : 'Y'} axis`, 'simulation or external data', 'data');
 };
 
 const parameterValueTooltip = (): string => {
@@ -1003,6 +1222,251 @@ const addSimulationData = () => {
     id: `simulation_data`,
     name: 'component/variable'
   });
+};
+
+const externalDataDescription = (externalData: locApi.IUiJsonOutputExternalData, externalDataIndex: number): string => {
+  return externalData.description?.trim() || `External data #${externalDataIndex + 1}`;
+};
+
+interface IExternalCsvData {
+  headers: string[];
+  columns: number[][];
+}
+
+const parseExternalCsvData = (externalCsvData: string): IExternalCsvData => {
+  const lines = externalCsvData
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length < 2) {
+    throw new Error('The external CSV data must contain a header and at least one row of numbers.');
+  }
+
+  const headers = lines[0]?.split(',').map((header) => header.trim()) ?? [];
+
+  if (headers.length < 2) {
+    throw new Error(
+      'The external CSV data header must contain at least two columns: one VOI column and one or more data columns.'
+    );
+  }
+
+  if (!headers[0]) {
+    throw new Error('The external CSV data header must have a non-empty VOI column name.');
+  }
+
+  if (headers.slice(1).some((header) => !header)) {
+    throw new Error('The external CSV data header must have non-empty data column names.');
+  }
+
+  const seenHeaders = new Set<string>();
+
+  for (const header of headers.slice(1)) {
+    if (seenHeaders.has(header)) {
+      throw new Error(`The external CSV data header contains duplicate data column names ('${header}').`);
+    }
+
+    seenHeaders.add(header);
+  }
+
+  const columns = headers.map(() => [] as number[]);
+
+  for (let rowIndex = 1; rowIndex < lines.length; ++rowIndex) {
+    const line = lines[rowIndex];
+
+    if (!line) {
+      continue;
+    }
+
+    const valueStrings = line.split(',').map((value) => value.trim());
+
+    if (valueStrings.length !== headers.length) {
+      throw new Error(
+        `The external CSV data row #${String(rowIndex + 1)} does not have the same number of columns as the header (i.e. ${headers.length}, not ${valueStrings.length}).`
+      );
+    }
+
+    const values = valueStrings.map((trimmedValue, columnIndex) => {
+      if (trimmedValue === '') {
+        throw new Error(
+          `The external CSV data row #${String(rowIndex + 1)} contains an empty value in column #${String(columnIndex + 1)}.`
+        );
+      }
+
+      return {
+        number: Number(trimmedValue),
+        string: trimmedValue
+      };
+    });
+
+    for (let columnIndex = 0; columnIndex < values.length; ++columnIndex) {
+      const value = values[columnIndex];
+
+      if (!Number.isFinite(value.number)) {
+        throw new Error(
+          `The external CSV data row #${String(rowIndex + 1)} contains a non-numeric value ('${value.string}').`
+        );
+      }
+
+      columns[columnIndex]?.push(value.number);
+    }
+  }
+
+  return {
+    headers,
+    columns
+  };
+};
+
+const sourceDescription = (source: string): string => {
+  const withoutQuery = source.split(/[?#]/)[0] ?? source;
+  const parts = withoutQuery.split('/').filter(Boolean);
+  const candidate = parts.at(-1) ?? source;
+
+  try {
+    return decodeURIComponent(candidate);
+  } catch {
+    return candidate;
+  }
+};
+
+const createExternalDataFromCsv = (source: string, externalCsvData: IExternalCsvData): void => {
+  const dataSeries: locApi.IUiJsonOutputExternalDataSeries[] = [];
+
+  for (let columnIndex = 1; columnIndex < externalCsvData.headers.length; ++columnIndex) {
+    const header = externalCsvData.headers[columnIndex];
+    const values = externalCsvData.columns[columnIndex];
+
+    if (!header || !values) {
+      continue;
+    }
+
+    dataSeries.push({
+      name: header,
+      values
+    });
+  }
+
+  localSettings.value.interactive.uiJson.output.externalData?.push({
+    data: [],
+    dataSeries,
+    description: sourceDescription(source),
+    voiExpression: 'voi',
+    voiValues: externalCsvData.columns[0] ?? []
+  });
+};
+
+const importExternalDataFromFiles = async (files: File[]): Promise<void> => {
+  if (!files.length) {
+    return;
+  }
+
+  try {
+    for (const file of files) {
+      createExternalDataFromCsv(file.name, parseExternalCsvData(await file.text()));
+    }
+  } catch (error: unknown) {
+    addToast({
+      severity: 'error',
+      summary: 'External data',
+      detail: common.formatMessage(common.formatError(error)),
+      life: TOAST_LIFE
+    });
+  }
+};
+
+const importExternalDataFromFile = (): void => {
+  externalDataFileRef.value?.click();
+};
+
+const onExternalDataFileInputChange = async (event: Event): Promise<void> => {
+  const input = event.target as HTMLInputElement;
+
+  await importExternalDataFromFiles(input.files ? Array.from(input.files) : []);
+
+  input.value = '';
+};
+
+const onExternalDataFileDragOver = (): void => {
+  externalDataFileDragging.value = true;
+};
+
+const onExternalDataFileDrop = async (event: DragEvent): Promise<void> => {
+  externalDataFileDragging.value = false;
+
+  await importExternalDataFromFiles(event.dataTransfer?.files ? Array.from(event.dataTransfer.files) : []);
+};
+
+const onExternalDataFileDragLeave = (): void => {
+  externalDataFileDragging.value = false;
+};
+
+const importExternalDataFromUrl = async (): Promise<void> => {
+  const url = externalDataUrl.value.trim();
+
+  try {
+    const response = await fetch(common.corsProxyUrl(url)).catch(() => {
+      return fetch(url);
+    });
+
+    if (!response.ok) {
+      throw new Error(`Could not retrieve CSV file from URL (status: ${response.status}).`);
+    }
+
+    createExternalDataFromCsv(url, parseExternalCsvData(await response.text()));
+
+    externalDataUrl.value = '';
+  } catch (error: unknown) {
+    addToast({
+      severity: 'error',
+      summary: 'External data',
+      detail: common.formatMessage(common.formatError(error)),
+      life: TOAST_LIFE
+    });
+  }
+};
+
+const addExternalData = (externalDataIndex: number): void => {
+  const externalData = localSettings.value.interactive.uiJson.output.externalData?.[externalDataIndex];
+
+  if (!externalData) {
+    return;
+  }
+
+  const firstOption = externalDataSeries(externalData)[0];
+
+  if (!firstOption) {
+    return;
+  }
+
+  externalData.data.push({
+    id: '',
+    name: firstOption
+  });
+};
+
+const removeExternalData = (externalDataIndex: number, idIndex: number): void => {
+  const externalData = localSettings.value.interactive.uiJson.output.externalData?.[externalDataIndex];
+
+  if (!externalData) {
+    return;
+  }
+
+  if (!externalDataEntries(externalData)[idIndex]) {
+    return;
+  }
+
+  externalData.data.splice(idIndex, 1);
+};
+
+const removeExternalDataFile = (externalDataIndex: number): void => {
+  const externalData = localSettings.value.interactive.uiJson.output.externalData;
+
+  if (!externalData?.[externalDataIndex]) {
+    return;
+  }
+
+  externalData.splice(externalDataIndex, 1);
 };
 
 const removeSimulationData = (index: number) => {
@@ -1118,6 +1582,8 @@ const onOk = () => {
 
 const onCancel = () => {
   // Reset our local settings to the original settings and close the dialog.
+  // Note: we need to do a deep copy here (using JSON.parse(JSON.stringify())) to make sure that any changes made to
+  //       nested objects in our local settings are not reflected in the original settings.
 
   localSettings.value = JSON.parse(JSON.stringify(props.settings));
 
@@ -1216,6 +1682,31 @@ vue.onMounted(() => {
 
 .empty-state-tight {
   padding: 0;
+}
+
+.external-data-drop-zone {
+  border: 1px dashed var(--p-content-border-color);
+  border-radius: 0.5rem;
+  display: flex;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.external-data-drop-zone-active {
+  border-color: var(--p-primary-color);
+  background-color: color-mix(in srgb, var(--p-primary-color) 7%, transparent);
+}
+
+.external-data-url {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-left: 1px dashed var(--p-content-border-color);
+  padding: 0 0.5rem;
+  transition: border-left-color 0.2s ease;
+}
+
+.external-data-url-active {
+  border-left-color: var(--p-primary-color);
 }
 
 .entries-list {

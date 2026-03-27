@@ -210,17 +210,20 @@
               </Fieldset>
             </ScrollPanel>
           </div>
-          <div class="flex flex-col grow gap-2 h-full min-h-0">
-            <IssuesView v-show="interactiveInstanceIssues.length" class="mt-4 mr-4" style="height: calc(100% - 2rem);" :issues="interactiveInstanceIssues" />
-            <GraphPanelWidget v-show="!interactiveInstanceIssues.length"
-              v-for="(_plot, index) in interactiveUiJson.output.plots"
-              :ref="(element: any) => interactiveGraphPanelRefs[index] = element"
-              :key="`plot_${index}`"
-              class="w-full min-h-0"
-              :margins="interactiveCompMargins"
-              :data="interactiveCompData[index] || { traces: [] }"
-              @marginsUpdated="(newMargins: IGraphPanelMargins) => onMarginsUpdated(`plot_${index}`, newMargins)"
-              @resetMargins="() => onResetMargins()"
+          <div class="relative flex flex-col grow h-full min-h-0">
+            <div class="flex flex-col grow gap-2 min-h-0" :class="{ 'invisible pointer-events-none': interactiveInstanceIssues.length }">
+              <GraphPanelWidget
+                v-for="(_plot, index) in interactiveUiJson.output.plots"
+                :ref="(element: any) => interactiveGraphPanelRefs[index] = element"
+                :key="`plot_${index}`"
+                class="w-full min-h-0"
+                :margins="interactiveCompMargins"
+                :data="interactiveCompData[index] || { traces: [] }"
+                @marginsUpdated="(newMargins: IGraphPanelMargins) => onMarginsUpdated(`plot_${index}`, newMargins)"
+                @resetMargins="() => onResetMargins()"
+              />
+            </div>
+            <IssuesView v-show="interactiveInstanceIssues.length" class="absolute inset-0 m-4 ml-0" :issues="interactiveInstanceIssues"
             />
           </div>
         </div>
@@ -424,17 +427,27 @@ const onDownloadCombineArchive = (): void => {
     });
 };
 
-const populateInputProperties = (currentUiJson: locApi.IUiJson) => {
-  interactiveInputValues.value = currentUiJson.input.map((input: locApi.IUiJsonInput) => input.defaultValue);
-  interactiveShowInput.value = currentUiJson.input.map(
+const informationIssue: locApi.IIssue = {
+  type: locApi.EIssueType.INFORMATION,
+  description:
+    'Please check the <em>Interactive mode</em> settings (click on the <i class="pi pi-cog"></i> icon in the top-right corner) and try again.'
+};
+
+const updateInteractiveUi = () => {
+  // Populate our input values and visibility based on the input definitions in the UI JSON.
+
+  interactiveInputValues.value = interactiveUiJson.value.input.map((input: locApi.IUiJsonInput) => input.defaultValue);
+  interactiveShowInput.value = interactiveUiJson.value.input.map(
     (input: locApi.IUiJsonInput) => (input.visible ?? 'true') !== 'false'
   );
+
+  // Update our mapping of interactive data IDs to simulation data information.
 
   Object.keys(interactiveIdToInfo).forEach((key) => {
     delete interactiveIdToInfo[key];
   });
 
-  currentUiJson.output.data.forEach((data: locApi.IUiJsonOutputData) => {
+  interactiveUiJson.value.output.data.forEach((data: locApi.IUiJsonOutputData) => {
     if (data.id && interactiveInstanceTask) {
       interactiveIdToInfo[data.id] = locCommon.simulationDataInfo(interactiveInstanceTask, data.name);
     }
@@ -519,6 +532,11 @@ const updatePlot = () => {
 
 // Interactive mode.
 
+interface IExternalDataValues {
+  x: math.FloatArray;
+  y: math.FloatArray;
+}
+
 const interactiveModeEnabled = vue.ref<boolean>(!!props.uiJson);
 const interactiveLiveUpdatesEnabled = vue.ref<boolean>(true);
 const interactiveSettingsVisible = vue.ref<boolean>(false);
@@ -552,8 +570,9 @@ const interactiveUiJson = vue.ref<locApi.IUiJson>(
 const interactiveUiJsonEmpty = vue.computed<boolean>(() => {
   if (
     interactiveUiJson.value.input.length === 0 &&
-    interactiveUiJson.value.output.plots.length === 0 &&
-    interactiveUiJson.value.parameters.length === 0
+    interactiveUiJson.value.parameters.length === 0 &&
+    (interactiveUiJson.value.output.externalData?.length ?? 0) === 0 &&
+    interactiveUiJson.value.output.plots.length === 0
   ) {
     if (interactiveUiJson.value.output.data.length === 0) {
       return true;
@@ -603,11 +622,11 @@ const interactiveCompData = vue.computed<IGraphPanelData[]>(() => {
   const paletteColors = colors.PALETTE_COLORS;
   const paletteColorsLength = paletteColors.length;
 
-  for (let liveDataIndex = 0; liveDataIndex < liveData.length; ++liveDataIndex) {
+  for (let i = 0; i < liveData.length; ++i) {
     const traces: IGraphPanelPlotTrace[] = [];
 
-    for (let runIndex = 0; runIndex < runsCount; ++runIndex) {
-      const interactiveRun = runs[runIndex];
+    for (let j = 0; j < runsCount; ++j) {
+      const interactiveRun = runs[j];
 
       if (!interactiveRun) {
         continue;
@@ -619,17 +638,17 @@ const interactiveCompData = vue.computed<IGraphPanelData[]>(() => {
 
       const runColorIndex = paletteColors.indexOf(interactiveRun.color);
       const baseColorIndex = runColorIndex >= 0 ? runColorIndex : 0;
-      const data = interactiveRun.isLiveRun ? liveData[liveDataIndex] : interactiveRun.data[liveDataIndex];
+      const data = interactiveRun.isLiveRun ? liveData[i] : interactiveRun.data[i];
       const dataTraces = data?.traces;
 
       if (!dataTraces?.length) {
         continue;
       }
 
-      const suffix = runsCount === 1 ? '' : interactiveRun.isLiveRun ? ' [Live]' : ` [#${runIndex}]`;
+      const suffix = runsCount === 1 ? '' : interactiveRun.isLiveRun ? ' [Live]' : ` [#${j}]`;
 
-      for (let dataTraceIndex = 0; dataTraceIndex < dataTraces.length; ++dataTraceIndex) {
-        const dataTrace = dataTraces[dataTraceIndex];
+      for (let k = 0; k < dataTraces.length; ++k) {
+        const dataTrace = dataTraces[k];
 
         if (!dataTrace) {
           continue;
@@ -637,17 +656,17 @@ const interactiveCompData = vue.computed<IGraphPanelData[]>(() => {
 
         traces.push({
           ...dataTrace,
-          traceId: `${interactiveRun.id}::${dataTrace.traceId ?? `${dataTrace.xValue}::${dataTrace.yValue}::${dataTraceIndex}`}`,
+          traceId: `${interactiveRun.id}::${dataTrace.traceId ?? `${dataTrace.xValue}::${dataTrace.yValue}::${k}`}`,
           name: dataTrace.name + suffix,
-          color: paletteColors[(baseColorIndex + dataTraceIndex) % paletteColorsLength] ?? colors.DEFAULT_COLOR,
+          color: paletteColors[(baseColorIndex + k) % paletteColorsLength] ?? colors.DEFAULT_COLOR,
           zorder: interactiveRun.isLiveRun ? 1 : undefined
         });
       }
     }
 
     res.push({
-      xAxisTitle: liveData[liveDataIndex]?.xAxisTitle,
-      yAxisTitle: liveData[liveDataIndex]?.yAxisTitle,
+      xAxisTitle: liveData[i]?.xAxisTitle,
+      yAxisTitle: liveData[i]?.yAxisTitle,
       traces
     });
   }
@@ -729,9 +748,9 @@ if (interactiveInstanceTask) {
   populateParameters(interactiveEditableModelParameters, interactiveInstanceTask, true);
 }
 
-// Populate our input properties.
+// Update (initialise) our interactive UI..
 
-populateInputProperties(interactiveUiJson.value);
+updateInteractiveUi();
 
 // Watch for changes to our UI JSON and reset the compiled expressions when it changes.
 
@@ -743,6 +762,174 @@ vue.watch(
   { deep: true }
 );
 
+// A helper function to interpolate external data values at the VOI values of our simulation.
+
+const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternalDataValues): math.FloatArray => {
+  const voiLength = voi.length;
+  const res = new Float64Array(voiLength);
+  const { x, y } = externalDataMapping;
+  const inputLength = Math.min(x.length, y.length);
+
+  if (inputLength < 2) {
+    // Not enough VOI samples to interpolate.
+
+    res.fill(Number.NaN);
+
+    return res;
+  }
+
+  // Determine whether we can use the input data as-is (i.e. strictly increasing X values) for interpolation or whether
+  // we need to normalise it first (i.e. sort and deduplicate the input data before interpolation).
+
+  let useInputAsIs = true;
+
+  for (let i = 1; i < inputLength && useInputAsIs; ++i) {
+    useInputAsIs = x[i] > x[i - 1];
+  }
+
+  let normalisedX: math.FloatArray;
+  let normalisedY: math.FloatArray;
+  let normalisedLength = inputLength;
+
+  if (useInputAsIs) {
+    normalisedX = x;
+    normalisedY = y;
+  } else {
+    const sortedIndices = new Array<number>(inputLength);
+
+    for (let i = 0; i < inputLength; ++i) {
+      sortedIndices[i] = i;
+    }
+
+    sortedIndices.sort((index1, index2) => {
+      return x[index1] - x[index2];
+    });
+
+    const sortedX = new Float64Array(sortedIndices.length);
+    const sortedY = new Float64Array(sortedIndices.length);
+    let count = 0;
+
+    for (let i = 0; i < sortedIndices.length; ++i) {
+      const xValue = x[sortedIndices[i]];
+      const yValue = y[sortedIndices[i]];
+
+      if (count === 0 || xValue !== sortedX[count - 1]) {
+        sortedX[count] = xValue;
+        sortedY[count] = yValue;
+
+        ++count;
+      } else {
+        // If VOI has duplicate X values then keep the last value.
+
+        sortedY[count - 1] = yValue;
+      }
+    }
+
+    if (count < 2) {
+      res.fill(Number.NaN);
+
+      return res;
+    }
+
+    normalisedX = count === sortedX.length ? sortedX : sortedX.slice(0, count);
+    normalisedY = count === sortedY.length ? sortedY : sortedY.slice(0, count);
+
+    normalisedLength = count;
+  }
+
+  // Precompute segment coefficients once and then evaluate with either a sweep (sorted VOI) or binary search (unsorted
+  // VOI).
+
+  const segmentCount = normalisedLength - 1;
+  const segmentSlope = new Float64Array(segmentCount);
+
+  for (let i = 0; i < segmentCount; ++i) {
+    const deltaX = normalisedX[i + 1] - normalisedX[i];
+
+    segmentSlope[i] = deltaX > 0 ? (normalisedY[i + 1] - normalisedY[i]) / deltaX : Number.NaN;
+    // Note: deltaX should always be greater than zero due to the checks above, but we add a safeguard against division
+    //       by zero just in case.
+  }
+
+  let isVoiIncreasing = true;
+
+  for (let i = 1; i < voiLength; ++i) {
+    if (voi[i] < voi[i - 1]) {
+      isVoiIncreasing = false;
+
+      break;
+    }
+  }
+
+  const xFirst = normalisedX[0];
+  const xLast = normalisedX[normalisedLength - 1];
+
+  if (isVoiIncreasing) {
+    let j = 0;
+
+    for (let i = 0; i < voiLength; ++i) {
+      const voiValue = voi[i];
+
+      if (voiValue < xFirst || voiValue > xLast) {
+        res[i] = Number.NaN;
+
+        continue;
+      }
+
+      while (j + 1 < normalisedLength && normalisedX[j + 1] < voiValue) {
+        ++j;
+      }
+
+      const slope = segmentSlope[j];
+
+      if (!Number.isFinite(slope)) {
+        res[i] = Number.NaN;
+
+        continue;
+      }
+
+      res[i] = normalisedY[j] + (voiValue - normalisedX[j]) * slope;
+    }
+  } else {
+    for (let i = 0; i < voiLength; ++i) {
+      const voiValue = voi[i];
+
+      if (voiValue < xFirst || voiValue > xLast) {
+        res[i] = Number.NaN;
+
+        continue;
+      }
+
+      // Binary search for the enclosing segment index j where x[j] <= voiValue <= x[j + 1].
+
+      let low = 0;
+      let high = normalisedLength - 1;
+
+      while (low + 1 < high) {
+        const mid = Math.floor(0.5 * (low + high));
+
+        if (normalisedX[mid] <= voiValue) {
+          low = mid;
+        } else {
+          high = mid;
+        }
+      }
+
+      const slope = segmentSlope[low];
+
+      if (!Number.isFinite(slope)) {
+        res[i] = Number.NaN;
+
+        continue;
+      }
+
+      res[i] = normalisedY[low] + (voiValue - normalisedX[low]) * slope;
+    }
+  }
+
+  return res;
+};
+
 // Function to update our interactive simulation.
 
 const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
@@ -752,38 +939,40 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
     return;
   }
 
-  // Create a scope using the current input values.
+  // Create a scope for the model using the current input values.
 
-  const scope: math.ExpressionScope = {};
+  const modelScope: math.ExpressionScope = {};
 
-  for (let index = 0; index < interactiveUiJson.value.input.length; ++index) {
-    const input = interactiveUiJson.value.input[index];
+  for (let i = 0; i < interactiveUiJson.value.input.length; ++i) {
+    const input = interactiveUiJson.value.input[i];
 
     if (input) {
-      scope[input.id] = interactiveInputValues.value[index];
+      modelScope[input.id] = interactiveInputValues.value[i];
     }
   }
 
   // Show/hide the input widgets.
 
-  for (let index = 0; index < interactiveUiJson.value.input.length; ++index) {
-    const input = interactiveUiJson.value.input[index];
+  for (let i = 0; i < interactiveUiJson.value.input.length; ++i) {
+    const input = interactiveUiJson.value.input[i];
 
     if (input) {
-      interactiveShowInput.value[index] = Boolean(interactiveMath.evaluate(input.visible ?? 'true', scope));
+      try {
+        interactiveShowInput.value[i] = Boolean(interactiveMath.evaluate(input.visible ?? 'true', modelScope));
+      } catch (error: unknown) {
+        interactiveShowInput.value[i] = false;
+
+        interactiveInstanceIssues.value.push({
+          type: locApi.EIssueType.ERROR,
+          description: `An error occurred while evaluating visibility for input '${input.name}' (${common.formatMessage(common.formatError(error), false)}).`
+        });
+      }
     }
   }
 
   // Update the SED-ML document.
 
-  const informationIssue: locApi.IIssue = {
-    type: locApi.EIssueType.INFORMATION,
-    description:
-      'Please check the <em>Interactive mode</em> settings (click on the <i class="pi pi-cog"></i> icon in the top-right corner) and try again.'
-  };
-
   interactiveModel.removeAllChanges();
-  interactiveInstanceIssues.value = [];
 
   for (const parameter of interactiveUiJson.value.parameters) {
     const componentVariableNames = parameter.name.split('/');
@@ -793,16 +982,18 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
         interactiveModel.addChange(
           componentVariableNames[0],
           componentVariableNames[1],
-          String(interactiveMath.evaluate(parameter.value, scope))
+          String(interactiveMath.evaluate(parameter.value, modelScope))
         );
       } catch (error: unknown) {
         interactiveInstanceIssues.value.push({
           type: locApi.EIssueType.ERROR,
-          description: `An error occurred while applying parameter change for ${parameter.name} (${common.formatMessage(common.formatError(error), false)}).`
+          description: `An error occurred while applying parameter change for '${parameter.name}' (${common.formatMessage(common.formatError(error), false)}).`
         });
       }
     }
   }
+
+  // Make sure that we haven't come across any issues so far.
 
   if (interactiveInstanceIssues.value.length) {
     interactiveInstanceIssues.value.push(informationIssue);
@@ -810,7 +1001,7 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
     return;
   }
 
-  // Run the instance and update the plots.
+  // Run the instance.
 
   interactiveInstance.run();
 
@@ -820,21 +1011,9 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
     return;
   }
 
-  // Update our scope with the latest simulation data.
+  // A helper function to evaluate an expression within the given scope.
 
-  for (const data of interactiveUiJson.value.output.data) {
-    const info = interactiveIdToInfo[data.id];
-
-    if (info && interactiveInstanceTask) {
-      scope[data.id] = locCommon.simulationDataValue(interactiveInstanceTask, info).data;
-    } else {
-      scope[data.id] = common.EMPTY_FLOAT64_ARRAY;
-    }
-  }
-
-  // Evaluate the plot expressions to get the data to display.
-
-  const evaluate = (expression: string): Float64Array => {
+  const evaluateExpression = (expression: string, scope: math.ExpressionScope): math.FloatArray => {
     const res = interactiveMath.evaluate(expression, scope);
 
     if (typeof res === 'boolean') {
@@ -848,7 +1027,75 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
     return res;
   };
 
-  const normaliseFloat64Arrays = (x: Float64Array, y: Float64Array): { x: Float64Array; y: Float64Array } => {
+  // Interpolate any external data at the VOI values of our simulation and add the interpolated values to our scope.
+
+  if (interactiveInstanceTask) {
+    const simulationVoi = interactiveInstanceTask.voi();
+
+    for (const externalData of interactiveUiJson.value.output.externalData ?? []) {
+      try {
+        const voiValues = new Float64Array(externalData.voiValues);
+        const voiExpression = externalData.voiExpression?.trim();
+        const externalDataVoi =
+          !voiExpression || voiExpression === 'voi' ? voiValues : evaluateExpression(voiExpression, { voi: voiValues });
+
+        const requiredSeriesNames = new Set<string>();
+
+        for (const data of externalData.data) {
+          requiredSeriesNames.add(data.name);
+        }
+
+        const externalDataSeries: Record<string, math.FloatArray> = Object.create(null);
+
+        for (const externalDataSerie of externalData.dataSeries) {
+          if (requiredSeriesNames.has(externalDataSerie.name)) {
+            externalDataSeries[externalDataSerie.name] = new Float64Array(externalDataSerie.values);
+          }
+        }
+
+        for (const data of externalData.data) {
+          const externalDataSerie = externalDataSeries[data.name];
+
+          if (externalDataSerie) {
+            modelScope[data.id] = externalDataValues(simulationVoi, {
+              x: externalDataVoi,
+              y: externalDataSerie
+            });
+          }
+        }
+      } catch (error: unknown) {
+        interactiveInstanceIssues.value.push({
+          type: locApi.EIssueType.ERROR,
+          description: `An error occurred while evaluating the VOI expression '${externalData.voiExpression}' (${common.formatMessage(common.formatError(error), false)}).`
+        });
+      }
+    }
+  }
+
+  // Make sure that we haven't come across any issues so far.
+
+  if (interactiveInstanceIssues.value.length) {
+    interactiveInstanceIssues.value.push(informationIssue);
+
+    return;
+  }
+
+  // Update our scope with the latest simulation data.
+
+  if (interactiveInstanceTask) {
+    // Latest simulation data.
+
+    for (const data of interactiveUiJson.value.output.data) {
+      modelScope[data.id] = locCommon.simulationDataValue(interactiveInstanceTask, interactiveIdToInfo[data.id]).data;
+    }
+  }
+
+  // Evaluate the plot expressions to get the data to display.
+
+  const normaliseFloat64Arrays = (
+    x: math.FloatArray,
+    y: math.FloatArray
+  ): { x: math.FloatArray; y: math.FloatArray } => {
     // Return the arrays as they are if they are of the same length.
 
     if (x.length === y.length) {
@@ -895,80 +1142,118 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
     };
   };
 
-  try {
-    const newInteractiveData: IGraphPanelData[] = [];
+  const newInteractiveData: IGraphPanelData[] = [];
 
-    for (let plotIndex = 0; plotIndex < interactiveUiJson.value.output.plots.length; ++plotIndex) {
-      const plot = interactiveUiJson.value.output.plots[plotIndex];
+  for (let i = 0; i < interactiveUiJson.value.output.plots.length; ++i) {
+    const plot = interactiveUiJson.value.output.plots[i];
 
-      if (!plot) {
-        newInteractiveData[plotIndex] = {
-          xAxisTitle: '',
-          yAxisTitle: '',
-          traces: []
-        };
+    if (!plot) {
+      newInteractiveData[i] = {
+        xAxisTitle: '',
+        yAxisTitle: '',
+        traces: []
+      };
 
+      continue;
+    }
+
+    let xMain: math.FloatArray = new Float64Array(0);
+
+    try {
+      xMain = evaluateExpression(plot.xValue, modelScope);
+    } catch (error: unknown) {
+      interactiveInstanceIssues.value.push({
+        type: locApi.EIssueType.ERROR,
+        description: `An error occurred while evaluating the X value expression for plot '${plot.name}' (${common.formatMessage(common.formatError(error), false)}).`
+      });
+    }
+
+    let yMain: math.FloatArray = new Float64Array(0);
+
+    try {
+      yMain = evaluateExpression(plot.yValue, modelScope);
+    } catch (error: unknown) {
+      interactiveInstanceIssues.value.push({
+        type: locApi.EIssueType.ERROR,
+        description: `An error occurred while evaluating the Y value expression for plot '${plot.name}' (${common.formatMessage(common.formatError(error), false)}).`
+      });
+    }
+
+    const normalisedMain = normaliseFloat64Arrays(xMain, yMain);
+
+    const traces: IGraphPanelPlotTrace[] = [
+      {
+        traceId: `plot_${i}::trace_0`,
+        name: traceName(plot.name, plot.xValue, plot.yValue),
+        xValue: plot.xValue,
+        x: normalisedMain.x,
+        yValue: plot.yValue,
+        y: normalisedMain.y,
+        color: colors.DEFAULT_COLOR
+      }
+    ];
+
+    for (
+      let additionalTraceIndex = 0;
+      additionalTraceIndex < (plot.additionalTraces ?? []).length;
+      ++additionalTraceIndex
+    ) {
+      const additionalTrace = plot.additionalTraces?.[additionalTraceIndex];
+
+      if (!additionalTrace) {
         continue;
       }
 
-      const xMain = evaluate(plot.xValue);
-      const yMain = evaluate(plot.yValue);
-      const normalisedMain = normaliseFloat64Arrays(xMain, yMain);
+      let xAdditional: math.FloatArray = new Float64Array(0);
 
-      const traces: IGraphPanelPlotTrace[] = [
-        {
-          traceId: `plot_${plotIndex}::trace_0`,
-          name: traceName(plot.name, plot.xValue, plot.yValue),
-          xValue: plot.xValue,
-          x: normalisedMain.x,
-          yValue: plot.yValue,
-          y: normalisedMain.y,
-          color: colors.DEFAULT_COLOR
-        }
-      ];
-
-      for (
-        let additionalTraceIndex = 0;
-        additionalTraceIndex < (plot.additionalTraces ?? []).length;
-        ++additionalTraceIndex
-      ) {
-        const additionalTrace = plot.additionalTraces?.[additionalTraceIndex];
-
-        if (!additionalTrace) {
-          continue;
-        }
-
-        const xAdditional = evaluate(additionalTrace.xValue);
-        const yAdditional = evaluate(additionalTrace.yValue);
-        const normalisedAdditional = normaliseFloat64Arrays(xAdditional, yAdditional);
-
-        traces.push({
-          traceId: `plot_${plotIndex}::trace_${additionalTraceIndex + 1}`,
-          name: traceName(additionalTrace.name, additionalTrace.xValue, additionalTrace.yValue),
-          xValue: additionalTrace.xValue,
-          x: normalisedAdditional.x,
-          yValue: additionalTrace.yValue,
-          y: normalisedAdditional.y,
-          color: colors.DEFAULT_COLOR
+      try {
+        xAdditional = evaluateExpression(additionalTrace.xValue, modelScope);
+      } catch (error: unknown) {
+        interactiveInstanceIssues.value.push({
+          type: locApi.EIssueType.ERROR,
+          description: `An error occurred while evaluating the X value expression for additional trace #${additionalTraceIndex + 1} of plot '${plot.name}' (${common.formatMessage(common.formatError(error), false)}).`
         });
       }
 
-      newInteractiveData[plotIndex] = {
-        xAxisTitle: plot.xAxisTitle,
-        yAxisTitle: plot.yAxisTitle,
-        traces
-      };
+      let yAdditional: math.FloatArray = new Float64Array(0);
+
+      try {
+        yAdditional = evaluateExpression(additionalTrace.yValue, modelScope);
+      } catch (error: unknown) {
+        interactiveInstanceIssues.value.push({
+          type: locApi.EIssueType.ERROR,
+          description: `An error occurred while evaluating the Y value expression for additional trace #${additionalTraceIndex + 1} of plot '${plot.name}' (${common.formatMessage(common.formatError(error), false)}).`
+        });
+      }
+
+      const normalisedAdditional = normaliseFloat64Arrays(xAdditional, yAdditional);
+
+      traces.push({
+        traceId: `plot_${i}::trace_${additionalTraceIndex + 1}`,
+        name: traceName(additionalTrace.name, additionalTrace.xValue, additionalTrace.yValue),
+        xValue: additionalTrace.xValue,
+        x: normalisedAdditional.x,
+        yValue: additionalTrace.yValue,
+        y: normalisedAdditional.y,
+        color: colors.DEFAULT_COLOR
+      });
     }
 
-    interactiveLiveData.value = newInteractiveData;
-  } catch (error: unknown) {
-    interactiveInstanceIssues.value = [
-      {
-        type: locApi.EIssueType.ERROR,
-        description: `An error occurred while evaluating the plot expressions (${common.formatMessage(common.formatError(error), false)}).`
-      },
-      informationIssue
-    ];
+    newInteractiveData[i] = {
+      xAxisTitle: plot.xAxisTitle,
+      yAxisTitle: plot.yAxisTitle,
+      traces
+    };
+  }
+
+  interactiveLiveData.value = newInteractiveData;
+
+  // Make sure that we haven't come across any issues so far.
+
+  if (interactiveInstanceIssues.value.length) {
+    interactiveInstanceIssues.value.push(informationIssue);
+
+    return;
   }
 
   // Let people know that the simulation data has been updated.
@@ -1022,14 +1307,14 @@ const onTrackRun = (): void => {
 
   const inputParameters: Record<string, number> = {};
 
-  for (let index = 0; index < interactiveUiJson.value.input.length; ++index) {
-    const input = interactiveUiJson.value.input[index];
+  for (let i = 0; i < interactiveUiJson.value.input.length; ++i) {
+    const input = interactiveUiJson.value.input[i];
 
     if (!input) {
       continue;
     }
 
-    const interactiveInputValue = interactiveInputValues.value[index];
+    const interactiveInputValue = interactiveInputValues.value[i];
 
     if (interactiveInputValue !== undefined) {
       inputParameters[input.id] = interactiveInputValue;
@@ -1040,12 +1325,12 @@ const onTrackRun = (): void => {
 
   const tooltipRows: string[] = [];
 
-  for (let index = 0; index < interactiveUiJson.value.input.length; ++index) {
-    if (!interactiveShowInput.value[index]) {
+  for (let i = 0; i < interactiveUiJson.value.input.length; ++i) {
+    if (!interactiveShowInput.value[i]) {
       continue;
     }
 
-    const input = interactiveUiJson.value.input[index];
+    const input = interactiveUiJson.value.input[i];
 
     if (!input) {
       continue;
@@ -1176,6 +1461,10 @@ const onInteractiveSettingsOk = (settings: ISimulationExperimentViewSettings): v
 
   onRemoveAllRuns();
 
+  // Clear any issues since they may no longer be relevant with the new settings.
+
+  interactiveInstanceIssues.value = [];
+
   // Update our settings and hide the dialog.
 
   const oldNbOfGraphPanelWidgets = interactiveUiJson.value.output.plots.length;
@@ -1214,31 +1503,24 @@ const onInteractiveSettingsOk = (settings: ISimulationExperimentViewSettings): v
     interactiveInstanceTask = interactiveInstance.task(0); // So that we can retrieve our "new" simulation results.
   }
 
-  // Update our input properties.
+  // Update our UI.
 
-  populateInputProperties(settings.interactive.uiJson);
+  updateInteractiveUi();
 
   // Update the interactive simulation with the new UI JSON settings.
 
   updateInteractiveSimulation();
 
-  // Resize our graph panels if the number of plots has changed.
-
-  if (interactiveUiJson.value.output.plots.length !== oldNbOfGraphPanelWidgets) {
-    onResetMargins();
-
-    interactiveGraphPanelRefs.value = {};
-
-    vue.nextTick().then(() => {
-      for (let i = 0; i < settings.interactive.uiJson.output.plots.length; ++i) {
-        const graphPanelRef = interactiveGraphPanelRefs.value[i];
-
-        if (graphPanelRef) {
-          graphPanelRef.resize();
-        }
-      }
-    });
+  if (interactiveInstanceIssues.value.length) {
+    return;
   }
+
+  // Reset the margins of our various plots.
+  // Note: this is needed when the number of plots changes or simulation couldn't originally be run and now it can be
+  //       run with the new settings. Without this, the plots will start with incorrect margins before they get updated
+  //       which results in some flashing.
+
+  onResetMargins();
 };
 
 // "Initialise" our standard and/or interactive modes.
