@@ -7,6 +7,7 @@ import {
   type IIssue,
   type IUiJson,
   type IWasmIssues,
+  normaliseUiJson,
   SedDocument,
   wasmIssuesToIssues
 } from './locApi';
@@ -195,6 +196,6 @@ export class File {
       return undefined;
     }
 
-    return res as IUiJson;
+    return normaliseUiJson(res as IUiJson);
   }
 }

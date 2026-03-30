@@ -1346,7 +1346,7 @@ const createExternalDataFromCsv = (source: string, externalCsvData: IExternalCsv
 
     dataSeries.push({
       name: header,
-      values
+      values: new Float64Array(values)
     });
   }
 
@@ -1355,7 +1355,7 @@ const createExternalDataFromCsv = (source: string, externalCsvData: IExternalCsv
     dataSeries,
     description: sourceDescription(source),
     voiExpression: 'voi',
-    voiValues: externalCsvData.columns[0] ?? []
+    voiValues: new Float64Array(externalCsvData.columns[0])
   });
 };
 

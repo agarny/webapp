@@ -170,9 +170,11 @@ export {
   type IUiJsonOutputPlotAdditionalTrace,
   type IUiJsonParameter,
   type IUiJsonScalarInput,
+  cleanUiJson,
   isScalarInput,
   isDiscreteInput,
-  cleanUiJson,
+  normaliseUiJson,
+  uiJsonReplacer,
   validateUiJson
 } from './locUiJsonApi';
 

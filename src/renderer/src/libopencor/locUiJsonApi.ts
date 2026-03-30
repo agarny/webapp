@@ -50,12 +50,12 @@ export interface IUiJsonOutputExternalData {
   dataSeries: IUiJsonOutputExternalDataSeries[];
   description?: string;
   voiExpression?: string;
-  voiValues: number[];
+  voiValues: Float64Array;
 }
 
 export interface IUiJsonOutputExternalDataSeries {
   name: string;
-  values: number[];
+  values: Float64Array;
 }
 
 export interface IUiJsonOutputPlot {
@@ -86,10 +86,55 @@ export const isDiscreteInput = (input: IUiJsonInput): input is IUiJsonDiscreteIn
   return 'possibleValues' in input;
 };
 
+export const uiJsonReplacer = (_key: string, value: unknown): unknown => {
+  return value instanceof Float64Array ? Array.from(value) : value;
+};
+
+export const normaliseUiJson = (uiJson: IUiJson): IUiJson => {
+  for (const externalData of uiJson.output.externalData ?? []) {
+    if (!(externalData.voiValues instanceof Float64Array)) {
+      externalData.voiValues = new Float64Array(externalData.voiValues);
+    }
+
+    for (const dataSeries of externalData.dataSeries) {
+      if (!(dataSeries.values instanceof Float64Array)) {
+        dataSeries.values = new Float64Array(dataSeries.values);
+      }
+    }
+  }
+
+  return uiJson;
+};
+
+const uiJsonForSchemaValidation = (uiJson: IUiJson): unknown => {
+  if (!uiJson.output.externalData?.length) {
+    return uiJson;
+  }
+
+  return {
+    ...uiJson,
+    output: {
+      ...uiJson.output,
+      externalData: uiJson.output.externalData.map((externalData) => ({
+        ...externalData,
+        voiValues: Array.from(externalData.voiValues),
+        dataSeries: externalData.dataSeries.map((dataSeries) => ({
+          ...dataSeries,
+          values: Array.from(dataSeries.values)
+        }))
+      }))
+    }
+  };
+};
+
 export const cleanUiJson = (uiJson: IUiJson): IUiJson => {
   const cleanUiJsonRec = (value: unknown): unknown => {
     if (value === undefined || value === null || (typeof value === 'string' && value === '')) {
       return undefined;
+    }
+
+    if (value instanceof Float64Array) {
+      return value;
     }
 
     if (Array.isArray(value)) {
@@ -405,7 +450,9 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
     type: 'object'
   };
 
-  const validatorRes = validator.validate(uiJson, schema, { nestedErrors: true });
+  const validatorRes = validator.validate(uiJsonForSchemaValidation(uiJson), schema, {
+    nestedErrors: true
+  });
 
   if (!validatorRes.valid) {
     const res: IIssue[] = [];

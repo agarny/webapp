@@ -412,7 +412,7 @@ const onDownloadCombineArchive = (): void => {
   );
   jsZip.file('model.cellml', modelFile.contents());
   jsZip.file('document.sedml', interactiveDocument.serialise().replace(modelFile.path(), 'model.cellml'));
-  jsZip.file('simulation.json', JSON.stringify(interactiveUiJson.value, null, 2));
+  jsZip.file('simulation.json', JSON.stringify(interactiveUiJson.value, locApi.uiJsonReplacer, 2));
 
   jsZip
     .generateAsync({
@@ -552,7 +552,7 @@ const interactiveVoiName = vue.ref(interactiveInstanceTask ? interactiveInstance
 const interactiveVoiId = vue.ref(interactiveInstanceTask ? (interactiveVoiName.value.split('/')[1] ?? '') : '');
 const interactiveUiJson = vue.ref<locApi.IUiJson>(
   props.uiJson
-    ? JSON.parse(JSON.stringify(props.uiJson))
+    ? (JSON.parse(JSON.stringify(props.uiJson, locApi.uiJsonReplacer)) as locApi.IUiJson)
     : {
         input: [],
         output: {
@@ -1039,7 +1039,7 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
 
     for (const externalData of interactiveUiJson.value.output.externalData ?? []) {
       try {
-        const voiValues = new Float64Array(externalData.voiValues);
+        const voiValues = externalData.voiValues;
         const voiExpression = externalData.voiExpression?.trim();
         const externalDataVoi =
           !voiExpression || voiExpression === 'voi' ? voiValues : evaluateExpression(voiExpression, { voi: voiValues });
@@ -1054,7 +1054,7 @@ const updateInteractiveSimulation = (forceUpdate: boolean = false): void => {
 
         for (const externalDataSerie of externalData.dataSeries) {
           if (requiredSeriesNames.has(externalDataSerie.name)) {
-            externalDataSeries[externalDataSerie.name] = new Float64Array(externalDataSerie.values);
+            externalDataSeries[externalDataSerie.name] = externalDataSerie.values;
           }
         }
 
@@ -1472,7 +1472,6 @@ const onInteractiveSettingsOk = (settings: ISimulationExperimentViewSettings): v
 
   // Update our settings and hide the dialog.
 
-  const oldNbOfGraphPanelWidgets = interactiveUiJson.value.output.plots.length;
   const oldCvodeMaximumStep = interactiveCvode.maximumStep();
 
   interactiveUniformTimeCourse.setInitialTime(settings.simulation.startingPoint);
