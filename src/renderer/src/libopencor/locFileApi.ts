@@ -100,14 +100,20 @@ export class File {
   _path: string;
   _wasmFile: IWasmFile = {} as IWasmFile;
   _issues: IIssue[] = [];
+  _localContents: Uint8Array | undefined = undefined;
 
   constructor(path: string, contents: Uint8Array | undefined = undefined) {
     this._path = path;
 
     if (cppVersion()) {
-      _cppLocApi.fileCreate(path, contents);
+      if (path.toLowerCase().endsWith('.svg')) {
+        this._localContents = contents;
+        this._issues = [];
+      } else {
+        _cppLocApi.fileCreate(path, contents);
 
-      this._issues = _cppLocApi.fileIssues(path);
+        this._issues = _cppLocApi.fileIssues(path);
+      }
     } else if (contents) {
       this._wasmFile = vue.markRaw(new _wasmLocApi.File(path));
 
@@ -125,6 +131,10 @@ export class File {
   }
 
   type(): EFileType {
+    if (this._path.toLowerCase().endsWith('.svg')) {
+      return EFileType.UNKNOWN_FILE;
+    }
+
     return cppVersion() ? _cppLocApi.fileType(this._path) : this._wasmFile.type.value;
   }
 
@@ -137,6 +147,10 @@ export class File {
   }
 
   contents(): Uint8Array {
+    if (this._localContents !== undefined) {
+      return this._localContents;
+    }
+
     return cppVersion() ? _cppLocApi.fileContents(this._path) : this._wasmFile.contents();
   }
 
@@ -145,6 +159,10 @@ export class File {
   }
 
   uiJson(): IUiJson | undefined {
+    if (this._path.toLowerCase().endsWith('.svg')) {
+      return undefined;
+    }
+
     let uiJsonContents: Uint8Array | undefined;
 
     if (cppVersion()) {

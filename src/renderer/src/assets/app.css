@@ -1,7 +1,10 @@
 /* stylelint-disable at-rule-no-unknown, no-invalid-position-at-import-rule */
 @config "../../tailwind.config.ts";
 
-@layer theme, base, components, utilities;
+/* The `celldl-editor` layer (see celldl-editor.css) is declared first, i.e. as the lowest priority layer, so that the
+ * CellDL Editor's global rules can never override OpenCOR's own styles.
+ */
+@layer celldl-editor, theme, base, components, utilities;
 
 /* biome-ignore lint/correctness/noInvalidPositionAtImportRule: ignored using `--suppress` */
 @import "tailwindcss/theme.css" layer(theme);

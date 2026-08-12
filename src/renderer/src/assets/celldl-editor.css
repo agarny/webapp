@@ -1,0 +1,8 @@
+/* Import the CellDL Editor stylesheet (and its tippy.js dependency) inside the `celldl-editor` CSS cascade layer, so
+ * that OpenCOR's own styles always take precedence over CellDL Editor's global rules (`*`, `:root`, `svg`, etc.).
+ *
+ * The layer order is established in app.css, where `celldl-editor` is declared as the first (lowest priority) layer.
+ */
+
+@import '@celldl/editor/style.css' layer(celldl-editor);
+@import 'tippy.js/dist/tippy.css' layer(celldl-editor);

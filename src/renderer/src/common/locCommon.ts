@@ -171,6 +171,21 @@ export const filePath = (
           : common.xxh64(fileFilePathOrFileContents);
 };
 
+export const isCellDLFile = (file: locApi.File): boolean => {
+  //---ISSUE360--- PROBABLY OUGHT TO BE REMOVED ONCE WE HAVE A BETTER WAY OF DETERMINING WHETHER A FILE IS A CELLDL FILE OR NOT.
+  const path = file.path().toLowerCase();
+
+  if (path.endsWith('.svg') || path.endsWith('.celldl')) {
+    const contents = file.contents();
+    const decoder = new TextDecoder();
+    const svgContent = decoder.decode(contents);
+
+    return svgContent.includes('celldl-rdf-metadata');
+  }
+
+  return false;
+};
+
 export const file = (
   fileFilePathOrFileContents: string | Uint8Array | File,
   dataUrlFileName: string,

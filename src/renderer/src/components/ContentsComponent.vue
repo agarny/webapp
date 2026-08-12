@@ -69,6 +69,7 @@ import type { IOpenCORExternalDataEvent, IOpenCORSimulationDataEvent } from '../
 
 import * as common from '../common/common';
 import { electronApi } from '../common/electronApi';
+import * as locCommon from '../common/locCommon';
 import { useViewRegistry } from '../common/viewRegistry';
 import * as locApi from '../libopencor/locApi';
 
@@ -157,6 +158,11 @@ const view = (fileTab: IFileTab): IView => {
   }
 
   switch (viewDescriptor.id) {
+    case 'celldl-editor':
+      return {
+        component: viewDescriptor.component,
+        props: { file: fileTab.file }
+      };
     case 'simulation-experiment-standard':
       return {
         component: viewDescriptor.component,
@@ -257,7 +263,11 @@ const openFile = async (file: locApi.File, wait: boolean = false): Promise<void>
   fileTabs.value.splice(fileTabs.value.findIndex((fileTab) => fileTab.file.path() === prevActiveFile) + 1, 0, {
     file: file,
     uiJson: file.uiJson(),
-    activeViewId: file.uiJson() ? 'simulation-experiment-interactive' : 'simulation-experiment-standard'
+    activeViewId: locCommon.isCellDLFile(file)
+      ? 'celldl-editor'
+      : file.uiJson()
+        ? 'simulation-experiment-interactive'
+        : 'simulation-experiment-standard'
   });
 
   await selectFile(filePath, wait);

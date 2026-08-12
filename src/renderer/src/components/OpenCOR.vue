@@ -147,6 +147,7 @@ import ContentsComponent from '../components/ContentsComponent.vue';
 import * as locApi from '../libopencor/locApi';
 
 import { provideDialogState } from './dialogs/BaseDialog.vue';
+import CellDLEditorView from './views/CellDLEditorView.vue';
 import IssuesView from './views/IssuesView.vue';
 import SimulationExperimentInteractiveView from './views/SimulationExperimentInteractiveView.vue';
 import SimulationExperimentStandardView from './views/SimulationExperimentStandardView.vue';
@@ -1065,6 +1066,15 @@ vue.onMounted(() => {
     icon: 'pi pi-sliders-h',
     component: SimulationExperimentInteractiveView,
     fileTypes: [locApi.EFileType.CELLML_FILE, locApi.EFileType.SEDML_FILE, locApi.EFileType.COMBINE_ARCHIVE]
+  });
+
+  viewRegistry.register({
+    id: 'celldl-editor',
+    category: ViewCategory.Editing,
+    label: 'CellDL Editor',
+    icon: 'pi pi-pencil',
+    component: CellDLEditorView,
+    fileTypes: [locApi.EFileType.UNKNOWN_FILE]
   });
 });
 
