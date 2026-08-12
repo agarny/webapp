@@ -187,15 +187,23 @@ export const file = (
               return response.arrayBuffer();
             }
 
+            // If the fetch through OpenCOR's CORS proxy failed, then throw an error to trigger the catch block below.
+
             throw new Error(
-              `Failed to fetch the file through OpenCOR's CORS proxy. The server responded with a status of ${response.status}.`
+              `Failed to fetch the file through OpenCOR's CORS proxy. The server responded with a status of ${response.status}.`,
+              {
+                cause: response.status
+              }
             );
           })
           .catch((error: unknown) => {
-            // A network/CORS error is an instance of TypeError in fetch. So, if this is the case then we try fetching
-            // the file directly otherwise we re-throw the error.
+            // If the fetch through OpenCOR's CORS proxy failed, then try fetching the URL directly, unless the error
+            // was a TypeError or an HTTP 403 or 404 error.
 
-            if (!(error instanceof TypeError)) {
+            if (
+              !(error instanceof TypeError) &&
+              (!(error instanceof Error) || typeof error.cause !== 'number' || ![403, 404].includes(error.cause))
+            ) {
               throw new Error(common.formatError(error));
             }
 
