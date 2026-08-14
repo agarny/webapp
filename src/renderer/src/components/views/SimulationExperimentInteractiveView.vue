@@ -66,7 +66,8 @@
                         label="Track run"
                         outlined
                         size="small"
-                        title="Track current run"
+                        :title="isSimulating ? 'Wait for the simulation to finish' : 'Track current run'"
+                        :disabled="isSimulating || simulationIssues.length > 0"
                         @click="onTrackRun"
                       />
                       <Button class="w-9!"
@@ -284,6 +285,7 @@ const uiJsonEmpty = vue.computed<boolean>(() => {
 
 const mathEval = new math.Float64ArrayMath();
 const model = document.model(0);
+const isSimulating = vue.ref<boolean>(false);
 const liveData = vue.ref<IGraphPanelData[]>([]);
 let margins: Record<string, IGraphPanelMargins> = {};
 const compMargins = vue.ref<IGraphPanelMargins>();
@@ -329,47 +331,58 @@ const compData = vue.computed<IGraphPanelData[]>(() => {
   const paletteColors = colors.PALETTE_COLORS;
   const paletteColorsLength = paletteColors.length;
 
+  const addRunTraces = (traces: IGraphPanelPlotTrace[], plotIndex: number, runIndex: number): void => {
+    const run = runsVal[runIndex];
+
+    if (!run) {
+      return;
+    }
+
+    if (!run.isVisible) {
+      return;
+    }
+
+    const runColorIndex = paletteColors.indexOf(run.color);
+    const baseColorIndex = runColorIndex >= 0 ? runColorIndex : 0;
+    const data = run.isLiveRun ? liveDataVal[plotIndex] : run.data[plotIndex];
+    const dataTraces = data?.traces;
+
+    if (!dataTraces?.length) {
+      return;
+    }
+
+    const suffix = runsCount === 1 ? '' : run.isLiveRun ? ' [Live]' : ` [#${runIndex}]`;
+
+    for (let k = 0; k < dataTraces.length; ++k) {
+      const dataTrace = dataTraces[k];
+
+      if (!dataTrace) {
+        continue;
+      }
+
+      traces.push({
+        ...dataTrace,
+        traceId: `${run.id}::${dataTrace.traceId ?? `${dataTrace.xValue}::${dataTrace.yValue}::${k}`}`,
+        name: dataTrace.name + suffix,
+        color: paletteColors[(baseColorIndex + k) % paletteColorsLength] ?? colors.DEFAULT_COLOR,
+        zorder: run.isLiveRun ? 1 : undefined
+      });
+    }
+  };
+
   for (let i = 0; i < liveDataVal.length; ++i) {
     const traces: IGraphPanelPlotTrace[] = [];
 
-    for (let j = 0; j < runsCount; ++j) {
-      const run = runsVal[j];
+    // Add the traces for the tracked runs first and then the live run, so that the live run is always drawn on top of
+    // the tracked runs (Plotly draws traces in the order in which they appear in the data array).
+    // Note: the legend order is unaffected since the live run's traces have a zorder of 1 (mapped to Plotly's
+    //       legendrank) while tracked runs use the default of 1000.
 
-      if (!run) {
-        continue;
-      }
-
-      if (!run.isVisible) {
-        continue;
-      }
-
-      const runColorIndex = paletteColors.indexOf(run.color);
-      const baseColorIndex = runColorIndex >= 0 ? runColorIndex : 0;
-      const data = run.isLiveRun ? liveDataVal[i] : run.data[i];
-      const dataTraces = data?.traces;
-
-      if (!dataTraces?.length) {
-        continue;
-      }
-
-      const suffix = runsCount === 1 ? '' : run.isLiveRun ? ' [Live]' : ` [#${j}]`;
-
-      for (let k = 0; k < dataTraces.length; ++k) {
-        const dataTrace = dataTraces[k];
-
-        if (!dataTrace) {
-          continue;
-        }
-
-        traces.push({
-          ...dataTrace,
-          traceId: `${run.id}::${dataTrace.traceId ?? `${dataTrace.xValue}::${dataTrace.yValue}::${k}`}`,
-          name: dataTrace.name + suffix,
-          color: paletteColors[(baseColorIndex + k) % paletteColorsLength] ?? colors.DEFAULT_COLOR,
-          zorder: run.isLiveRun ? 1 : undefined
-        });
-      }
+    for (let j = 1; j < runsCount; ++j) {
+      addRunTraces(traces, i, j);
     }
+
+    addRunTraces(traces, i, 0);
 
     res.push({
       xAxisTitle: liveDataVal[i]?.xAxisTitle,
@@ -1052,6 +1065,10 @@ const updateSimulation = async (): Promise<void> => {
 
   const currentSimulationGeneration = ++simulationGeneration;
 
+  // Keep track of the fact that we are simulating.
+
+  isSimulating.value = true;
+
   // Stop the current simulation if it is still running or paused.
 
   if (instance.status() !== locSedApi.ESedInstanceStatus.IDLE) {
@@ -1127,6 +1144,8 @@ const updateSimulation = async (): Promise<void> => {
   if (simulationIssues.value.length) {
     simulationIssues.value.push(informationIssue);
 
+    isSimulating.value = false;
+
     return;
   }
 
@@ -1145,6 +1164,8 @@ const updateSimulation = async (): Promise<void> => {
   // Start the simulation in a background thread and yield to the UI to keep it responsive while the simulation runs.
 
   if (!crtInstance.startRun()) {
+    isSimulating.value = false;
+
     return;
   }
 
@@ -1160,6 +1181,8 @@ const updateSimulation = async (): Promise<void> => {
 
   if (crtInstance.hasIssues()) {
     simulationIssues.value = crtInstance.issues();
+
+    isSimulating.value = false;
 
     return;
   }
@@ -1230,6 +1253,8 @@ const updateSimulation = async (): Promise<void> => {
   if (simulationIssues.value.length) {
     simulationIssues.value.push(informationIssue);
 
+    isSimulating.value = false;
+
     return;
   }
 
@@ -1249,9 +1274,13 @@ const updateSimulation = async (): Promise<void> => {
 
   if (instanceTask) {
     // Latest simulation data.
+    // Note: we make a copy of the data since, with the WASM version of libOpenCOR, it may be a view of the WASM heap.
+    //       If we were to keep it as is, it would become a dangling view (with potentially corrupted data) as soon as
+    //       the corresponding instance gets reinstantiated and destroyed by a newer simulation run, which would in turn
+    //       mess up our plots (in particular those of our tracked runs).
 
     for (const data of actualUiJson.value.output.data) {
-      modelScope[data.id] = locCommon.simulationDataValue(instanceTask, idToInfo[data.id]).data;
+      modelScope[data.id] = new Float64Array(locCommon.simulationDataValue(instanceTask, idToInfo[data.id]).data);
     }
   }
 
@@ -1413,6 +1442,10 @@ const updateSimulation = async (): Promise<void> => {
 
   liveData.value = newLiveData;
 
+  // The simulation has completed, so we are no longer simulating.
+
+  isSimulating.value = false;
+
   // Make sure that we haven't come across any issues so far.
 
   if (simulationIssues.value.length) {
@@ -1468,6 +1501,14 @@ const onResetMargins = (): void => {
 // Runs-related event handlers
 
 const onTrackRun = (): void => {
+  // Make sure that there is no simulation in progress or any issue with the current simulation data. Indeed, if we were
+  // to track the current run while a simulation is still running, then we would end up tracking the data of the
+  // previous run while using the input values of the new run, which would result in a mismatch between the two.
+
+  if (isSimulating.value || simulationIssues.value.length) {
+    return;
+  }
+
   // Create a new run from the live run.
 
   const inputParameters: Record<string, number> = {};
@@ -1726,6 +1767,16 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
 
   onResetMargins();
 };
+
+// Make sure that any pending simulation updates are discarded once we get unmounted.
+
+vue.onBeforeUnmount(() => {
+  ++simulationGeneration;
+
+  if (instance?.status() !== locSedApi.ESedInstanceStatus.IDLE) {
+    instance?.stopRun();
+  }
+});
 
 // Various things that need to be done once we are mounted.
 

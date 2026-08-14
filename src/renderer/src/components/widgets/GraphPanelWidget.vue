@@ -1052,3 +1052,15 @@ vue.watch(
   { immediate: true }
 );
 </script>
+
+<style scoped>
+  /**
+   * Plotly draws trace lines with vector-effect: non-scaling-stroke, but not legend line swatches. So, whenever the
+   * plot is scaled (e.g., Electron page zoom), legend swatches render thicker than the traces they represent. So, we
+   * give the legend the same behaviour so that it remains an accurate preview of the traces.
+   */
+
+  :deep(.legend path.js-line) {
+    vector-effect: non-scaling-stroke;
+  }
+</style>
