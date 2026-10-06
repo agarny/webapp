@@ -719,6 +719,13 @@ const plotlyTraceData = (): IPlotlyTraceState[] | undefined => {
 };
 
 const updatePlot = (): void => {
+  // Make sure that we are still mounted.
+  // Note: indeed, an update may have been queued just before we got unmounted.
+
+  if (!mainDivRef.value) {
+    return;
+  }
+
   plotIsReady = false;
 
   // Reset our margins if they are not overridden.
@@ -803,9 +810,10 @@ const updatePlot = (): void => {
 
   dependencies._plotlyJs
     .react(mainDivRef.value, traces, layout, {
-      // Note: the various keys can be found at https://plotly.com/javascript/configuration-options/.
+      // Note #1: the various keys can be found at https://plotly.com/javascript/configuration-options/.
+      // Note #2: we don't set responsive to true since our ResizeObserver already takes care of resizing our plot and
+      //          since Plotly would otherwise add a window resize listener that only gets removed by Plotly.purge().
 
-      responsive: true,
       displayModeBar: false,
       doubleClickDelay: DOUBLE_CLICK_DELAY,
       scrollZoom: true,
@@ -978,10 +986,34 @@ vue.onMounted(() => {
   });
 });
 
-vue.onUnmounted(() => {
+vue.onBeforeUnmount(() => {
   window.removeEventListener(CONTEXT_MENU_EVENT, handleContextMenu);
 
   stopTrackingContainerSize?.();
+
+  // Cancel any pending animation frame requests.
+
+  if (marginsRafId !== undefined) {
+    cancelAnimationFrame(marginsRafId);
+
+    marginsRafId = undefined;
+  }
+
+  if (resizeRafId !== undefined) {
+    cancelAnimationFrame(resizeRafId);
+
+    resizeRafId = undefined;
+  }
+
+  // Release our plot.
+  // Note: Plotly keeps a lot of data attached to our main div (data, full data, full layout, calc data, etc.) and it
+  //       also registers some event handlers, so we need to purge our plot to release all of that.
+
+  plotIsReady = false;
+
+  if (mainDivRef.value) {
+    dependencies._plotlyJs.purge(mainDivRef.value);
+  }
 });
 
 vue.watch(
