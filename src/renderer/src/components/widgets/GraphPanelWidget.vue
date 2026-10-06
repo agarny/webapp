@@ -120,6 +120,13 @@ const resize = (): Promise<unknown> => {
   resizeRafId = requestAnimationFrame(() => {
     resizeRafId = undefined;
 
+    // Make sure that we are (still) shown since Plotly would otherwise compute our size from the computed style of a
+    // non-rendered element (we will get resized when we get shown again).
+
+    if (!mainDivRef.value?.clientWidth || !mainDivRef.value?.clientHeight) {
+      return;
+    }
+
     dependencies._plotlyJs.Plots.resize(mainDivRef.value).then(() => {
       trackSize();
 
@@ -855,7 +862,17 @@ vue.onMounted(() => {
       const width = mainDivRef.value?.clientWidth || 0;
       const height = mainDivRef.value?.clientHeight || 0;
 
-      if (!plotIsReady || width <= 0 || height <= 0) {
+      // Forget about our size if we are hidden (e.g., our file tab is not the active one) so that we get resized (and get
+      // our margins updated) when we get shown again, in case our plot was updated while we were hidden.
+
+      if (width <= 0 || height <= 0) {
+        trackedWidth = 0;
+        trackedHeight = 0;
+
+        return;
+      }
+
+      if (!plotIsReady) {
         return;
       }
 

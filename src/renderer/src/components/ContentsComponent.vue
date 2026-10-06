@@ -40,7 +40,7 @@
     </div>
     <div class="grow min-h-0 relative">
       <template v-for="fileTab in fileTabs" :key="`panel_${fileTab.file.path()}`">
-        <div class="absolute inset-0 flex h-full" :class="{ 'invisible pointer-events-none': fileTab.file.path() !== activeFile }">
+        <div v-show="fileTab.file.path() === activeFile" class="absolute inset-0 flex h-full">
           <ViewSwitcherComponent
             :activeViewId="fileTab.activeViewId"
             @selectView="onSelectView(fileTab, $event)"
