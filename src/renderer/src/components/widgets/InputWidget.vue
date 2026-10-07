@@ -26,6 +26,7 @@
       :min="minimumValue" :max="maximumValue" :step="compStepValue"
       size="small"
       @change="sliderChange"
+      @slideend="sliderChangeEnd"
     />
   </div>
 </template>
@@ -48,6 +49,7 @@ const props = defineProps<{
 
 const emits = defineEmits<{
   change: [name: string, newValue: number];
+  changeEnd: [name: string];
 }>();
 
 let oldValue = value.value;
@@ -118,5 +120,14 @@ const sliderChange = (newValue: number | number[]) => {
   if (valueToEmit !== undefined && valueToEmit !== oldValue) {
     emitChange(valueToEmit);
   }
+};
+
+const sliderChangeEnd = () => {
+  // Note: we emit our changeEnd event in the next tick so that it gets emitted after any pending change event (see
+  //       emitChange()).
+
+  vue.nextTick(() => {
+    emits('changeEnd', props.name);
+  });
 };
 </script>

@@ -56,6 +56,7 @@
                     :stepValue="locApi.isScalarInput(input) ? input.stepValue : undefined"
                     :class="index !== 0 ? 'mt-6' : ''"
                     @change="onInputChange()"
+                    @changeEnd="onInputChangeEnd()"
                   />
                 </Fieldset>
                 <Fieldset legend="Runs">
@@ -1823,8 +1824,35 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
 //       means that intermediate input values may be skipped, but that we always have at most one simulation run in
 //       flight and that the simulation is still updated while an input is being changed.
 
-let inputSimulationUpdateInFlight = false;
+let inputSimulationUpdateInFlight: Promise<void> | null = null;
 let inputSimulationUpdatePending = false;
+
+const startInputSimulationUpdate = (): void => {
+  const inputSimulationUpdate = updateSimulation().finally(async () => {
+    // Give our plots a chance to be rendered before starting a new simulation run, if needed.
+
+    if (inputSimulationUpdatePending) {
+      await common.waitForNextAnimationFrame();
+    }
+
+    // Check whether we have been superseded by a newer input simulation update (see onInputChangeEnd()), in which case
+    // it is up to that update to deal with any pending input change.
+
+    if (inputSimulationUpdate !== inputSimulationUpdateInFlight) {
+      return;
+    }
+
+    inputSimulationUpdateInFlight = null;
+
+    if (inputSimulationUpdatePending) {
+      inputSimulationUpdatePending = false;
+
+      startInputSimulationUpdate();
+    }
+  });
+
+  inputSimulationUpdateInFlight = inputSimulationUpdate;
+};
 
 const onInputChange = (): void => {
   if (inputSimulationUpdateInFlight) {
@@ -1833,23 +1861,19 @@ const onInputChange = (): void => {
     return;
   }
 
-  inputSimulationUpdateInFlight = true;
+  startInputSimulationUpdate();
+};
 
-  updateSimulation().finally(async () => {
-    // Give our plots a chance to be rendered before starting a new simulation run, if needed.
+const onInputChangeEnd = (): void => {
+  // An input has finished changing (e.g., a slider has been released), so rather than wait for the current simulation
+  // run to complete, cancel it and start a new one straight away using the final input values, if needed.
+  // Note: updateSimulation() takes care of stopping the current simulation run.
 
-    if (inputSimulationUpdatePending) {
-      await common.waitForNextAnimationFrame();
-    }
+  if (inputSimulationUpdatePending) {
+    inputSimulationUpdatePending = false;
 
-    inputSimulationUpdateInFlight = false;
-
-    if (inputSimulationUpdatePending) {
-      inputSimulationUpdatePending = false;
-
-      onInputChange();
-    }
-  });
+    startInputSimulationUpdate();
+  }
 };
 
 // Make sure that any pending simulation updates are discarded once we get unmounted.
