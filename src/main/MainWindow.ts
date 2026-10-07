@@ -117,6 +117,11 @@ export const fileIssue = (filePath: string): void => {
   removeRecentFilePath(filePath);
 
   updateReopenMenu(recentFilePaths);
+
+  // A file couldn't be opened, possibly while reopening files during OpenCOR startup, in which case we need to make sure
+  // that it doesn't get selected and reopen the next file.
+
+  MainWindow.instance?.reopenFilePathsAndSelectFilePath(filePath);
 };
 
 export const fileOpened = (filePath: string): void => {
@@ -374,23 +379,33 @@ export class MainWindow extends ApplicationWindow {
   // Note: we reopen one file at a time since a file may be a remote file which means that it may take some time to
   //       reopen. So, we need to wait for the file to be reopened before reopening the next one.
 
-  reopenFilePathsAndSelectFilePath(): void {
-    if (this._openedFilePathIndex < this._openedFilePaths.length) {
-      const filePath = this._openedFilePaths[this._openedFilePathIndex];
+  reopenFilePathsAndSelectFilePath(failedFilePath?: string): void {
+    // Make sure that we don't select a file that couldn't be (re)opened.
 
-      if (filePath) {
-        this.webContents.send('open', filePath);
-      }
+    if (failedFilePath && failedFilePath === this._selectedFilePath) {
+      this._selectedFilePath = '';
+    }
+
+    // Reopen the next file, if any.
+    // Note: we reopen files one at a time, i.e. we only reopen the next file once the renderer has told us that the
+    //       previous file has been opened (or couldn't be opened).
+
+    while (this._openedFilePathIndex < this._openedFilePaths.length) {
+      const filePath = this._openedFilePaths[this._openedFilePathIndex];
 
       ++this._openedFilePathIndex;
 
-      if (this._openedFilePathIndex < this._openedFilePaths.length) {
+      if (filePath) {
+        this.webContents.send('open', filePath);
+
         return;
       }
-
-      this._openedFilePaths = [];
-      this._openedFilePathIndex = 0;
     }
+
+    this._openedFilePaths = [];
+    this._openedFilePathIndex = 0;
+
+    // All the files have been reopened (or couldn't be reopened), so we can now select the previously selected file.
 
     if (this._selectedFilePath) {
       this.webContents.send('select', this._selectedFilePath);

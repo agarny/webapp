@@ -220,7 +220,9 @@ const waitForTabsUpdate = async (): Promise<void> => {
 };
 
 const selectFile = async (filePath: string, wait: boolean = false): Promise<void> => {
-  if (props.simulationOnly) {
+  // Note: we can only select a file that has a file tab (hasFile() also returns false in simulation-only mode).
+
+  if (!hasFile(filePath)) {
     return;
   }
 
@@ -268,20 +270,25 @@ const openFile = async (file: locApi.File, wait: boolean = false): Promise<void>
 };
 
 const closeFile = async (filePath: string): Promise<void> => {
-  locApi.fileManager.unmanage(filePath);
+  // Note: there is nothing to close if the file has no file tab, so we don't want to let people know that it has been
+  //       closed (and, in the case of Electron, have it added to our list of recent files).
 
   const fileTabIndex = fileTabs.value.findIndex((fileTab) => fileTab.file.path() === filePath);
   const fileTab = fileTabs.value[fileTabIndex];
 
-  if (fileTab) {
-    fileTabs.value.splice(fileTabIndex, 1);
-
-    // Release the file once its views have been unmounted (and have therefore released their own resources).
-
-    vue.nextTick(() => {
-      fileTab.file.release();
-    });
+  if (!fileTab) {
+    return;
   }
+
+  locApi.fileManager.unmanage(filePath);
+
+  fileTabs.value.splice(fileTabIndex, 1);
+
+  // Release the file once its views have been unmounted (and have therefore released their own resources).
+
+  vue.nextTick(() => {
+    fileTab.file.release();
+  });
 
   if (activeFile.value === filePath && fileTabs.value.length) {
     const nextFileTab = fileTabs.value[Math.min(fileTabIndex, fileTabs.value.length - 1)];
@@ -309,8 +316,14 @@ const closeAllFiles = async (): Promise<void> => {
     return;
   }
 
-  while (fileTabs.value.length) {
-    await closeCurrentFile();
+  // Close the files from a snapshot of our file tabs, so that we are guaranteed to terminate, and close the current
+  // file last, so that closing the other files doesn't result in a new file being selected each time.
+
+  const currentFilePath = activeFile.value;
+  const otherFilePaths = filePaths.value.filter((filePath) => filePath !== currentFilePath);
+
+  for (const filePath of [...otherFilePaths, currentFilePath]) {
+    await closeFile(filePath);
   }
 };
 
