@@ -1,14 +1,9 @@
 import electron from 'electron';
-import { exec as _exec } from 'node:child_process';
 import { promises as fs } from 'node:fs';
-import { promisify } from 'node:util';
 
 import loc from '../../dist/libOpenCOR/Release/libOpenCOR.node';
 
 import type { ISettings } from '../renderer/src/common/common';
-import type { ISplashScreenInfo } from '../renderer/src/common/electronApi';
-
-const exec = promisify(_exec);
 
 // A helper function to listen to a channel from the main process.
 // Note: it returns a function to stop listening to that channel so that a listener can be removed (e.g., when the
@@ -31,33 +26,19 @@ let _operatingSystem: string | null = null;
 const defaultOperatingSystem = `${process.platform} (${process.arch === 'x64' ? 'Intel' : 'ARM'})`;
 
 const retrieveOperatingSystem = async (): Promise<string> => {
-  const safeExec = async (cmd: string): Promise<string | null> => {
-    try {
-      const { stdout } = await exec(cmd);
-
-      return stdout?.toString().trim() || null;
-    } catch {
-      return null;
-    }
-  };
+  // Note: we don't spawn any process (e.g., sw_vers on macOS or wmic on Windows, the latter not being available on
+  //       recent versions of Windows 11) to retrieve the operating system since it would slow down our startup.
+  //       Instead, we use Electron's process.getSystemVersion() on macOS and Windows, and read /etc/os-release on
+  //       Linux.
 
   let operatingSystem: string = '';
 
   if (process.platform === 'win32') {
-    const res = await safeExec('wmic os get Caption');
+    // Note: Windows 11 still reports itself as Windows 10.0, but with a build number of 22000 or above.
 
-    if (res) {
-      const lines = res
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+    const [major, , build] = process.getSystemVersion().split('.').map(Number);
 
-      if (lines[1]) {
-        operatingSystem = lines[1].replace(/^Microsoft\s+/, '');
-      }
-    }
-
-    operatingSystem = operatingSystem || 'Windows';
+    operatingSystem = major === 10 && (build ?? 0) >= 22000 ? 'Windows 11' : major === 10 ? 'Windows 10' : 'Windows';
   } else if (process.platform === 'linux') {
     let res: string | null = null;
 
@@ -71,22 +52,9 @@ const retrieveOperatingSystem = async (): Promise<string> => {
       operatingSystem = (match[1] || match[2] || '').replace(/"/g, '').trim();
     }
 
-    if (!operatingSystem) {
-      res = await safeExec('lsb_release -ds');
-
-      operatingSystem = res?.replace(/^"|"$/g, '') || '';
-    }
-
     operatingSystem = operatingSystem || 'Linux';
   } else if (process.platform === 'darwin') {
-    const nameRes = await safeExec('sw_vers -productName');
-    const versionRes = await safeExec('sw_vers -productVersion');
-
-    if (nameRes || versionRes) {
-      operatingSystem = `${nameRes || 'macOS'} ${versionRes || ''}`.trim();
-    }
-
-    operatingSystem = operatingSystem || 'macOS';
+    operatingSystem = `macOS ${process.getSystemVersion()}`.trim();
   }
 
   return operatingSystem ? `${operatingSystem} (${process.arch === 'x64' ? 'Intel' : 'ARM'})` : defaultOperatingSystem;
@@ -113,11 +81,6 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
 
     return _operatingSystem || defaultOperatingSystem;
   },
-
-  // Splash screen window.
-
-  onInitSplashScreenWindow: (callback: (info: ISplashScreenInfo) => void) =>
-    onIpc('init-splash-screen-window', callback),
 
   // Renderer process asking the main process to do something for it.
 

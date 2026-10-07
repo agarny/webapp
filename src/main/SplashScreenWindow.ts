@@ -14,31 +14,34 @@ export class SplashScreenWindow extends ApplicationWindow {
     const height = 351 + 42;
     const state: IElectronConfState = electronConf.get('app.state');
 
-    super({
-      x: state.x + ((state.width - width) >> 1),
-      y: state.y + ((state.height - height) >> 1),
-      width: width,
-      height: height,
-      minWidth: width,
-      minHeight: height,
-      maxWidth: width,
-      maxHeight: height,
-      frame: false,
-      show: false,
-      alwaysOnTop: true
-    });
+    super(
+      {
+        x: state.x + ((state.width - width) >> 1),
+        y: state.y + ((state.height - height) >> 1),
+        width: width,
+        height: height,
+        minWidth: width,
+        minHeight: height,
+        maxWidth: width,
+        maxHeight: height,
+        frame: false,
+        show: false,
+        alwaysOnTop: true
+      },
+      false
+    );
 
-    this.loadFile('./src/main/assets/splashscreen.html').catch((error: unknown) => {
-      console.warn('OpenCOR: failed to load splash screen:', formatError(error));
-    });
+    // Load our splash screen, passing it our copyright and version.
+    // Note: we pass them using a query string rather than IPC since our splash screen window doesn't use our preload
+    //       script (see ApplicationWindow).
 
-    // Initialise our Web contents.
-
-    this.on('ready-to-show', () => {
-      this.send('init-splash-screen-window', {
+    this.loadFile('./src/main/assets/splashscreen.html', {
+      query: {
         copyright: COPYRIGHT,
         version: electron.app.getVersion()
-      });
+      }
+    }).catch((error: unknown) => {
+      console.warn('OpenCOR: failed to load the splash screen:', formatError(error));
     });
   }
 }

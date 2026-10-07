@@ -226,6 +226,17 @@ electron.app
 
     const splashScreenWindow = new SplashScreenWindow();
 
+    // Start our renderer server straight away (rather than once our splash screen window has been shown), so that it is
+    // ready by the time we create our main window.
+    // Note: any error is handled when creating our main window, but we need to handle it here too, so that it isn't
+    //       reported as an unhandled rejection in the meantime.
+
+    const rendererUrl = process.env.ELECTRON_RENDERER_URL
+      ? Promise.resolve(process.env.ELECTRON_RENDERER_URL)
+      : startRendererServer();
+
+    rendererUrl.catch(() => {});
+
     // Set our app user model id for Windows.
 
     electronToolkitUtils.electronApp.setAppUserModelId('ws.opencor.app');
@@ -318,7 +329,7 @@ electron.app
           mainWindow = new MainWindow(
             triggeringUrl ? [triggeringUrl] : process.argv,
             splashScreenWindow,
-            process.env.ELECTRON_RENDERER_URL ?? (await startRendererServer())
+            await rendererUrl
           );
 
           // Forget about our main window once it has been closed (and therefore destroyed), so that we don't try to

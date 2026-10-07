@@ -1,4 +1,4 @@
-window.electronApi.onInitSplashScreenWindow((info) => {
-  document.getElementById('copyright').innerText = info.copyright;
-  document.getElementById('version').innerText = info.version;
-});
+const searchParams = new URLSearchParams(window.location.search);
+
+document.getElementById('copyright').innerText = searchParams.get('copyright') ?? '';
+document.getElementById('version').innerText = searchParams.get('version') ?? '';
