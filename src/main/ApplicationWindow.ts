@@ -24,4 +24,15 @@ export class ApplicationWindow extends electron.BrowserWindow {
       this.show();
     });
   }
+
+  // Send a message to our renderer.
+  // Note: we may have been closed (and therefore destroyed) while some asynchronous operation was in progress (e.g.,
+  //       checking for updates or showing an open dialog), in which case sending a message would throw an "Object has
+  //       been destroyed" error, so we don't send it.
+
+  send(channel: string, ...args: unknown[]): void {
+    if (!this.isDestroyed() && !this.webContents.isDestroyed()) {
+      this.webContents.send(channel, ...args);
+    }
+  }
 }

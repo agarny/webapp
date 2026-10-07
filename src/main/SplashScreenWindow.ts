@@ -35,7 +35,7 @@ export class SplashScreenWindow extends ApplicationWindow {
     // Initialise our Web contents.
 
     this.on('ready-to-show', () => {
-      this.webContents.send('init-splash-screen-window', {
+      this.send('init-splash-screen-window', {
         copyright: COPYRIGHT,
         version: electron.app.getVersion()
       });

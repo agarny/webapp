@@ -320,6 +320,13 @@ electron.app
             splashScreenWindow,
             process.env.ELECTRON_RENDERER_URL ?? (await startRendererServer())
           );
+
+          // Forget about our main window once it has been closed (and therefore destroyed), so that we don't try to
+          // use it (e.g., from our main menu or when another instance of OpenCOR is started).
+
+          mainWindow.on('closed', () => {
+            mainWindow = null;
+          });
         } catch (error: unknown) {
           reportFatalErrorAndQuit(`OpenCOR could not be started (${formatError(error)}).`, splashScreenWindow);
 

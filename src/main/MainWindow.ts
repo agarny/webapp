@@ -28,29 +28,29 @@ export const checkForUpdates = (atStartup: boolean): void => {
         const updateAvailable = result?.isUpdateAvailable ?? false;
 
         if (updateAvailable) {
-          MainWindow.instance?.webContents.send('update-available', result?.updateInfo.version);
+          MainWindow.instance?.send('update-available', result?.updateInfo.version);
         } else if (!atStartup) {
-          MainWindow.instance?.webContents.send('update-not-available');
+          MainWindow.instance?.send('update-not-available');
         }
       })
       .catch((error: unknown) => {
-        MainWindow.instance?.webContents.send('update-check-error', formatError(error));
+        MainWindow.instance?.send('update-check-error', formatError(error));
       });
   }
 };
 
 autoUpdater.on('download-progress', (info: ProgressInfo) => {
-  MainWindow.instance?.webContents.send('update-download-progress', info.percent);
+  MainWindow.instance?.send('update-download-progress', info.percent);
 });
 
 export const downloadAndInstallUpdate = (): void => {
   autoUpdater
     .downloadUpdate()
     .then(() => {
-      MainWindow.instance?.webContents.send('update-downloaded');
+      MainWindow.instance?.send('update-downloaded');
     })
     .catch((error: unknown) => {
-      MainWindow.instance?.webContents.send('update-download-error', formatError(error));
+      MainWindow.instance?.send('update-download-error', formatError(error));
     });
 };
 
@@ -230,6 +230,12 @@ export class MainWindow extends ApplicationWindow {
     // Keep track of the current isntance.
 
     MainWindow.instance = this;
+
+    this.on('closed', () => {
+      if (MainWindow.instance === this) {
+        MainWindow.instance = null;
+      }
+    });
 
     // Set our dock icon (macOS only).
 
@@ -535,7 +541,7 @@ export class MainWindow extends ApplicationWindow {
       ++this._openedFilePathIndex;
 
       if (filePath) {
-        this.webContents.send('open', filePath);
+        this.send('open', filePath);
 
         return;
       }
@@ -547,7 +553,7 @@ export class MainWindow extends ApplicationWindow {
     // All the files have been reopened (or couldn't be reopened), so we can now select the previously selected file.
 
     if (this._selectedFilePath) {
-      this.webContents.send('select', this._selectedFilePath);
+      this.send('select', this._selectedFilePath);
 
       this._selectedFilePath = '';
     }
@@ -578,7 +584,7 @@ export class MainWindow extends ApplicationWindow {
 
     for (let argument of commandLine) {
       if (this.isAction(argument)) {
-        this.webContents.send('action', argument.slice(FULL_URI_SCHEME.length));
+        this.send('action', argument.slice(FULL_URI_SCHEME.length));
 
         continue;
       }
@@ -595,7 +601,7 @@ export class MainWindow extends ApplicationWindow {
         argument = path.resolve(argument);
       }
 
-      this.webContents.send('open', argument);
+      this.send('open', argument);
     }
   }
 
@@ -604,7 +610,7 @@ export class MainWindow extends ApplicationWindow {
   enableDisableUi(enable: boolean): void {
     enableDisableMainMenu(enable);
 
-    this.webContents.send('enable-disable-ui', enable);
+    this.send('enable-disable-ui', enable);
   }
 
   // Handle our File|Open menu.
@@ -618,7 +624,7 @@ export class MainWindow extends ApplicationWindow {
       })
       .then(({ filePaths }) => {
         for (const filePath of filePaths) {
-          this.webContents.send('open', filePath);
+          this.send('open', filePath);
         }
 
         this.enableDisableUi(true);

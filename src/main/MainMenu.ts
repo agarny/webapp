@@ -30,7 +30,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       label: 'Settings...',
       accelerator: 'CmdOrCtrl+,',
       click: () => {
-        mainWindow?.webContents.send('settings');
+        mainWindow?.send('settings');
       }
     };
 
@@ -40,7 +40,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       checkForUpdatesMenuItem = {
         label: 'Check for Updates...',
         click: () => {
-          mainWindow?.webContents.send('check-for-updates');
+          mainWindow?.send('check-for-updates');
         }
       };
     }
@@ -48,7 +48,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
     const aboutOpencorMenuItem: electron.MenuItemConstructorOptions = {
       label: 'About OpenCOR',
       click: () => {
-        mainWindow?.webContents.send('about');
+        mainWindow?.send('about');
       }
     };
 
@@ -103,7 +103,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       label: 'Open Remote...',
       accelerator: 'CmdOrCtrl+Shift+O',
       click: () => {
-        mainWindow?.webContents.send('open-remote');
+        mainWindow?.send('open-remote');
       }
     });
     fileSubMenu.push({
@@ -112,7 +112,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
         {
           label: 'Lorenz',
           click: () => {
-            mainWindow?.webContents.send('open-sample-lorenz');
+            mainWindow?.send('open-sample-lorenz');
           }
         }
       ]
@@ -124,7 +124,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       label: 'Most Recent',
       accelerator: 'CmdOrCtrl+Shift+T',
       click: () => {
-        mainWindow?.webContents.send('open', recentFilePaths[0]);
+        mainWindow?.send('open', recentFilePaths[0]);
       },
       enabled: recentFilePaths.length > 0
     });
@@ -136,7 +136,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
         fileReopenSubMenu.push({
           label: filePath,
           click: () => {
-            mainWindow?.webContents.send('open', filePath);
+            mainWindow?.send('open', filePath);
           }
         });
       });
@@ -163,7 +163,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       label: 'Close',
       accelerator: 'CmdOrCtrl+W',
       click: () => {
-        mainWindow?.webContents.send('close');
+        mainWindow?.send('close');
       },
       enabled: hasFiles
     });
@@ -171,7 +171,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       id: 'fileCloseAll',
       label: 'Close All',
       click: () => {
-        mainWindow?.webContents.send('close-all');
+        mainWindow?.send('close-all');
       },
       enabled: hasFiles
     });
@@ -227,7 +227,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
     toolsSubMenu.push({
       label: 'Reset All...',
       click: () => {
-        mainWindow?.webContents.send('reset-all');
+        mainWindow?.send('reset-all');
       }
     });
 
