@@ -56,22 +56,70 @@ const totalNbOfSteps =
 
 const libOpenCORWasmBaseUrl = `https://opencor.ws/libopencor/downloads/wasm/${__LIBOPENCOR_WASM_VERSION__}`;
 
-// Import and instantiate libOpenCOR.
+// A helper function to retry an asynchronous operation (e.g., importing an external dependency from a CDN) a few times,
+// with an increasing delay, before giving up. This way, a transient network issue doesn't prevent OpenCOR from being
+// initialised (and therefore require the user to reload the page).
 
-const importAndInstantiateLibOpenCOR = async (libOpenCORJSUrl: string): Promise<void> => {
-  const libOpenCOR = (await import(/* @vite-ignore */ libOpenCORJSUrl)).default as WasmFactory;
+const NB_OF_ATTEMPTS = 3;
+const RETRY_DELAY = 1000;
+
+const withRetries = async <T>(name: string, operation: (attempt: number) => Promise<T>): Promise<T> => {
+  for (let attempt = 1; ; ++attempt) {
+    try {
+      return await operation(attempt);
+    } catch (error: unknown) {
+      if (attempt >= NB_OF_ATTEMPTS) {
+        throw error;
+      }
+
+      console.warn(
+        `OpenCOR: failed to load ${name} (attempt ${attempt} of ${NB_OF_ATTEMPTS}), retrying:`,
+        common.formatError(error)
+      );
+
+      await common.sleep(attempt * RETRY_DELAY);
+    }
+  }
+};
+
+// A helper function to return the URL to use for the given attempt at loading a resource.
+// Note: browsers remember that a module failed to be imported from a given URL and will fail to import it again from
+//       that same URL without even trying. So, from our second attempt onwards, we add a query string to the URL, which
+//       is ignored when serving static files (e.g., by jsDelivr and https://opencor.ws), so that our browser considers
+//       it to be a different URL. Note that this doesn't apply to blob URLs, which wouldn't be valid anymore with a
+//       query string (and which don't involve the network anyway).
+
+const attemptUrl = (url: string, attempt: number): string => {
+  return attempt === 1 || url.startsWith('blob:') ? url : `${url}${url.includes('?') ? '&' : '?'}retry=${attempt}`;
+};
+
+// Import libOpenCOR's glue (i.e. its JavaScript loader), retrying if needed.
+
+const importLibOpenCOR = async (libOpenCORJSUrl: string): Promise<WasmFactory> => {
+  const res = await withRetries(
+    'libOpenCOR',
+    async (attempt) => (await import(/* @vite-ignore */ attemptUrl(libOpenCORJSUrl, attempt))).default as WasmFactory
+  );
 
   ++crtNbOfSteps.value;
 
-  locApi.setWasmLocApi(
-    await libOpenCOR({
-      locateFile: (path: string) => {
-        // Note: the only file that is loaded by libOpenCOR is its threaded WASM, hence fetching it directly from
-        //       https://opencor.ws.
+  return res;
+};
 
-        return `${libOpenCORWasmBaseUrl}/${path}`;
-      }
-    })
+// Instantiate libOpenCOR (which fetches its WASM), retrying if needed.
+
+const instantiateLibOpenCOR = async (libOpenCOR: WasmFactory): Promise<void> => {
+  locApi.setWasmLocApi(
+    await withRetries('libOpenCOR', () =>
+      libOpenCOR({
+        locateFile: (path: string) => {
+          // Note: the only file that is loaded by libOpenCOR is its threaded WASM, hence fetching it directly from
+          //       https://opencor.ws.
+
+          return `${libOpenCORWasmBaseUrl}/${path}`;
+        }
+      })
+    )
   );
 
   ++crtNbOfSteps.value;
@@ -88,110 +136,115 @@ export const initialiseLocApi = async (): Promise<void> => {
 
     // @ts-expect-error (window.locApi is defined)
     locApi.setCppLocApi(window.locApi);
-  } else {
-    // We are running OpenCOR's Web app, so we must import libOpenCOR's WebAssembly module and instantiate it.
 
-    try {
-      // libOpenCOR's glue (i.e. its JavaScript loader) can be served from various places, depending on the host
-      // application:
-      //  - OpenCOR's Web app serves it from a same-origin URL (from its public folder in development and from its own
-      //    Web root in production). This is required by its Content Security Policy, which only allows scripts and
-      //    workers from 'self'.
-      //  - Other host applications (e.g., a third-party app using @opencor/opencor as an npm package) don't serve it at
-      //    all, in which case we import it from https://opencor.ws. To make the worker same-origin (cross-origin
-      //    workers are not always allowed, e.g., under COEP or in restricted embedders), we fetch the glue's source,
-      //    patch its worker-script URL so that it points to a same-origin blob URL, and import the patched source from
-      //    that blob URL.
-      // We therefore first try to import the glue from a same-origin URL, and only fall back on importing it from
-      // https://opencor.ws if the host application doesn't serve it.
+    return;
+  }
 
-      // The relative URL, with respect to the host application, from which the glue might be served. It matches both
-      // OpenCOR's Web app in production (https://opencor.ws serves libOpenCOR from /libopencor/downloads/wasm/...) and
-      // a copy of libOpenCOR's files at the root of the host application (e.g., in OpenCOR's Web app's public folder,
-      // which mirrors the same path).
+  // We are running OpenCOR's Web app, so we must import libOpenCOR's WebAssembly module and instantiate it.
 
-      const url = new URL(`libopencor/downloads/wasm/${__LIBOPENCOR_WASM_VERSION__}`, document.baseURI).href;
-      // Note: document.baseURI is used rather than window.location.href, since the former doesn't change with
-      //       client-side routing.
+  try {
+    await instantiateLibOpenCOR(await importLibOpenCORGlue());
+  } catch (error: unknown) {
+    console.error('OpenCOR: failed to load libOpenCOR:', common.formatError(error));
 
-      try {
-        const response = await fetch(`${url}/libopencor.js`, { method: 'HEAD' });
-        const contentType = response.headers.get('content-type') ?? '';
-        // Note: we use a HEAD request to check that the glue is served from this URL before actually importing it. We
-        //       only fall back on https://opencor.ws when the host application clearly doesn't serve it: a 405 (Method
-        //       Not Allowed) response means that the glue is served but HEAD requests are not supported, so we try to
-        //       import it anyway, and the content-type check is only meant to detect an HTML or XHTML fallback page
-        //       (some host applications return one for any URL), since the content-type of a statically served
-        //       JavaScript file is not always reported as such.
+    throw error;
+  }
+};
 
-        if (
-          response.status === 405 ||
-          (response.ok && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml'))
-        ) {
-          await importAndInstantiateLibOpenCOR(`${url}/libopencor.js`);
+// Import libOpenCOR's glue from wherever it is served.
+// Note: libOpenCOR's glue can be served from various places, depending on the host application:
+//        - OpenCOR's Web app serves it from a same-origin URL (from its public folder in development and from its own
+//          Web root in production). This is required by its Content Security Policy which only allows scripts and
+//          workers from 'self'.
+//        - Other host applications (e.g., a third-party app using @opencor/opencor as an npm package) don't serve it at
+//          all, in which case we import it from https://opencor.ws. To make the worker same-origin (cross-origin
+//          workers are not always allowed, e.g., under COEP or in restricted embedders), we fetch the glue's source,
+//          patch its worker-script URL so that it points to a same-origin blob URL, and import the patched source from
+//          that blob URL.
+//       We therefore first try to import the glue from a same-origin URL, and only fall back on importing it from
+//       https://opencor.ws if the host application doesn't serve it (or we couldn't import it from there).
 
-          return;
-        }
-      } catch {
-        // The host application doesn't serve libOpenCOR from this URL, so import it from https://opencor.ws instead.
-      }
+const importLibOpenCORGlue = async (): Promise<WasmFactory> => {
+  // The relative URL, with respect to the host application, from which the glue might be served. It matches both
+  // OpenCOR's Web app in production (https://opencor.ws serves libOpenCOR from /libopencor/downloads/wasm/...) and a
+  // copy of libOpenCOR's files at the root of the host application (e.g., in OpenCOR's Web app's public folder, which
+  // mirrors the same path).
+  // Note: document.baseURI is used rather than window.location.href, since the former doesn't change with client-side
+  //       routing.
 
-      // The host application doesn't serve libOpenCOR itself, so import it from https://opencor.ws. To make its module
-      // worker same-origin (see above), we fetch the glue's source, patch its worker-script URL so that it points to a
-      // same-origin blob URL, and import the patched source from that blob URL.
+  const url = new URL(`libopencor/downloads/wasm/${__LIBOPENCOR_WASM_VERSION__}`, document.baseURI).href;
 
-      const response = await fetch(`${libOpenCORWasmBaseUrl}/libopencor.js`);
+  try {
+    const response = await fetch(`${url}/libopencor.js`, { method: 'HEAD' });
+    const contentType = response.headers.get('content-type') ?? '';
+    // Note: we use a HEAD request to check that the glue is served from this URL before actually importing it. We only
+    //       fall back on https://opencor.ws when the host application clearly doesn't serve it: a 405 (Method Not
+    //       Allowed) response means that the glue is served but HEAD requests are not supported, so we try to import it
+    //       anyway, and the content-type check is only meant to detect an HTML or XHTML fallback page (some host
+    //       applications return one for any URL), since the content-type of a statically served JavaScript file is not
+    //       always reported as such.
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to load libOpenCOR's glue from ${libOpenCORWasmBaseUrl} (${response.status}: ${response.statusText}).`
-        );
-      }
-
-      const libOpenCORSource = await response.text();
-
-      // The URL of the worker script, which must be the same glue, but served from a same-origin blob URL.
-
-      const libOpenCORWorkerUrl = URL.createObjectURL(new Blob([libOpenCORSource], { type: 'text/javascript' }));
-
-      // Patch the glue's worker-script URL so that its worker is spawned from the same-origin blob URL.
-
-      const workerUrlPattern = 'new URL("libopencor.js",import.meta.url)';
-
-      const patchedLibOpenCORSource = libOpenCORSource.includes(workerUrlPattern)
-        ? libOpenCORSource.replace(workerUrlPattern, JSON.stringify(libOpenCORWorkerUrl))
-        : undefined;
-
-      if (patchedLibOpenCORSource !== undefined) {
-        const patchedLibOpenCORUrl = URL.createObjectURL(
-          new Blob([patchedLibOpenCORSource], { type: 'text/javascript' })
-        );
-
-        try {
-          await importAndInstantiateLibOpenCOR(patchedLibOpenCORUrl);
-        } finally {
-          // The patched glue has now been imported, so its blob URL is no longer needed and can be revoked.
-          // Note: libOpenCORWorkerUrl, on the other hand, must remain valid since libOpenCOR spawns its module worker
-          //       lazily (on the first simulation run, and again whenever no worker is available), so revoking it now
-          //       would prevent the worker from being spawned.
-
-          URL.revokeObjectURL(patchedLibOpenCORUrl);
-        }
-      } else {
-        // The glue doesn't contain the expected worker-script URL, which means a future version of libOpenCOR generates
-        // different code. So, import it directly from https://opencor.ws, which works in standard browsers (the worker
-        // will then be cross-origin, which is allowed with CORS), but may not in restricted ones.
-
-        URL.revokeObjectURL(libOpenCORWorkerUrl);
-        // Note: the worker URL is not used in this case, so it can be revoked.
-
-        await importAndInstantiateLibOpenCOR(`${libOpenCORWasmBaseUrl}/libopencor.js`);
-      }
-    } catch (error: unknown) {
-      console.error('OpenCOR: failed to load libOpenCOR:', common.formatError(error));
-
-      throw error;
+    if (
+      response.status === 405 ||
+      (response.ok && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml'))
+    ) {
+      return await importLibOpenCOR(`${url}/libopencor.js`);
     }
+  } catch {
+    // The host application doesn't serve libOpenCOR from this URL (or we couldn't import it from there), so import it
+    // from https://opencor.ws instead.
+  }
+
+  // The host application doesn't serve libOpenCOR itself, so import it from https://opencor.ws. To make its module
+  // worker same-origin (see above), we fetch the glue's source, patch its worker-script URL so that it points to a
+  // same-origin blob URL, and import the patched source from that blob URL.
+
+  const libOpenCORSource = await withRetries('libOpenCOR', async (attempt) => {
+    const response = await fetch(attemptUrl(`${libOpenCORWasmBaseUrl}/libopencor.js`, attempt));
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to load libOpenCOR's glue from ${libOpenCORWasmBaseUrl} (${response.status}: ${response.statusText}).`
+      );
+    }
+
+    return response.text();
+  });
+
+  // The URL of the worker script, which must be the same glue, but served from a same-origin blob URL.
+
+  const libOpenCORWorkerUrl = URL.createObjectURL(new Blob([libOpenCORSource], { type: 'text/javascript' }));
+
+  // Patch the glue's worker-script URL so that its worker is spawned from the same-origin blob URL.
+
+  const workerUrlPattern = 'new URL("libopencor.js",import.meta.url)';
+
+  if (!libOpenCORSource.includes(workerUrlPattern)) {
+    // The glue doesn't contain the expected worker-script URL, which means a future version of libOpenCOR generates
+    // different code. So, import it directly from https://opencor.ws, which works in standard browsers (the worker will
+    // then be cross-origin, which is allowed with CORS), but may not in restricted ones.
+    // Note: the worker URL is not used in this case, so it can be revoked.
+
+    URL.revokeObjectURL(libOpenCORWorkerUrl);
+
+    return importLibOpenCOR(`${libOpenCORWasmBaseUrl}/libopencor.js`);
+  }
+
+  const patchedLibOpenCORUrl = URL.createObjectURL(
+    new Blob([libOpenCORSource.replace(workerUrlPattern, JSON.stringify(libOpenCORWorkerUrl))], {
+      type: 'text/javascript'
+    })
+  );
+
+  try {
+    return await importLibOpenCOR(patchedLibOpenCORUrl);
+  } finally {
+    // The patched glue has now been imported, so its blob URL is no longer needed and can be revoked.
+    // Note: libOpenCORWorkerUrl, on the other hand, must remain valid since libOpenCOR spawns its module worker lazily
+    //       (on the first simulation run, and again whenever no worker is available), so revoking it now would prevent
+    //       the worker from being spawned.
+
+    URL.revokeObjectURL(patchedLibOpenCORUrl);
   }
 };
 
@@ -207,9 +260,9 @@ const createLazyInitialiser = (
 ) => {
   return async (): Promise<void> => {
     try {
-      // Import the exteral dependency and set it.
+      // Import the external dependency (retrying if needed) and set it.
 
-      const module = await import(/* @vite-ignore */ url);
+      const module = await withRetries(name, (attempt) => import(/* @vite-ignore */ attemptUrl(url, attempt)));
 
       set((module as dependencies.Module).default ?? module);
 
@@ -219,15 +272,19 @@ const createLazyInitialiser = (
 
       if (cssUrl) {
         if (!injectedCss.has(cssUrl)) {
-          const response = await fetch(/* @vite-ignore */ cssUrl, { mode: 'cors' });
+          const cssText = await withRetries(`${name}'s stylesheet`, async () => {
+            const response = await fetch(/* @vite-ignore */ cssUrl, { mode: 'cors' });
 
-          if (!response.ok) {
-            throw new Error(`Failed to load ${name ?? 'stylesheet'} (${response.status}: ${response.statusText}).`);
-          }
+            if (!response.ok) {
+              throw new Error(`Failed to load ${name ?? 'stylesheet'} (${response.status}: ${response.statusText}).`);
+            }
+
+            return response.text();
+          });
 
           const style = document.createElement('style');
 
-          style.textContent = await response.text();
+          style.textContent = cssText;
 
           document.head.appendChild(style);
 
