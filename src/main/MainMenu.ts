@@ -10,8 +10,13 @@ let enabledMenu: electron.Menu | null = null;
 let disabledMenu: electron.Menu | null = null;
 let recentFilePaths: string[] = [];
 let hasFiles = false;
+let menuEnabled = true;
 
 export const enableDisableMainMenu = (enable: boolean): void => {
+  // Keep track of whether our menu is enabled (see updateReopenMenu()).
+
+  menuEnabled = enable;
+
   // Build our menu, if needed.
 
   if (enable && enabledMenu) {
@@ -293,9 +298,12 @@ export const enableDisableMainMenu = (enable: boolean): void => {
 };
 
 export const enableDisableFileCloseAndCloseAllMenuItems = (enable: boolean): void => {
-  if (enabledMenu) {
-    hasFiles = enable;
+  // Note: we keep track of whether we have files even if we don't currently have an enabled menu (e.g., because it got
+  //       invalidated while our menu was disabled, see updateReopenMenu()), so that it gets built accordingly.
 
+  hasFiles = enable;
+
+  if (enabledMenu) {
     const fileCloseMenu = enabledMenu.getMenuItemById('fileClose');
     const fileCloseAllMenu = enabledMenu.getMenuItemById('fileCloseAll');
 
@@ -307,8 +315,14 @@ export const enableDisableFileCloseAndCloseAllMenuItems = (enable: boolean): voi
 };
 
 export const updateReopenMenu = (filePaths: string[]): void => {
+  // Invalidate our enabled menu so that it gets rebuilt with our new Reopen menu, but only rebuild (and set) it now if
+  // our menu is enabled. Indeed, our menu may be disabled (e.g., because a dialog is open in our renderer), in which
+  // case it must remain disabled and it will get rebuilt when it gets enabled again.
+
   enabledMenu = null;
   recentFilePaths = filePaths;
 
-  enableDisableMainMenu(true);
+  if (menuEnabled) {
+    enableDisableMainMenu(true);
+  }
 };

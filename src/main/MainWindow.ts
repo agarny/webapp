@@ -81,12 +81,21 @@ export const resetAll = (): void => {
 
 let recentFilePaths: string[] = [];
 
-const removeRecentFilePath = (filePath: string): void => {
+const removeRecentFilePath = (filePath: string): boolean => {
+  // Remove the given file path from our recent file paths and return whether it was removed (in which case our Reopen
+  // menu needs to be updated).
+
+  let res = false;
+
   for (let i = recentFilePaths.length - 1; i >= 0; --i) {
     if (recentFilePaths[i] === filePath) {
       recentFilePaths.splice(i, 1);
+
+      res = true;
     }
   }
+
+  return res;
 };
 
 export const clearRecentFiles = (): void => {
@@ -114,9 +123,9 @@ export const fileClosed = (filePath: string): void => {
 };
 
 export const fileIssue = (filePath: string): void => {
-  removeRecentFilePath(filePath);
-
-  updateReopenMenu(recentFilePaths);
+  if (removeRecentFilePath(filePath)) {
+    updateReopenMenu(recentFilePaths);
+  }
 
   // A file couldn't be opened, possibly while reopening files during OpenCOR startup, in which case we need to make sure
   // that it doesn't get selected and reopen the next file.
@@ -125,9 +134,9 @@ export const fileIssue = (filePath: string): void => {
 };
 
 export const fileOpened = (filePath: string): void => {
-  removeRecentFilePath(filePath);
-
-  updateReopenMenu(recentFilePaths);
+  if (removeRecentFilePath(filePath)) {
+    updateReopenMenu(recentFilePaths);
+  }
 
   // A file has been opened, but it may have been opened while reopening files during OpenCOR startup, in which case we
   // need to reopen the next file, hence our call to reopenFilePathsAndSelectFilePath(), which will do nothing if there
