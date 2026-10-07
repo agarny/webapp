@@ -12,16 +12,16 @@ napi_value fileManagerHasFile(const Napi::CallbackInfo &pInfo)
 
 void fileManagerUnmanage(const Napi::CallbackInfo &pInfo)
 {
-    auto filePath = pInfo[0].ToString().Utf8Value();
+    // Note: libOpenCOR canonicalises the path of a file (e.g., it resolves symbolic links and decodes URLs), so the
+    //       given file path may differ from the path of the file, hence we retrieve the file through our file manager
+    //       (which canonicalises the given file path) rather than compare file paths ourselves.
 
-    for (auto file : fileManager.files()) {
-        if (file->path() == filePath) {
-            files.erase(filePath);
+    auto file = fileManager.file(pInfo[0].ToString().Utf8Value());
 
-            fileManager.unmanage(file);
+    if (file != nullptr) {
+        files.erase(file->path());
 
-            break;
-        }
+        fileManager.unmanage(file);
     }
 }
 
