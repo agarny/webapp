@@ -325,7 +325,17 @@ void sedInstanceStopRun(const Napi::CallbackInfo &pInfo)
 
 void sedInstanceRelease(const Napi::CallbackInfo &pInfo)
 {
-    sedInstances.erase(toSizeT(pInfo[0]));
+    // Note: libOpenCOR waits for a run to finish before deleting an instance, so we stop any run first. Indeed, a
+    //       paused run would otherwise never finish (and therefore hang the renderer process) while a running one would
+    //       block the renderer process until it finishes.
+
+    auto iter = sedInstances.find(toSizeT(pInfo[0]));
+
+    if (iter != sedInstances.end()) {
+        iter->second->stopRun();
+
+        sedInstances.erase(iter);
+    }
 }
 
 // SedInstanceTask API.

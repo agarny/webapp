@@ -602,9 +602,12 @@ export class SedInstance {
   }
 
   // Release the resources held by the instance (and its tasks).
-  // Note: this must only be done once the instance is idle and no longer used. Not releasing an instance means that it
-  //       (and its tasks) never gets freed, which with the WASM version of libOpenCOR eventually results in an
-  //       out-of-memory error.
+  // Note #1: this should only be done once the instance is idle and no longer used. Not releasing an instance means
+  //          that it (and its tasks) never gets freed, which with the WASM version of libOpenCOR eventually results in
+  //          an out-of-memory error.
+  // Note #2: libOpenCOR waits for a run to finish before deleting an instance, so we stop any run first. Indeed, a
+  //          paused run would otherwise never finish (and therefore hang the UI) while a running one would block the UI
+  //          until it finishes.
 
   release(): void {
     if (this._released) {
@@ -612,6 +615,10 @@ export class SedInstance {
     }
 
     this._released = true;
+
+    if (this.status() !== ESedInstanceStatus.IDLE) {
+      this.stopRun();
+    }
 
     for (const task of this._tasks) {
       task.release();
