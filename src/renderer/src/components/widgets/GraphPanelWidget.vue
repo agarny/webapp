@@ -95,14 +95,12 @@ const trackSize = (): void => {
 };
 
 const queueResize = (): void => {
-  if (resizeQueued) {
+  if (queueResizeRafId !== undefined) {
     return;
   }
 
-  resizeQueued = true;
-
-  requestAnimationFrame(() => {
-    resizeQueued = false;
+  queueResizeRafId = requestAnimationFrame(() => {
+    queueResizeRafId = undefined;
 
     resize();
   });
@@ -120,11 +118,20 @@ const resize = (): Promise<unknown> => {
   resizeRafId = requestAnimationFrame(() => {
     resizeRafId = undefined;
 
-    dependencies._plotlyJs.Plots.resize(mainDivRef.value).then(() => {
-      trackSize();
+    // Note: Plotly rejects resizing a plot that is not displayed (e.g., in a hidden file tab), in which case there is
+    //       nothing to do.
 
-      updateMarginsAsync();
-    });
+    dependencies._plotlyJs.Plots.resize(mainDivRef.value)
+      .then(() => {
+        if (isUnmounted) {
+          return;
+        }
+
+        trackSize();
+
+        updateMarginsAsync();
+      })
+      .catch(() => {});
   });
 
   return Promise.resolve();
@@ -145,12 +152,13 @@ const contextMenuRef = vue.ref<InstanceType<typeof ContextMenu> | null>(null);
 const appendTarget = vueCommon.useAppendTarget(rootRef);
 const progressMessage = vue.inject<IProgressMessage>('progressMessage');
 let plotIsReady = false;
-let resizeQueued = false;
+let isUnmounted = false;
 let trackedWidth = 0;
 let trackedHeight = 0;
 let trackedMargins: IGraphPanelMargins | undefined;
 let stopTrackingContainerSize: (() => void) | undefined;
 let marginsRafId: number | undefined;
+let queueResizeRafId: number | undefined;
 let resizeRafId: number | undefined;
 let lastLegendClickIndex: number | undefined;
 let lastLegendClickTime = 0;
@@ -719,6 +727,13 @@ const plotlyTraceData = (): IPlotlyTraceState[] | undefined => {
 };
 
 const updatePlot = (): void => {
+  // Make sure that we haven't been unmounted (e.g., if this was scheduled using vue.nextTick() just before we got
+  // unmounted), in which case our plot has been purged and shouldn't be recreated.
+
+  if (isUnmounted) {
+    return;
+  }
+
   plotIsReady = false;
 
   // Reset our margins if they are not overridden.
@@ -806,12 +821,20 @@ const updatePlot = (): void => {
       // Note: the various keys can be found at https://plotly.com/javascript/configuration-options/.
 
       responsive: true,
+      // Note: to make our plot responsive means that Plotly sizes it relative to its container (rather than using a
+      //       fixed size), which is needed for our plot to shrink when our container does. It also means that Plotly
+      //       adds a window resize listener that keeps a reference to our plot, hence we purge our plot when we get
+      //       unmounted (see onBeforeUnmount()).
       displayModeBar: false,
       doubleClickDelay: DOUBLE_CLICK_DELAY,
       scrollZoom: true,
       showTips: false
     })
     .then(() => {
+      if (isUnmounted) {
+        return;
+      }
+
       plotIsReady = true;
 
       // Recompute margins after every plot update.
@@ -976,6 +999,29 @@ vue.onMounted(() => {
       return false;
     });
   });
+});
+
+// Release our plot before we get unmounted, i.e. while we still have access to it.
+// Note: Plotly keeps a lot of data (traces, calculated data, SVG elements, event handlers, etc.) attached to our plot,
+//       so we need to purge it to make sure that all of that data gets released.
+
+vue.onBeforeUnmount(() => {
+  isUnmounted = true;
+  plotIsReady = false;
+
+  for (const rafId of [marginsRafId, queueResizeRafId, resizeRafId]) {
+    if (rafId !== undefined) {
+      cancelAnimationFrame(rafId);
+    }
+  }
+
+  marginsRafId = undefined;
+  queueResizeRafId = undefined;
+  resizeRafId = undefined;
+
+  if (mainDivRef.value) {
+    dependencies._plotlyJs.purge(mainDivRef.value);
+  }
 });
 
 vue.onUnmounted(() => {
