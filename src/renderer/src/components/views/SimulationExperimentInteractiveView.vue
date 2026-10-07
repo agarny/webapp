@@ -146,7 +146,6 @@
                   :margins="compMargins"
                   :data="compData[index] || { traces: [] }"
                   @marginsUpdated="(newMargins: IGraphPanelMargins) => onMarginsUpdated(`plot_${index}`, newMargins)"
-                  @resetMargins="() => onResetMargins()"
                 />
               </div>
               <IssuesView v-show="simulationIssues.length" class="absolute inset-0 m-4 ml-0" :issues="simulationIssues" />
@@ -1710,6 +1709,13 @@ const onMarginsUpdated = (plotId: string, newMargins: IGraphPanelMargins): void 
   if (marginCount !== actualUiJson.value.output.plots.length) {
     compMargins.value = undefined;
 
+    return;
+  }
+
+  // Update our shared margins, but only if they have actually changed since updating them means that all our plots get
+  // relaid out.
+
+  if (compMargins.value?.left === maxLeft && compMargins.value?.right === maxRight) {
     return;
   }
 

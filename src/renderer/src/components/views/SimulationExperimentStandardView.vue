@@ -183,9 +183,16 @@ const updatePlot = (dataSize: number = 0): void => {
       : undefined;
 
   // Retrieve the data for the selected X and Y parameters and update the plot.
+  // Note: we only retrieve the data that has been computed so far. With the C++ version of libOpenCOR, that data is a
+  //       copy that we own, so we can use it as is. With the WASM version of libOpenCOR, that data is a view of the WASM
+  //       heap, so we need to copy it.
 
-  const xData = locCommon.simulationDataValue(instanceTask, xInfo.value).data;
-  const yData = locCommon.simulationDataValue(instanceTask, yInfo.value).data;
+  const dataCount = dataSize > 0 ? dataSize : undefined;
+  const xData = locCommon.simulationDataValue(instanceTask, xInfo.value, dataCount).data;
+  const yData = locCommon.simulationDataValue(instanceTask, yInfo.value, dataCount).data;
+  const ownData = (values: Float64Array): Float64Array => {
+    return locApi.cppVersion() ? values : values.slice();
+  };
 
   data.value = {
     xAxisTitle: xParameter.value,
@@ -196,9 +203,9 @@ const updatePlot = (dataSize: number = 0): void => {
       {
         name: vueCommon.traceName(undefined, xParameter.value, yParameter.value),
         xValue: xParameter.value,
-        x: dataSize > 0 ? xData.slice(0, dataSize) : xData.slice(),
+        x: ownData(xData),
         yValue: yParameter.value,
-        y: dataSize > 0 ? yData.slice(0, dataSize) : yData.slice(),
+        y: ownData(yData),
         color: colors.DEFAULT_COLOR
       }
     ]

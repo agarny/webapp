@@ -43,6 +43,19 @@ libOpenCOR::SedInstanceTaskPtr toSedInstanceTask(const Napi::CallbackInfo &pInfo
     return task;
 }
 
+// Retrieve the first values of the given values.
+// Note: the number of values is optional and allows us to retrieve only the values that have been computed so far (e.g.,
+//       while a simulation is running), thus avoiding the copy of values that are not needed.
+
+std::span<const double> firstValues(std::span<const double> pValues, const Napi::Value &pCount)
+{
+    if (!pCount.IsNumber()) {
+        return pValues;
+    }
+
+    return pValues.first(std::min(toSizeT(pCount), pValues.size()));
+}
+
 } // namespace
 
 // SedDocument API.
@@ -358,7 +371,7 @@ napi_value sedInstanceTaskVoi(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), task->voi());
+    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->voi(), pInfo[2]));
 }
 
 napi_value sedInstanceTaskStateCount(const Napi::CallbackInfo &pInfo)
@@ -386,7 +399,7 @@ napi_value sedInstanceTaskState(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), task->state(toInt32(pInfo[2])));
+    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->state(toInt32(pInfo[2])), pInfo[3]));
 }
 
 napi_value sedInstanceTaskRateCount(const Napi::CallbackInfo &pInfo)
@@ -414,7 +427,7 @@ napi_value sedInstanceTaskRate(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), task->rate(toInt32(pInfo[2])));
+    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->rate(toInt32(pInfo[2])), pInfo[3]));
 }
 
 napi_value sedInstanceTaskConstantCount(const Napi::CallbackInfo &pInfo)
@@ -442,7 +455,7 @@ napi_value sedInstanceTaskConstant(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), task->constant(toInt32(pInfo[2])));
+    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->constant(toInt32(pInfo[2])), pInfo[3]));
 }
 
 napi_value sedInstanceTaskComputedConstantCount(const Napi::CallbackInfo &pInfo)
@@ -470,7 +483,7 @@ napi_value sedInstanceTaskComputedConstant(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), task->computedConstant(toInt32(pInfo[2])));
+    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->computedConstant(toInt32(pInfo[2])), pInfo[3]));
 }
 
 napi_value sedInstanceTaskAlgebraicVariableCount(const Napi::CallbackInfo &pInfo)
@@ -498,5 +511,5 @@ napi_value sedInstanceTaskAlgebraicVariable(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), task->algebraicVariable(toInt32(pInfo[2])));
+    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->algebraicVariable(toInt32(pInfo[2])), pInfo[3]));
 }

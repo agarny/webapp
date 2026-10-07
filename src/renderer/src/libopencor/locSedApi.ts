@@ -634,6 +634,12 @@ export class SedInstance {
   }
 }
 
+// A helper function to retrieve (a view of) the first values of the given values.
+
+const firstValues = (values: Float64Array, count?: number): Float64Array => {
+  return count === undefined ? values : values.subarray(0, count);
+};
+
 export class SedInstanceTask extends SedIndex {
   private _cppInstanceId: number;
   private _wasmSedInstanceTask: IWasmSedInstanceTask = {} as IWasmSedInstanceTask;
@@ -666,10 +672,15 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.voiUnit;
   }
 
-  voi(): Float64Array {
+  // Note: the various methods to retrieve simulation data accept an optional number of values, which allows us to
+  //       retrieve only the values that have been computed so far (e.g., while a simulation is running). With the C++
+  //       version of libOpenCOR, this avoids copying values that are not needed. With the WASM version of libOpenCOR,
+  //       the simulation data is a view of the WASM heap, so we simply return a view of the first values.
+
+  voi(count?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskVoi(this._cppInstanceId, this._index)
-      : this._wasmSedInstanceTask.voi;
+      ? _cppLocApi.sedInstanceTaskVoi(this._cppInstanceId, this._index, count)
+      : firstValues(this._wasmSedInstanceTask.voi, count);
   }
 
   stateCount(): number {
@@ -690,10 +701,10 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.stateUnit(index);
   }
 
-  state(index: number): Float64Array {
+  state(index: number, count?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskState(this._cppInstanceId, this._index, index)
-      : this._wasmSedInstanceTask.state(index);
+      ? _cppLocApi.sedInstanceTaskState(this._cppInstanceId, this._index, index, count)
+      : firstValues(this._wasmSedInstanceTask.state(index), count);
   }
 
   rateCount(): number {
@@ -714,10 +725,10 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.rateUnit(index);
   }
 
-  rate(index: number): Float64Array {
+  rate(index: number, count?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskRate(this._cppInstanceId, this._index, index)
-      : this._wasmSedInstanceTask.rate(index);
+      ? _cppLocApi.sedInstanceTaskRate(this._cppInstanceId, this._index, index, count)
+      : firstValues(this._wasmSedInstanceTask.rate(index), count);
   }
 
   constantCount(): number {
@@ -738,10 +749,10 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.constantUnit(index);
   }
 
-  constant(index: number): Float64Array {
+  constant(index: number, count?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskConstant(this._cppInstanceId, this._index, index)
-      : this._wasmSedInstanceTask.constant(index);
+      ? _cppLocApi.sedInstanceTaskConstant(this._cppInstanceId, this._index, index, count)
+      : firstValues(this._wasmSedInstanceTask.constant(index), count);
   }
 
   computedConstantCount(): number {
@@ -762,10 +773,10 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.computedConstantUnit(index);
   }
 
-  computedConstant(index: number): Float64Array {
+  computedConstant(index: number, count?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskComputedConstant(this._cppInstanceId, this._index, index)
-      : this._wasmSedInstanceTask.computedConstant(index);
+      ? _cppLocApi.sedInstanceTaskComputedConstant(this._cppInstanceId, this._index, index, count)
+      : firstValues(this._wasmSedInstanceTask.computedConstant(index), count);
   }
 
   algebraicVariableCount(): number {
@@ -786,9 +797,9 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.algebraicVariableUnit(index);
   }
 
-  algebraicVariable(index: number): Float64Array {
+  algebraicVariable(index: number, count?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskAlgebraicVariable(this._cppInstanceId, this._index, index)
-      : this._wasmSedInstanceTask.algebraicVariable(index);
+      ? _cppLocApi.sedInstanceTaskAlgebraicVariable(this._cppInstanceId, this._index, index, count)
+      : firstValues(this._wasmSedInstanceTask.algebraicVariable(index), count);
   }
 }

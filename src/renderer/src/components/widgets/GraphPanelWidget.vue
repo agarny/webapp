@@ -86,7 +86,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   marginsUpdated: [newMargins: IGraphPanelMargins];
-  resetMargins: [];
 }>();
 
 const trackSize = (): void => {
@@ -262,8 +261,6 @@ const zoomIn = (): void => {
     'xaxis.range': [xCenter - 0.5 * xSpan, xCenter + 0.5 * xSpan],
     'yaxis.range': [yCenter - 0.5 * ySpan, yCenter + 0.5 * ySpan]
   });
-
-  emit('resetMargins');
 };
 
 const zoomOut = (): void => {
@@ -289,8 +286,6 @@ const zoomOut = (): void => {
     'xaxis.range': [xCenter - 2 * xSpan, xCenter + 2 * xSpan],
     'yaxis.range': [yCenter - 2 * ySpan, yCenter + 2 * ySpan]
   });
-
-  emit('resetMargins');
 };
 
 const resetZoom = (): void => {
@@ -302,8 +297,6 @@ const resetZoom = (): void => {
     'xaxis.autorange': true,
     'yaxis.autorange': true
   });
-
-  emit('resetMargins');
 };
 
 const copyToClipboard = async (): Promise<void> => {
@@ -736,13 +729,6 @@ const updatePlot = (): void => {
 
   plotIsReady = false;
 
-  // Reset our margins if they are not overridden.
-
-  if (!props.margins) {
-    margins.value.left = -1;
-    margins.value.right = -1;
-  }
-
   // Update the plots.
 
   const traceVisibilityKey = (trace: IPlotlyTraceState): string | undefined => {
@@ -891,19 +877,16 @@ vue.onMounted(() => {
   stopTrackingContainerSize = stop;
 
   vue.nextTick(() => {
-    // Reset our margins on double-click and relayout.
+    // Update our margins whenever our axes change (e.g., following a zoom, a pan, a double-click, or a call to
+    // zoomIn(), zoomOut(), or resetZoom()), since the width of our tick labels may have changed.
 
     const plotlyElement = mainDivRef.value as IPlotlyHTMLElement;
-
-    plotlyElement.on('plotly_doubleclick', () => {
-      emit('resetMargins');
-    });
 
     plotlyElement.on('plotly_relayout', (...args: unknown[]) => {
       const eventData = args[0] as Record<string, unknown> | undefined;
 
-      if (eventData && ('xaxis.range[0]' in eventData || 'yaxis.range[0]' in eventData)) {
-        emit('resetMargins');
+      if (eventData && Object.keys(eventData).some((key) => key.startsWith('xaxis.') || key.startsWith('yaxis.'))) {
+        updateMarginsAsync();
       }
     });
 
@@ -1057,7 +1040,13 @@ vue.watch(
 
 vue.watch(
   () => props.margins,
-  () => {
+  (newMargins, oldMargins) => {
+    // Nothing to do if our margins haven't actually changed (e.g., if we were given a new object with the same values).
+
+    if (newMargins && oldMargins && sameMargins(oldMargins, newMargins)) {
+      return;
+    }
+
     vue
       .nextTick(() => {
         if (plotIsReady && mainDivRef.value) {

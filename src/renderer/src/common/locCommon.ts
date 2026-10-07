@@ -416,37 +416,41 @@ export const simulationDataInfos = (instanceTask: locApi.SedInstanceTask): Map<s
 
 export const simulationDataValue = (
   instanceTask: locApi.SedInstanceTask,
-  info: ISimulationDataInfo
+  info: ISimulationDataInfo,
+  count?: number
 ): IOpenCORSimulationDataValue => {
+  // Note: count allows us to retrieve only the first values (e.g., those that have been computed so far while a
+  //       simulation is running), see locApi.SedInstanceTask.voi() for instance.
+
   switch (info.type) {
     case ESimulationDataInfoType.VOI:
       return {
-        data: instanceTask.voi(),
+        data: instanceTask.voi(count),
         unit: instanceTask.voiUnit()
       };
     case ESimulationDataInfoType.STATE:
       return {
-        data: instanceTask.state(info.index),
+        data: instanceTask.state(info.index, count),
         unit: instanceTask.stateUnit(info.index)
       };
     case ESimulationDataInfoType.RATE:
       return {
-        data: instanceTask.rate(info.index),
+        data: instanceTask.rate(info.index, count),
         unit: instanceTask.rateUnit(info.index)
       };
     case ESimulationDataInfoType.CONSTANT:
       return {
-        data: instanceTask.constant(info.index),
+        data: instanceTask.constant(info.index, count),
         unit: instanceTask.constantUnit(info.index)
       };
     case ESimulationDataInfoType.COMPUTED_CONSTANT:
       return {
-        data: instanceTask.computedConstant(info.index),
+        data: instanceTask.computedConstant(info.index, count),
         unit: instanceTask.computedConstantUnit(info.index)
       };
     case ESimulationDataInfoType.ALGEBRAIC:
       return {
-        data: instanceTask.algebraicVariable(info.index),
+        data: instanceTask.algebraicVariable(info.index, count),
         unit: instanceTask.algebraicVariableUnit(info.index)
       };
     default:

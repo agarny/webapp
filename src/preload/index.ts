@@ -286,43 +286,44 @@ electron.contextBridge.exposeInMainWorld('locApi', {
 
   sedInstanceTaskVoiName: (instanceId: number, index: number) => loc.sedInstanceTaskVoiName(instanceId, index),
   sedInstanceTaskVoiUnit: (instanceId: number, index: number) => loc.sedInstanceTaskVoiUnit(instanceId, index),
-  sedInstanceTaskVoi: (instanceId: number, index: number) => loc.sedInstanceTaskVoi(instanceId, index),
+  sedInstanceTaskVoi: (instanceId: number, index: number, count?: number) =>
+    loc.sedInstanceTaskVoi(instanceId, index, count),
   sedInstanceTaskStateCount: (instanceId: number, index: number) => loc.sedInstanceTaskStateCount(instanceId, index),
   sedInstanceTaskStateName: (instanceId: number, index: number, stateIndex: number) =>
     loc.sedInstanceTaskStateName(instanceId, index, stateIndex),
   sedInstanceTaskStateUnit: (instanceId: number, index: number, stateIndex: number) =>
     loc.sedInstanceTaskStateUnit(instanceId, index, stateIndex),
-  sedInstanceTaskState: (instanceId: number, index: number, stateIndex: number) =>
-    loc.sedInstanceTaskState(instanceId, index, stateIndex),
+  sedInstanceTaskState: (instanceId: number, index: number, stateIndex: number, count?: number) =>
+    loc.sedInstanceTaskState(instanceId, index, stateIndex, count),
   sedInstanceTaskRateCount: (instanceId: number, index: number) => loc.sedInstanceTaskRateCount(instanceId, index),
   sedInstanceTaskRateName: (instanceId: number, index: number, rateIndex: number) =>
     loc.sedInstanceTaskRateName(instanceId, index, rateIndex),
   sedInstanceTaskRateUnit: (instanceId: number, index: number, rateIndex: number) =>
     loc.sedInstanceTaskRateUnit(instanceId, index, rateIndex),
-  sedInstanceTaskRate: (instanceId: number, index: number, rateIndex: number) =>
-    loc.sedInstanceTaskRate(instanceId, index, rateIndex),
+  sedInstanceTaskRate: (instanceId: number, index: number, rateIndex: number, count?: number) =>
+    loc.sedInstanceTaskRate(instanceId, index, rateIndex, count),
   sedInstanceTaskConstantCount: (instanceId: number, index: number) =>
     loc.sedInstanceTaskConstantCount(instanceId, index),
   sedInstanceTaskConstantName: (instanceId: number, index: number, constantIndex: number) =>
     loc.sedInstanceTaskConstantName(instanceId, index, constantIndex),
   sedInstanceTaskConstantUnit: (instanceId: number, index: number, constantIndex: number) =>
     loc.sedInstanceTaskConstantUnit(instanceId, index, constantIndex),
-  sedInstanceTaskConstant: (instanceId: number, index: number, constantIndex: number) =>
-    loc.sedInstanceTaskConstant(instanceId, index, constantIndex),
+  sedInstanceTaskConstant: (instanceId: number, index: number, constantIndex: number, count?: number) =>
+    loc.sedInstanceTaskConstant(instanceId, index, constantIndex, count),
   sedInstanceTaskComputedConstantCount: (instanceId: number, index: number) =>
     loc.sedInstanceTaskComputedConstantCount(instanceId, index),
   sedInstanceTaskComputedConstantName: (instanceId: number, index: number, computedConstantIndex: number) =>
     loc.sedInstanceTaskComputedConstantName(instanceId, index, computedConstantIndex),
   sedInstanceTaskComputedConstantUnit: (instanceId: number, index: number, computedConstantIndex: number) =>
     loc.sedInstanceTaskComputedConstantUnit(instanceId, index, computedConstantIndex),
-  sedInstanceTaskComputedConstant: (instanceId: number, index: number, computedConstantIndex: number) =>
-    loc.sedInstanceTaskComputedConstant(instanceId, index, computedConstantIndex),
+  sedInstanceTaskComputedConstant: (instanceId: number, index: number, computedConstantIndex: number, count?: number) =>
+    loc.sedInstanceTaskComputedConstant(instanceId, index, computedConstantIndex, count),
   sedInstanceTaskAlgebraicVariableCount: (instanceId: number, index: number) =>
     loc.sedInstanceTaskAlgebraicVariableCount(instanceId, index),
   sedInstanceTaskAlgebraicVariableName: (instanceId: number, index: number, algebraicVariableIndex: number) =>
     loc.sedInstanceTaskAlgebraicVariableName(instanceId, index, algebraicVariableIndex),
   sedInstanceTaskAlgebraicVariableUnit: (instanceId: number, index: number, algebraicVariableIndex: number) =>
     loc.sedInstanceTaskAlgebraicVariableUnit(instanceId, index, algebraicVariableIndex),
-  sedInstanceTaskAlgebraicVariable: (instanceId: number, index: number, algebraicVariableIndex: number) =>
-    loc.sedInstanceTaskAlgebraicVariable(instanceId, index, algebraicVariableIndex)
+  sedInstanceTaskAlgebraicVariable: (instanceId: number, index: number, algebraicVariableIndex: number, count?: number) =>
+    loc.sedInstanceTaskAlgebraicVariable(instanceId, index, algebraicVariableIndex, count)
 });
