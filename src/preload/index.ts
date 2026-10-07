@@ -137,6 +137,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   installUpdateAndRestart: () => electron.ipcRenderer.invoke('install-update-and-restart'),
   loadGitHubAccessToken: (): Promise<string | null> => electron.ipcRenderer.invoke('load-github-access-token'),
   loadSettings: (): Promise<ISettings> => electron.ipcRenderer.invoke('load-settings'),
+  rendererReady: () => electron.ipcRenderer.invoke('renderer-ready'),
   resetAll: () => electron.ipcRenderer.invoke('reset-all'),
   saveGitHubAccessToken: (token: string): Promise<boolean> =>
     electron.ipcRenderer.invoke('save-github-access-token', token),

@@ -72,7 +72,15 @@ if (!electron.app.requestSingleInstanceLock()) {
 
 export let mainWindow: MainWindow | null = null;
 
+// Note: another instance of OpenCOR may be started before our main window has been created (i.e. while our splash
+//       screen is shown), in which case we keep track of its arguments so that they can be handled once our main window
+//       has been created.
+
+const pendingArguments: string[][] = [];
+
 electron.app.on('second-instance', (_event, argv) => {
+  argv.shift(); // Remove the first argument, which is the path to OpenCOR.
+
   if (mainWindow) {
     if (mainWindow.isMinimized()) {
       mainWindow.restore();
@@ -80,9 +88,9 @@ electron.app.on('second-instance', (_event, argv) => {
 
     mainWindow.focus();
 
-    argv.shift(); // Remove the first argument, which is the path to OpenCOR.
-
     mainWindow.handleArguments(argv);
+  } else {
+    pendingArguments.push(argv);
   }
 });
 
@@ -287,6 +295,9 @@ electron.app
         electron.ipcMain.handle('load-settings', (): ISettings => {
           return loadSettings();
         });
+        electron.ipcMain.handle('renderer-ready', () => {
+          MainWindow.instance?.rendererReady();
+        });
         electron.ipcMain.handle('reset-all', resetAll);
         /* TODO: enable once our GitHub integration is fully ready.
         electron.ipcMain.handle('save-github-access-token', async (_event, token: string): Promise<boolean> => {
@@ -305,6 +316,12 @@ electron.app
           splashScreenWindow,
           process.env.ELECTRON_RENDERER_URL ?? (await startRendererServer())
         );
+
+        // Handle the arguments of any instance of OpenCOR that was started while our splash screen was being shown.
+
+        for (const argv of pendingArguments.splice(0)) {
+          mainWindow.handleArguments(argv);
+        }
       }, SHORT_DELAY);
     });
   })

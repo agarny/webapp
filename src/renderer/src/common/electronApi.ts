@@ -33,6 +33,7 @@ interface IElectronApi {
   installUpdateAndRestart: () => void;
   loadGitHubAccessToken: () => Promise<string | null>;
   loadSettings: () => Promise<ISettings>;
+  rendererReady: () => void;
   resetAll: () => void;
   saveGitHubAccessToken: (token: string) => Promise<boolean>;
   saveSettings: (settings: ISettings) => void;

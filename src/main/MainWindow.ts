@@ -3,7 +3,7 @@ import { autoUpdater, type ProgressInfo, type UpdateCheckResult } from 'electron
 import path from 'node:path';
 
 import { formatError, isDataUrlOmexFileName, type ISettings, isUrl } from '../renderer/src/common/common';
-import { FULL_URI_SCHEME, LONG_DELAY, SHORT_DELAY } from '../renderer/src/common/constants';
+import { FULL_URI_SCHEME, LONG_DELAY } from '../renderer/src/common/constants';
 import { isLinux, isMacOs, isPackaged, isWindows } from '../renderer/src/common/electron';
 /* TODO: enable once our GitHub integration is fully ready.
 import { deleteGitHubAccessToken } from '../renderer/src/common/gitHubIntegration';
@@ -158,7 +158,8 @@ export class MainWindow extends ApplicationWindow {
   static instance: MainWindow | null = null;
 
   private _splashScreenWindowClosed = false;
-
+  private _rendererReady = false;
+  private _pendingArguments: string[] = [];
   private _openedFilePaths: string[] = [];
   private _openedFilePathIndex = 0;
   private _selectedFilePath = '';
@@ -190,6 +191,20 @@ export class MainWindow extends ApplicationWindow {
       electron.app.dock?.setIcon(icon);
     }
 
+    // Close our splash screen window with a short delay once we are visible.
+    // Note: we must do this before restoring our state since maximising a window may also show it (on Windows and
+    //       Linux), in which case we would otherwise miss the show event and never close our splash screen window.
+
+    this.once('show', () => {
+      if (!this._splashScreenWindowClosed) {
+        this._splashScreenWindowClosed = true;
+
+        setTimeout(() => {
+          splashScreenWindow.close();
+        }, LONG_DELAY);
+      }
+    });
+
     // Restore our state, if needed.
 
     if (state.isMaximized) {
@@ -198,66 +213,37 @@ export class MainWindow extends ApplicationWindow {
       this.setFullScreen(true);
     }
 
-    // Ask for the splash screen window to be closed with a short delay once we are visible and handle our command line
-    // (also with a short delay if needed).
+    // Retrieve the recently opened files and our Reopen menu.
 
-    this.once('show', () => {
-      let handleCommandLineDelay = SHORT_DELAY;
+    recentFilePaths = electronConf.get('app.files.recent');
 
-      if (!this._splashScreenWindowClosed) {
-        this._splashScreenWindowClosed = true;
+    updateReopenMenu(recentFilePaths);
 
-        handleCommandLineDelay = LONG_DELAY;
+    // The command line can either be a classical command line or an OpenCOR action (i.e. an opencor:// link). In the
+    // former case, we need to remove one or two arguments while, in the latter case, nothing should be removed.
 
-        setTimeout(() => {
-          splashScreenWindow.close();
-        }, LONG_DELAY);
+    if (!this.isAction(commandLine[0])) {
+      // The first argument is not an action, so remove the first argument and then the second argument, but only if we
+      // are not packaged.
+
+      commandLine.shift();
+
+      if (!isPackaged() && commandLine.length) {
+        commandLine.shift();
       }
+    }
 
-      setTimeout(() => {
-        // Retrieve the recently opened files and our Reopen menu.
-        // Note: for some reasons, recentFilePAths may, in some cases, end up having only one null entry, so just in
-        //       case we filter out all null entries.
+    // When auto updating OpenCOR, we may end up with an extra argument that we need to ignore.
 
-        recentFilePaths = (electronConf.get('app.files.recent') as string[]).filter(
-          (filePath: string | null) => filePath
-        );
+    if ((isWindows() || isMacOs()) && commandLine[0] === '--updated') {
+      commandLine.shift();
+    } else if (isLinux() && commandLine[0] === '--no-sandbox') {
+      commandLine.shift();
+    }
 
-        updateReopenMenu(recentFilePaths);
+    // Handle our command line, which will effectively be done once our renderer is ready (see rendererReady()).
 
-        // Reopen previously opened files, if any, and select the previously selected file.
-
-        this._openedFilePaths = electronConf.get('app.files.opened');
-        this._openedFilePathIndex = 0;
-        this._selectedFilePath = electronConf.get('app.files.selected');
-
-        this.reopenFilePathsAndSelectFilePath();
-
-        // The command line can either be a classical command line or an OpenCOR action (i.e. an opencor:// link). In
-        // the former case, we need to remove one or two arguments while, in the latter case, nothing should be removed.
-
-        if (!this.isAction(commandLine[0])) {
-          // The first argument is not an action, so remove the first argument and then the second argument, but only
-          // if we are not packaged.
-
-          commandLine.shift();
-
-          if (!isPackaged() && commandLine.length) {
-            commandLine.shift();
-          }
-        }
-
-        // When auto updating OpenCOR, we may end up with an extra argument that we need to ignore.
-
-        if ((isWindows() || isMacOs()) && commandLine[0] === '--updated') {
-          commandLine.shift();
-        } else if (isLinux() && commandLine[0] === '--no-sandbox') {
-          commandLine.shift();
-        }
-
-        this.handleArguments(commandLine);
-      }, handleCommandLineDelay);
-    });
+    this.handleArguments(commandLine);
 
     // Keep track of our settings unless we are resetting all.
 
@@ -375,6 +361,27 @@ export class MainWindow extends ApplicationWindow {
     });
   }
 
+  // Our renderer is ready, so reopen previously opened files, if any, select the previously selected file, and handle
+  // any arguments that we were asked to handle until now (e.g., our command line).
+  // Note: our renderer may get reloaded (e.g., during development), in which case it will let us know again that it is
+  //       ready, but there is nothing more for us to do then.
+
+  rendererReady(): void {
+    if (this._rendererReady) {
+      return;
+    }
+
+    this._rendererReady = true;
+
+    this._openedFilePaths = electronConf.get('app.files.opened');
+    this._openedFilePathIndex = 0;
+    this._selectedFilePath = electronConf.get('app.files.selected');
+
+    this.reopenFilePathsAndSelectFilePath();
+
+    this.handleArguments(this._pendingArguments.splice(0));
+  }
+
   // Reopen previously opened files, if any, and select the previously selected file.
   // Note: we reopen one file at a time since a file may be a remote file which means that it may take some time to
   //       reopen. So, we need to wait for the file to be reopened before reopening the next one.
@@ -426,6 +433,14 @@ export class MainWindow extends ApplicationWindow {
 
   handleArguments(commandLine: string[]): void {
     if (!commandLine.length) {
+      return;
+    }
+
+    // Wait for our renderer to be ready, if needed.
+
+    if (!this._rendererReady) {
+      this._pendingArguments.push(...commandLine);
+
       return;
     }
 

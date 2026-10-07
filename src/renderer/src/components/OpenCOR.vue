@@ -493,6 +493,13 @@ vue.watch(
 
       initialisingOpencorMessageVisible.value = false;
 
+      // Let our main process know that we are ready, i.e. that we have registered our listeners and that we can now
+      // open files, handle actions, etc.
+      // Note: we don't do this if our initialisation failed since we wouldn't be able to open files, handle actions,
+      //       etc. anyway.
+
+      electronApi?.rendererReady();
+
       // We are all done, so let's start checking for a newer version of OpenCOR, but only if we are running the Web app
       // and not in isolation mode (i.e. with a COMBINE archive) since in those cases we don't want to let the user know
       // about a newer version of OpenCOR.
