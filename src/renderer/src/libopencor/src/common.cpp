@@ -1,9 +1,35 @@
 #include "common.h"
 
 libOpenCOR::FileManager fileManager = libOpenCOR::FileManager::instance();
-std::map<std::string, libOpenCOR::FilePtr> files;
-std::map<size_t, libOpenCOR::SedDocumentPtr> sedDocuments;
-std::map<size_t, libOpenCOR::SedInstancePtr> sedInstances;
+
+// Note: our global maps are intentionally never destroyed (i.e. they are allocated on the heap and never deleted).
+//       Indeed, they would otherwise get destroyed during static destruction, i.e. possibly after libOpenCOR's own
+//       static objects (e.g., its file manager) have been destroyed, which would result in a crash (e.g., "mutex lock
+//       failed") when destroying what is left in them. Instead, we release what they hold when our Node.js environment
+//       gets torn down (see releaseAll()) and, if the process exits without tearing down our Node.js environment (e.g.,
+//       using process.exit()), the OS reclaims everything.
+
+std::map<std::string, libOpenCOR::FilePtr> &files = *new std::map<std::string, libOpenCOR::FilePtr>();
+std::map<size_t, libOpenCOR::SedDocumentPtr> &sedDocuments = *new std::map<size_t, libOpenCOR::SedDocumentPtr>();
+std::map<size_t, libOpenCOR::SedInstancePtr> &sedInstances = *new std::map<size_t, libOpenCOR::SedInstancePtr>();
+
+// Release all our SED-ML instances, SED-ML documents, and files.
+// Note: this is called when our Node.js environment gets torn down (e.g., when the renderer process exits or gets
+//       reloaded), i.e. while libOpenCOR's own static objects still exist (see the note about our global maps above).
+//       We release our SED-ML instances first (stopping any run since libOpenCOR waits for a run to finish before
+//       deleting an instance), then our SED-ML documents and finally our files, i.e. in the reverse order of their
+//       dependencies.
+
+void releaseAll()
+{
+    for (auto &[id, sedInstance] : sedInstances) {
+        sedInstance->stopRun();
+    }
+
+    sedInstances.clear();
+    sedDocuments.clear();
+    files.clear();
+}
 
 // Note: the following functions throw a JavaScript exception (rather than return nullptr) if the file, SED-ML document,
 //       or SED-ML instance is unknown (e.g., it has been released). This way, an invalid call results in a JavaScript

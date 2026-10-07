@@ -1,9 +1,14 @@
+#include "common.h"
 #include "file.h"
 #include "sed.h"
 #include "version.h"
 
 Napi::Object init(Napi::Env pEnv, Napi::Object pExports)
 {
+    // Release everything we hold when our Node.js environment gets torn down (see releaseAll()).
+
+    pEnv.AddCleanupHook(releaseAll);
+
     // Note: this must be in sync with src/preload/index.ts.
 
     // Some general methods.
