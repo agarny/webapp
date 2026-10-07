@@ -152,14 +152,51 @@ export const fileSelected = (filePath: string): void => {
   selectedFilePath = filePath;
 };
 
+// Retrieve the files that are currently open and the file that is currently selected, so that they can be reopened and
+// selected (e.g., the next time OpenCOR is started or after our renderer has crashed).
+// Note: a COMBINE archive that was opened using a data URL only exists in memory (under a made-up name, e.g.,
+//       "OMEX #1"), so it cannot be reopened. Hence, we don't reopen such a file and, if it is the selected file, we
+//       select the first file that is to be reopened instead.
+
+interface IFilesToReopen {
+  opened: string[];
+  selected: string;
+}
+
+const currentFilesToReopen = (): IFilesToReopen => {
+  const opened = openedFilePaths.filter((filePath) => !isDataUrlOmexFileName(filePath));
+  const selected = selectedFilePath && !isDataUrlOmexFileName(selectedFilePath) ? selectedFilePath : (opened[0] ?? '');
+
+  return { opened, selected };
+};
+
+// Report a fatal error (e.g., OpenCOR couldn't be started) and quit.
+// Note: our splash screen window is always on top, so we must close it first. Otherwise, it would hide our error dialog
+//       and remain shown forever.
+
+export const reportFatalErrorAndQuit = (message: string, splashScreenWindow?: SplashScreenWindow | null): void => {
+  console.error(`OpenCOR: ${message}`);
+
+  if (splashScreenWindow && !splashScreenWindow.isDestroyed()) {
+    splashScreenWindow.close();
+  }
+
+  electron.dialog.showErrorBox('OpenCOR', message);
+
+  electron.app.quit();
+};
+
 export class MainWindow extends ApplicationWindow {
   // Properties.
 
   static instance: MainWindow | null = null;
 
-  private _splashScreenWindowClosed = false;
+  private _splashScreenWindow: SplashScreenWindow | null = null;
   private _rendererReady = false;
   private _pendingArguments: string[] = [];
+  private _filesToReopen: IFilesToReopen | null = null;
+  // Note: the files to reopen and select once our renderer is ready after it has been reloaded following a crash (see
+  //       onRenderProcessGone()).
   private _openedFilePaths: string[] = [];
   private _openedFilePathIndex = 0;
   private _selectedFilePath = '';
@@ -195,14 +232,12 @@ export class MainWindow extends ApplicationWindow {
     // Note: we must do this before restoring our state since maximising a window may also show it (on Windows and
     //       Linux), in which case we would otherwise miss the show event and never close our splash screen window.
 
-    this.once('show', () => {
-      if (!this._splashScreenWindowClosed) {
-        this._splashScreenWindowClosed = true;
+    this._splashScreenWindow = splashScreenWindow;
 
-        setTimeout(() => {
-          splashScreenWindow.close();
-        }, LONG_DELAY);
-      }
+    this.once('show', () => {
+      setTimeout(() => {
+        this.closeSplashScreenWindow();
+      }, LONG_DELAY);
     });
 
     // Restore our state, if needed.
@@ -278,17 +313,17 @@ export class MainWindow extends ApplicationWindow {
         electronConf.set('app.files.recent', recentFilePaths);
 
         // Opened files and selected file.
-        // Note: make sure that no data URL OMEX file is to be reopened or selected.
+        // Note: if our renderer is not ready, then either it crashed and we are being closed before it could be
+        //       reloaded, in which case we save the files that were open (and selected) at the time of the crash, or it
+        //       never was ready (e.g., OpenCOR couldn't be loaded), in which case it never told us about the files that
+        //       are open, so we keep the files that were open when OpenCOR was last closed.
 
-        const actualOpenedFilePaths = openedFilePaths.filter((filePath) => !isDataUrlOmexFileName(filePath));
-        let actualSelectedFilePath = selectedFilePath;
+        const filesToReopen = this._rendererReady ? currentFilesToReopen() : this._filesToReopen;
 
-        if (selectedFilePath && isDataUrlOmexFileName(selectedFilePath)) {
-          actualSelectedFilePath = actualOpenedFilePaths[0] || null;
+        if (filesToReopen) {
+          electronConf.set('app.files.opened', filesToReopen.opened);
+          electronConf.set('app.files.selected', filesToReopen.selected);
         }
-
-        electronConf.set('app.files.opened', actualOpenedFilePaths);
-        electronConf.set('app.files.selected', actualSelectedFilePath);
       }
     });
 
@@ -354,11 +389,89 @@ export class MainWindow extends ApplicationWindow {
       };
     });
 
+    // Handle our renderer process crashing (or being killed).
+
+    this.webContents.on('render-process-gone', (_event, details) => {
+      this.onRenderProcessGone(details);
+    });
+
     // Load the renderer URL.
+    // Note: a navigation that gets interrupted (e.g., by another navigation) results in an ERR_ABORTED error, which is
+    //       not fatal. Any other error means that OpenCOR cannot be used, so we report it and quit.
 
     this.loadURL(rendererUrl).catch((error: unknown) => {
-      console.error(`OpenCOR: failed to load URL (${rendererUrl}):`, formatError(error));
+      if ((error as { code?: string }).code === 'ERR_ABORTED') {
+        console.warn(`OpenCOR: loading of URL (${rendererUrl}) was aborted:`, formatError(error));
+
+        return;
+      }
+
+      reportFatalErrorAndQuit(`OpenCOR could not be loaded (${formatError(error)}).`, this._splashScreenWindow);
     });
+  }
+
+  // Close our splash screen window, if it is still shown.
+
+  closeSplashScreenWindow(): void {
+    if (this._splashScreenWindow && !this._splashScreenWindow.isDestroyed()) {
+      this._splashScreenWindow.close();
+    }
+
+    this._splashScreenWindow = null;
+  }
+
+  // Our renderer process is gone (e.g., it crashed because of the native libOpenCOR module), so let the user know and
+  // either reload our renderer (and reopen the files that were open) or quit.
+
+  onRenderProcessGone(details: electron.RenderProcessGoneDetails): void {
+    if (details.reason === 'clean-exit') {
+      return;
+    }
+
+    console.error(`OpenCOR: the renderer process is gone (${details.reason}, exit code ${details.exitCode}).`);
+
+    // Make sure that our splash screen window doesn't hide our message box and that we are visible.
+
+    this.closeSplashScreenWindow();
+
+    if (!this.isVisible()) {
+      this.show();
+    }
+
+    // Keep track of the files that were open and of the selected file, so that they can be reopened and selected once
+    // our renderer is ready again.
+
+    const filesToReopen = currentFilesToReopen();
+
+    const choice = electron.dialog.showMessageBoxSync(this, {
+      type: 'error',
+      title: 'OpenCOR',
+      message: 'OpenCOR has encountered a problem and needs to be reloaded.',
+      detail: `Reason: ${details.reason} (exit code ${details.exitCode}).`,
+      buttons: ['Reload', 'Quit'],
+      defaultId: 0,
+      cancelId: 1
+    });
+
+    if (choice !== 0) {
+      electron.app.quit();
+
+      return;
+    }
+
+    // Reload our renderer, making sure that our main menu is enabled (our renderer may have disabled it, e.g., because
+    // a dialog was open) and that we reopen our files once our renderer is ready again.
+
+    enableDisableMainMenu(true);
+
+    this._rendererReady = false;
+    this._pendingArguments = [];
+    this._openedFilePaths = [];
+    this._openedFilePathIndex = 0;
+    this._selectedFilePath = '';
+    this._filesToReopen = filesToReopen;
+
+    this.webContents.reload();
   }
 
   // Our renderer is ready, so reopen previously opened files, if any, select the previously selected file, and handle
@@ -373,9 +486,19 @@ export class MainWindow extends ApplicationWindow {
 
     this._rendererReady = true;
 
-    this._openedFilePaths = electronConf.get('app.files.opened');
+    // If our renderer has been reloaded following a crash, then we reopen the files that were open at the time rather
+    // than those that were open when OpenCOR was last closed.
+
+    const filesToReopen = this._filesToReopen ?? {
+      opened: electronConf.get('app.files.opened'),
+      selected: electronConf.get('app.files.selected')
+    };
+
+    this._filesToReopen = null;
+
+    this._openedFilePaths = filesToReopen.opened;
     this._openedFilePathIndex = 0;
-    this._selectedFilePath = electronConf.get('app.files.selected');
+    this._selectedFilePath = filesToReopen.selected;
 
     this.reopenFilePathsAndSelectFilePath();
 

@@ -32,6 +32,7 @@ import {
   installUpdateAndRestart,
   loadSettings,
   MainWindow,
+  reportFatalErrorAndQuit,
   resetAll,
   saveSettings
 } from './MainWindow';
@@ -310,12 +311,20 @@ electron.app
 
         // Create our main window and pass to it our command line arguments or, if we got started via a URI scheme, the
         // triggering URL.
+        // Note: if that fails (e.g., our renderer server couldn't be started), then OpenCOR cannot be used, so we
+        //       report the error and quit (rather than leave our splash screen window shown forever).
 
-        mainWindow = new MainWindow(
-          triggeringUrl ? [triggeringUrl] : process.argv,
-          splashScreenWindow,
-          process.env.ELECTRON_RENDERER_URL ?? (await startRendererServer())
-        );
+        try {
+          mainWindow = new MainWindow(
+            triggeringUrl ? [triggeringUrl] : process.argv,
+            splashScreenWindow,
+            process.env.ELECTRON_RENDERER_URL ?? (await startRendererServer())
+          );
+        } catch (error: unknown) {
+          reportFatalErrorAndQuit(`OpenCOR could not be started (${formatError(error)}).`, splashScreenWindow);
+
+          return;
+        }
 
         // Handle the arguments of any instance of OpenCOR that was started while our splash screen was being shown.
 
@@ -326,7 +335,7 @@ electron.app
     });
   })
   .catch((error: unknown) => {
-    console.error('OpenCOR: failed to create the main window:', formatError(error));
+    reportFatalErrorAndQuit(`OpenCOR could not be started (${formatError(error)}).`);
   });
 
 // Ensure that the renderer server is stopped when quitting.
