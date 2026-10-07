@@ -306,7 +306,9 @@ export const simulationDataInfo = (instanceTask: locApi.SedInstanceTask, name: s
     };
   }
 
-  for (let i = 0; i < instanceTask.stateCount(); i++) {
+  const stateCount = instanceTask.stateCount();
+
+  for (let i = 0; i < stateCount; ++i) {
     if (name === instanceTask.stateName(i)) {
       return {
         type: ESimulationDataInfoType.STATE,
@@ -315,7 +317,9 @@ export const simulationDataInfo = (instanceTask: locApi.SedInstanceTask, name: s
     }
   }
 
-  for (let i = 0; i < instanceTask.rateCount(); i++) {
+  const rateCount = instanceTask.rateCount();
+
+  for (let i = 0; i < rateCount; ++i) {
     if (name === instanceTask.rateName(i)) {
       return {
         type: ESimulationDataInfoType.RATE,
@@ -324,7 +328,9 @@ export const simulationDataInfo = (instanceTask: locApi.SedInstanceTask, name: s
     }
   }
 
-  for (let i = 0; i < instanceTask.constantCount(); i++) {
+  const constantCount = instanceTask.constantCount();
+
+  for (let i = 0; i < constantCount; ++i) {
     if (name === instanceTask.constantName(i)) {
       return {
         type: ESimulationDataInfoType.CONSTANT,
@@ -333,7 +339,9 @@ export const simulationDataInfo = (instanceTask: locApi.SedInstanceTask, name: s
     }
   }
 
-  for (let i = 0; i < instanceTask.computedConstantCount(); i++) {
+  const computedConstantCount = instanceTask.computedConstantCount();
+
+  for (let i = 0; i < computedConstantCount; ++i) {
     if (name === instanceTask.computedConstantName(i)) {
       return {
         type: ESimulationDataInfoType.COMPUTED_CONSTANT,
@@ -342,7 +350,9 @@ export const simulationDataInfo = (instanceTask: locApi.SedInstanceTask, name: s
     }
   }
 
-  for (let i = 0; i < instanceTask.algebraicVariableCount(); i++) {
+  const algebraicVariableCount = instanceTask.algebraicVariableCount();
+
+  for (let i = 0; i < algebraicVariableCount; ++i) {
     if (name === instanceTask.algebraicVariableName(i)) {
       return {
         type: ESimulationDataInfoType.ALGEBRAIC,
@@ -352,6 +362,54 @@ export const simulationDataInfo = (instanceTask: locApi.SedInstanceTask, name: s
   }
 
   return NoSimulationDataInfo;
+};
+
+// A method to retrieve the simulation data information of all the simulation data of an instance task, indexed by name.
+// Note: this is much faster than calling simulationDataInfo() for several names since retrieving a name requires a call
+//       to libOpenCOR (and, with the C++ version of libOpenCOR, a round trip through our preload script). Also, should
+//       several simulation data share the same name, the first one wins, as with simulationDataInfo().
+
+export const simulationDataInfos = (instanceTask: locApi.SedInstanceTask): Map<string, ISimulationDataInfo> => {
+  const res = new Map<string, ISimulationDataInfo>();
+  const addSimulationDataInfo = (name: string, type: ESimulationDataInfoType, index: number): void => {
+    if (name && !res.has(name)) {
+      res.set(name, { type, index });
+    }
+  };
+
+  addSimulationDataInfo(instanceTask.voiName(), ESimulationDataInfoType.VOI, -1);
+
+  const stateCount = instanceTask.stateCount();
+
+  for (let i = 0; i < stateCount; ++i) {
+    addSimulationDataInfo(instanceTask.stateName(i), ESimulationDataInfoType.STATE, i);
+  }
+
+  const rateCount = instanceTask.rateCount();
+
+  for (let i = 0; i < rateCount; ++i) {
+    addSimulationDataInfo(instanceTask.rateName(i), ESimulationDataInfoType.RATE, i);
+  }
+
+  const constantCount = instanceTask.constantCount();
+
+  for (let i = 0; i < constantCount; ++i) {
+    addSimulationDataInfo(instanceTask.constantName(i), ESimulationDataInfoType.CONSTANT, i);
+  }
+
+  const computedConstantCount = instanceTask.computedConstantCount();
+
+  for (let i = 0; i < computedConstantCount; ++i) {
+    addSimulationDataInfo(instanceTask.computedConstantName(i), ESimulationDataInfoType.COMPUTED_CONSTANT, i);
+  }
+
+  const algebraicVariableCount = instanceTask.algebraicVariableCount();
+
+  for (let i = 0; i < algebraicVariableCount; ++i) {
+    addSimulationDataInfo(instanceTask.algebraicVariableName(i), ESimulationDataInfoType.ALGEBRAIC, i);
+  }
+
+  return res;
 };
 
 // A method to retrieve the simulation data value for a given name from an instance task.

@@ -185,7 +185,11 @@ import * as vueusecore from '@vueuse/core';
 import Popover from 'primevue/popover';
 import * as vue from 'vue';
 
-import type { IOpenCORExternalDataEvent, IOpenCORSimulationDataEvent } from '../../../index';
+import type {
+  IOpenCORExternalDataEvent,
+  IOpenCORSimulationDataEvent,
+  IOpenCORSimulationDataValue
+} from '../../../index';
 
 import * as colors from '../../common/colors';
 import * as common from '../../common/common';
@@ -419,6 +423,37 @@ const simulationIssues = vue.ref<locApi.IIssue[]>([]);
 const inputValues = vue.ref<number[]>([]);
 const showInput = vue.ref<boolean[]>([]);
 const idToInfo: Record<string, locCommon.ISimulationDataInfo> = {};
+
+// A helper function to retrieve the simulation data information for the given name.
+// Note: we build (and cache) the simulation data information of all our simulation data the first time we need it.
+//       Indeed, it is much faster than looking up simulation data information by name every time (see
+//       locCommon.simulationDataInfos()). Also, the names of our simulation data don't change when we reinstantiate our
+//       document (since our model changes and settings only affect values), so our cache remains valid for as long as
+//       our document is used.
+
+let simulationDataInfosCache: Map<string, locCommon.ISimulationDataInfo> | null = null;
+
+const simulationDataInfo = (task: locSedApi.SedInstanceTask, name: string): locCommon.ISimulationDataInfo => {
+  simulationDataInfosCache ??= locCommon.simulationDataInfos(task);
+
+  return simulationDataInfosCache.get(name) ?? locCommon.NoSimulationDataInfo;
+};
+
+// A helper function to retrieve the simulation data value for the given simulation data information.
+// Note: with the WASM version of libOpenCOR, the simulation data may be a view of the WASM heap, so we need to copy it.
+//       Otherwise, it would become a dangling view (with potentially corrupted data) as soon as the corresponding
+//       instance gets released (e.g., when it gets reinstantiated by a newer simulation run), which would in turn mess
+//       up our plots (in particular those of our tracked runs). With the C++ version of libOpenCOR, the simulation data
+//       is already a copy that we own, so there is no need to copy it again.
+
+const simulationDataValue = (
+  task: locSedApi.SedInstanceTask,
+  info: locCommon.ISimulationDataInfo
+): IOpenCORSimulationDataValue => {
+  const res = locCommon.simulationDataValue(task, info);
+
+  return locApi.cppVersion() ? res : { ...res, data: new Float64Array(res.data) };
+};
 
 const runs = vue.ref<ISimulationRun[]>([
   {
@@ -932,7 +967,7 @@ const simulationData = (modelParameters: string[]): Promise<IOpenCORSimulationDa
   const issueMessages: string[] = [];
 
   for (const modelParameter of modelParameters) {
-    const info = locCommon.simulationDataInfo(task, modelParameter === 'VOI' ? task.voiName() : modelParameter);
+    const info = simulationDataInfo(task, modelParameter === 'VOI' ? task.voiName() : modelParameter);
 
     if (locCommon.isNoSimulationDataInfo(info)) {
       issueMessages.push(`No simulation data information was found for model parameter "${modelParameter}".`);
@@ -941,15 +976,7 @@ const simulationData = (modelParameters: string[]): Promise<IOpenCORSimulationDa
     }
 
     try {
-      // Note: we return a copy of the simulation data since, with the WASM version of libOpenCOR, the simulation data
-      //       is a view into the WASM heap, which becomes invalid once our instance gets released.
-
-      const simulationDataValue = locCommon.simulationDataValue(task, info);
-
-      simulationDataResult[modelParameter] = {
-        ...simulationDataValue,
-        data: new Float64Array(simulationDataValue.data)
-      };
+      simulationDataResult[modelParameter] = simulationDataValue(task, info);
     } catch (error: unknown) {
       issueMessages.push(`Error for model parameter "${modelParameter}": ${common.formatError(error)}`);
     }
@@ -1410,21 +1437,37 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
 
   actualUiJson.value.output.data.forEach((data: locApi.IUiJsonOutputData) => {
     if (data.id && instanceTask) {
-      idToInfo[data.id] = locCommon.simulationDataInfo(instanceTask, data.name);
+      idToInfo[data.id] = simulationDataInfo(instanceTask, data.name);
     }
   });
 
   // Update our scope with the latest simulation data.
+  // Note: we only retrieve the simulation data that is used by our plots since retrieving simulation data means copying
+  //       it (see simulationDataValue()), which can be costly for large simulations.
 
   if (instanceTask) {
-    // Latest simulation data.
-    // Note: we make a copy of the data since, with the WASM version of libOpenCOR, it may be a view of the WASM heap.
-    //       If we were to keep it as is, it would become a dangling view (with potentially corrupted data) as soon as
-    //       the corresponding instance gets reinstantiated and destroyed by a newer simulation run, which would in turn
-    //       mess up our plots (in particular those of our tracked runs).
+    const usedDataIds = new Set<string>();
+
+    for (const plot of actualUiJson.value.output.plots) {
+      const expressions = [plot.xValue, plot.yValue];
+
+      for (const additionalTrace of plot.additionalTraces ?? []) {
+        expressions.push(additionalTrace.xValue, additionalTrace.yValue);
+      }
+
+      for (const expression of expressions) {
+        for (const identifier of math.expressionIdentifiers(expression ?? '')) {
+          usedDataIds.add(identifier);
+        }
+      }
+    }
 
     for (const data of actualUiJson.value.output.data) {
-      modelScope[data.id] = new Float64Array(locCommon.simulationDataValue(instanceTask, idToInfo[data.id]).data);
+      const info = idToInfo[data.id];
+
+      if (info && usedDataIds.has(data.id)) {
+        modelScope[data.id] = simulationDataValue(instanceTask, info).data;
+      }
     }
   }
 

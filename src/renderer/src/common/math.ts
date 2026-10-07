@@ -29,6 +29,24 @@ interface IMathJsLike {
 }
 
 const ELEMENTWISE_REGEX = /\.([*/^])/g;
+// Note: we match numbers as well as identifiers so that the exponent of a number in scientific notation (e.g., e3 in
+//       2e3) is not mistaken for an identifier while still allowing for implicit multiplication (e.g., 2x or 2e).
+
+const NUMBER_OR_IDENTIFIER_REGEX = /(\d*\.?\d+(?:[eE][+-]?\d+)?)|([A-Za-z_$][A-Za-z0-9_$]*)/g;
+
+// A helper function to retrieve the identifiers (i.e. variables, functions, and constants) used in an expression.
+
+export const expressionIdentifiers = (expression: string): string[] => {
+  const res: string[] = [];
+
+  for (const match of expression.matchAll(NUMBER_OR_IDENTIFIER_REGEX)) {
+    if (match[2]) {
+      res.push(match[2]);
+    }
+  }
+
+  return res;
+};
 
 // The functions and constants that can be used in an expression.
 
@@ -895,7 +913,7 @@ export class Float64ArrayMath {
     const normalisedExpression = this.normaliseExpression(expression);
 
     if (!this.validatedTokens.has(normalisedExpression)) {
-      const tokens = expression.match(/[A-Za-z_$][A-Za-z0-9_$]*/g) ?? [];
+      const tokens = expressionIdentifiers(expression);
       const allowedVariables = new Set(Object.keys(scope));
       const seenTokens = new Set<string>();
 
