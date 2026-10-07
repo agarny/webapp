@@ -55,7 +55,7 @@
                     :possibleValues="locApi.isDiscreteInput(input) ? input.possibleValues : undefined"
                     :stepValue="locApi.isScalarInput(input) ? input.stepValue : undefined"
                     :class="index !== 0 ? 'mt-6' : ''"
-                    @change="updateSimulation()"
+                    @change="onInputChange()"
                   />
                 </Fieldset>
                 <Fieldset legend="Runs">
@@ -1816,10 +1816,48 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
   onResetMargins();
 };
 
+// Update the simulation following a change to one of our inputs.
+// Note: an input (e.g., a slider being dragged) can change faster than a simulation run completes. So, rather than
+//       starting a new simulation run (and therefore instantiating a new instance) for every change, we let the current
+//       simulation run complete and then start a new one using the latest input values (i.e. latest value wins). This
+//       means that intermediate input values may be skipped, but that we always have at most one simulation run in
+//       flight and that the simulation is still updated while an input is being changed.
+
+let inputSimulationUpdateInFlight = false;
+let inputSimulationUpdatePending = false;
+
+const onInputChange = (): void => {
+  if (inputSimulationUpdateInFlight) {
+    inputSimulationUpdatePending = true;
+
+    return;
+  }
+
+  inputSimulationUpdateInFlight = true;
+
+  updateSimulation().finally(async () => {
+    // Give our plots a chance to be rendered before starting a new simulation run, if needed.
+
+    if (inputSimulationUpdatePending) {
+      await common.waitForNextAnimationFrame();
+    }
+
+    inputSimulationUpdateInFlight = false;
+
+    if (inputSimulationUpdatePending) {
+      inputSimulationUpdatePending = false;
+
+      onInputChange();
+    }
+  });
+};
+
 // Make sure that any pending simulation updates are discarded once we get unmounted.
 
 vue.onBeforeUnmount(() => {
   ++simulationGeneration;
+
+  inputSimulationUpdatePending = false;
 
   if (instance?.status() !== locSedApi.ESedInstanceStatus.IDLE) {
     instance?.stopRun();
