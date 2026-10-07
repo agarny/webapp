@@ -289,26 +289,46 @@ const applyModelChanges = (modelChanges: IModelChange[]): void => {
   }
 };
 
+// Our UI JSON with the structure that our view relies on (i.e. one that can be safely accessed). If our original UI
+// JSON doesn't have that structure (e.g., it has no output), then the parts that don't have it are replaced with empty
+// equivalents while the other parts are kept as is, so that they can still be used (e.g., in our settings dialog). Any
+// issue with our original UI JSON is then reported (see uiJsonIssues).
+
+const uiJsonWithExpectedStructure = props.uiJson ? locApi.uiJsonWithExpectedStructure(props.uiJson) : undefined;
+const uiJsonStructureRepaired = vue.ref<boolean>(uiJsonWithExpectedStructure?.repaired ?? false);
+
 // Apply the model changes resulting from our default input values before instantiating our document, so that our first
 // simulation run can use our instance rather than have to instantiate our document again (see updateSimulation()).
 // Note: if those model changes result in our instance having issues, then we instantiate our document without them so
 //       that our view remains usable (any issue with those model changes will be reported when running the simulation).
+//       Also, our UI JSON has yet to be validated at this stage, so we ignore any error that may occur while evaluating
+//       those model changes (any issue with our UI JSON will be reported once it has been validated).
 
 const NO_MODEL_CHANGES_KEY = JSON.stringify([]);
 let instanceModelChangesKey = NO_MODEL_CHANGES_KEY;
 
-if (model) {
-  const initialModelScope: math.ExpressionScope = {};
+if (model && uiJsonWithExpectedStructure) {
+  try {
+    const initialModelScope: math.ExpressionScope = {};
 
-  for (const input of props.uiJson?.input ?? []) {
-    initialModelScope[input.id] = input.defaultValue;
+    for (const input of uiJsonWithExpectedStructure.uiJson.input) {
+      initialModelScope[input.id] = input.defaultValue;
+    }
+
+    const initialModelChanges = evaluateModelChanges(
+      uiJsonWithExpectedStructure.uiJson.parameters,
+      initialModelScope,
+      []
+    );
+
+    applyModelChanges(initialModelChanges);
+
+    instanceModelChangesKey = JSON.stringify(initialModelChanges);
+  } catch (_error: unknown) {
+    applyModelChanges([]);
+
+    instanceModelChangesKey = NO_MODEL_CHANGES_KEY;
   }
-
-  const initialModelChanges = evaluateModelChanges(props.uiJson?.parameters ?? [], initialModelScope, []);
-
-  applyModelChanges(initialModelChanges);
-
-  instanceModelChangesKey = JSON.stringify(initialModelChanges);
 }
 
 let instance = isDocumentValid ? document.instantiate() : null;
@@ -334,8 +354,8 @@ const voiName = vue.ref(instanceTask ? instanceTask.voiName() : '');
 const voiId = vue.ref(instanceTask ? (voiName.value.split('/')[1] ?? '') : '');
 
 const actualUiJson = vue.ref<locApi.IUiJson>(
-  props.uiJson
-    ? (JSON.parse(JSON.stringify(props.uiJson, locApi.uiJsonReplacer)) as locApi.IUiJson)
+  uiJsonWithExpectedStructure
+    ? (JSON.parse(JSON.stringify(uiJsonWithExpectedStructure.uiJson, locApi.uiJsonReplacer)) as locApi.IUiJson)
     : {
         input: [],
         output: {
@@ -352,6 +372,12 @@ const actualUiJson = vue.ref<locApi.IUiJson>(
 );
 
 const uiJsonEmpty = vue.computed<boolean>(() => {
+  if (uiJsonStructureRepaired.value) {
+    // Our original UI JSON didn't have the expected structure, so it isn't empty, it's invalid (see uiJsonIssues).
+
+    return false;
+  }
+
   if (
     actualUiJson.value.input.length === 0 &&
     actualUiJson.value.parameters.length === 0 &&
@@ -378,7 +404,7 @@ let margins: Record<string, IGraphPanelMargins> = {};
 const compMargins = vue.ref<IGraphPanelMargins>();
 
 const uiJsonIssues = vue.ref<locApi.IIssue[]>(
-  locApi.validateUiJson(actualUiJson.value, {
+  locApi.validateUiJson(uiJsonStructureRepaired.value ? props.uiJson : actualUiJson.value, {
     allModelParameters: allModelParameters.value,
     editableModelParameters: editableModelParameters.value
   })
@@ -1874,6 +1900,7 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
   cvode?.setMaximumStep(updatedSettings.solvers.cvodeMaximumStep);
 
   actualUiJson.value = locApi.cleanUiJson(updatedSettings.interactive.uiJson);
+  uiJsonStructureRepaired.value = false;
   settingsVisible.value = false;
 
   // Validate the new UI JSON settings.

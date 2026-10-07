@@ -157,6 +157,7 @@ export {
   isDiscreteInput,
   normaliseUiJson,
   uiJsonReplacer,
+  uiJsonWithExpectedStructure,
   validateUiJson
 } from './locUiJsonApi';
 

@@ -255,11 +255,12 @@ const selectPreviousFile = async (): Promise<void> => {
 const openFile = async (file: locApi.File, wait: boolean = false): Promise<void> => {
   const filePath = file.path();
   const prevActiveFile = activeFile.value;
+  const uiJson = file.uiJson();
 
   fileTabs.value.splice(fileTabs.value.findIndex((fileTab) => fileTab.file.path() === prevActiveFile) + 1, 0, {
     file: file,
-    uiJson: file.uiJson(),
-    activeViewId: file.uiJson() ? 'simulation-experiment-interactive' : 'simulation-experiment-standard'
+    uiJson: uiJson,
+    activeViewId: uiJson ? 'simulation-experiment-interactive' : 'simulation-experiment-standard'
   });
 
   await selectFile(filePath, wait);

@@ -90,41 +90,154 @@ export const uiJsonReplacer = (_key: string, value: unknown): unknown => {
   return value instanceof Float64Array ? Array.from(value) : value;
 };
 
-export const normaliseUiJson = (uiJson: IUiJson): IUiJson => {
-  for (const externalData of uiJson.output.externalData ?? []) {
-    if (!(externalData.voiValues instanceof Float64Array)) {
-      externalData.voiValues = new Float64Array(externalData.voiValues);
+// A helper function to determine whether the given value is an object (and not an array).
+
+const isObject = (value: unknown): value is Record<string, unknown> => {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+};
+
+// A helper function to return a version of the given UI JSON that has the structure that the rest of our code relies
+// on, i.e. that can be safely accessed. Anything that doesn't have that structure (e.g., a missing output or a plot
+// that is not an object) is replaced with an empty equivalent (or removed) while everything else is kept as is, so that
+// it can still be used (e.g., in our settings dialog).
+// Note: whether a UI JSON is valid is determined by validateUiJson(), which should therefore be given the original UI
+//       JSON so that all of its issues get reported.
+
+export interface IUiJsonWithExpectedStructure {
+  uiJson: IUiJson;
+  repaired: boolean;
+}
+
+export const uiJsonWithExpectedStructure = (value: unknown): IUiJsonWithExpectedStructure => {
+  let repaired = false;
+
+  const object = (value: unknown): Record<string, unknown> => {
+    if (isObject(value)) {
+      return value;
     }
 
-    for (const dataSeries of externalData.dataSeries) {
-      if (!(dataSeries.values instanceof Float64Array)) {
-        dataSeries.values = new Float64Array(dataSeries.values);
-      }
+    repaired = true;
+
+    return {};
+  };
+
+  const objects = (value: unknown): Record<string, unknown>[] => {
+    if (!Array.isArray(value)) {
+      repaired = true;
+
+      return [];
     }
+
+    const res = value.filter(isObject);
+
+    if (res.length !== value.length) {
+      repaired = true;
+    }
+
+    return res;
+  };
+
+  const uiJson = object(value);
+  const output = object(uiJson.output);
+  const res: Record<string, unknown> = {
+    ...uiJson,
+    input: objects(uiJson.input),
+    output: {
+      ...output,
+      data: objects(output.data),
+      plots: objects(output.plots),
+      ...(output.externalData === undefined
+        ? {}
+        : {
+            externalData: objects(output.externalData).map((externalData) => {
+              return {
+                ...externalData,
+                data: objects(externalData.data),
+                dataSeries: objects(externalData.dataSeries)
+              };
+            })
+          })
+    },
+    parameters: objects(uiJson.parameters)
+  };
+
+  return {
+    uiJson: res as unknown as IUiJson,
+    repaired
+  };
+};
+
+// Some helper functions to convert values to/from a Float64Array.
+// Note: we only convert arrays (to a Float64Array) and Float64Arrays (from a Float64Array), leaving other values as
+//       they are so that validateUiJson() can report them as they are. This also means that we never call
+//       new Float64Array(n), which would create an array of n zeros and therefore could result in a huge allocation if
+//       n was some (invalid) large number.
+
+const toFloat64Array = (values: unknown): unknown => {
+  return Array.isArray(values) ? new Float64Array(values) : values;
+};
+
+const fromFloat64Array = (values: unknown): unknown => {
+  return values instanceof Float64Array ? Array.from(values) : values;
+};
+
+// A helper function to map the external data of a UI JSON, if it has any.
+// Note: the UI JSON may not have the expected structure, in which case we only map what can be mapped.
+
+const mapExternalData = (
+  uiJson: IUiJson,
+  mapValues: (values: unknown) => unknown,
+  inPlace: boolean
+): IUiJson | undefined => {
+  const output: unknown = (uiJson as unknown as Record<string, unknown>).output;
+
+  if (!isObject(output) || !Array.isArray(output.externalData) || !output.externalData.length) {
+    return undefined;
   }
+
+  const externalData = output.externalData.map((externalDataItem: unknown) => {
+    if (!isObject(externalDataItem)) {
+      return externalDataItem;
+    }
+
+    const res = inPlace ? externalDataItem : { ...externalDataItem };
+
+    res.voiValues = mapValues(externalDataItem.voiValues);
+
+    if (Array.isArray(externalDataItem.dataSeries)) {
+      res.dataSeries = externalDataItem.dataSeries.map((dataSeries: unknown) => {
+        if (!isObject(dataSeries)) {
+          return dataSeries;
+        }
+
+        const dataSeriesRes = inPlace ? dataSeries : { ...dataSeries };
+
+        dataSeriesRes.values = mapValues(dataSeries.values);
+
+        return dataSeriesRes;
+      });
+    }
+
+    return res;
+  });
+
+  if (inPlace) {
+    output.externalData = externalData;
+
+    return uiJson;
+  }
+
+  return { ...uiJson, output: { ...output, externalData } } as unknown as IUiJson;
+};
+
+export const normaliseUiJson = (uiJson: IUiJson): IUiJson => {
+  mapExternalData(uiJson, toFloat64Array, true);
 
   return uiJson;
 };
 
 const uiJsonForSchemaValidation = (uiJson: IUiJson): unknown => {
-  if (!uiJson.output.externalData?.length) {
-    return uiJson;
-  }
-
-  return {
-    ...uiJson,
-    output: {
-      ...uiJson.output,
-      externalData: uiJson.output.externalData.map((externalData) => ({
-        ...externalData,
-        voiValues: Array.from(externalData.voiValues),
-        dataSeries: externalData.dataSeries.map((dataSeries) => ({
-          ...dataSeries,
-          values: Array.from(dataSeries.values)
-        }))
-      }))
-    }
-  };
+  return mapExternalData(uiJson, fromFloat64Array, false) ?? uiJson;
 };
 
 export const cleanUiJson = (uiJson: IUiJson): IUiJson => {

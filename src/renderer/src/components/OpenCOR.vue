@@ -686,6 +686,27 @@ interface IFileInfo {
   filePath: string;
 }
 
+// A helper function to report an issue with a file that couldn't be opened.
+
+const reportFileIssue = (filePath: string, issueMessage: string): void => {
+  if (props.omex) {
+    vue.nextTick(() => {
+      issues.value.push({ type: locApi.EIssueType.ERROR, description: issueMessage });
+    });
+  } else {
+    addToast({
+      severity: 'error',
+      summary: 'Opening a file',
+      detail: `${filePath}\n\n${issueMessage}`,
+      life: TOAST_LIFE
+    });
+  }
+
+  electronApi?.fileIssue(filePath);
+
+  emit('file', { type: 'issue', filePath, issues: [issueMessage] });
+};
+
 const processFile = async (fileFilePathOrFileContents: string | Uint8Array | File): Promise<IFileInfo | null> => {
   // Check whether we were passed a ZIP-CellML data URL.
 
@@ -760,27 +781,12 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
       fileType === locApi.EFileType.IRRETRIEVABLE_FILE ||
       (props.omex && fileType !== locApi.EFileType.COMBINE_ARCHIVE)
     ) {
-      const issueMessage =
+      reportFileIssue(
+        filePath,
         fileType === locApi.EFileType.IRRETRIEVABLE_FILE
           ? 'The file could not be retrieved.'
-          : 'Only COMBINE archives are supported.';
-
-      if (props.omex) {
-        vue.nextTick(() => {
-          issues.value.push({ type: locApi.EIssueType.ERROR, description: issueMessage });
-        });
-      } else {
-        addToast({
-          severity: 'error',
-          summary: 'Opening a file',
-          detail: `${filePath}\n\n${issueMessage}`,
-          life: TOAST_LIFE
-        });
-      }
-
-      electronApi?.fileIssue(filePath);
-
-      emit('file', { type: 'issue', filePath, issues: [issueMessage] });
+          : 'Only COMBINE archives are supported.'
+      );
 
       file.release();
 
@@ -793,25 +799,7 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
       filePath
     };
   } catch (error: unknown) {
-    if (props.omex) {
-      vue.nextTick(() => {
-        issues.value.push({
-          type: locApi.EIssueType.ERROR,
-          description: common.formatMessage(common.formatError(error))
-        });
-      });
-    } else {
-      addToast({
-        severity: 'error',
-        summary: 'Opening a file',
-        detail: `${filePath}\n\n${common.formatMessage(common.formatError(error))}`,
-        life: TOAST_LIFE
-      });
-    }
-
-    electronApi?.fileIssue(filePath);
-
-    emit('file', { type: 'issue', filePath, issues: [common.formatMessage(common.formatError(error))] });
+    reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
 
     return null;
   } finally {
@@ -825,11 +813,26 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
 
 const openFileInContents = async (file: locApi.File, wait: boolean = false): Promise<void> => {
   // Open the given file in our contents component or release it if we can't (e.g., we got unmounted in the meantime).
+  // Note: to open a file may fail (e.g., if libOpenCOR throws an exception), in which case we report the issue and
+  //       release the file, unless it got opened (i.e. it has a file tab), in which case it is now managed by our
+  //       contents component. Either way, the issue doesn't stop other files from being opened.
 
-  if (contentsRef.value) {
-    await contentsRef.value.openFile(file, wait);
-  } else {
+  if (!contentsRef.value) {
     file.release();
+
+    return;
+  }
+
+  try {
+    await contentsRef.value.openFile(file, wait);
+  } catch (error: unknown) {
+    const filePath = file.path();
+
+    if (!contentsRef.value?.hasFile(filePath)) {
+      file.release();
+    }
+
+    reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
   }
 };
 
