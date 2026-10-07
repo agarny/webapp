@@ -5,26 +5,47 @@ std::map<std::string, libOpenCOR::FilePtr> files;
 std::map<size_t, libOpenCOR::SedDocumentPtr> sedDocuments;
 std::map<size_t, libOpenCOR::SedInstancePtr> sedInstances;
 
+// Note: the following functions throw a JavaScript exception (rather than return nullptr) if the file, SED-ML document,
+//       or SED-ML instance is unknown (e.g., it has been released). This way, an invalid call results in a JavaScript
+//       error rather than in a crash of the renderer process.
+
 libOpenCOR::FilePtr toFile(const Napi::Value &pValue)
 {
-    return fileManager.file(pValue.ToString().Utf8Value());
+    auto filePath = pValue.ToString().Utf8Value();
+    auto file = fileManager.file(filePath);
+
+    if (file == nullptr) {
+        throw Napi::Error::New(pValue.Env(), "Unknown file: " + filePath + ".");
+    }
+
+    return file;
 }
 
 // Note: we use find() rather than operator[] since the latter would (re)insert an entry for an unknown (e.g., released)
 //       ID.
 
-libOpenCOR::SedDocumentPtr toSedDocument(size_t pId)
+libOpenCOR::SedDocumentPtr toSedDocument(const Napi::Value &pValue)
 {
-    auto iter = sedDocuments.find(pId);
+    auto id = toSizeT(pValue);
+    auto iter = sedDocuments.find(id);
 
-    return (iter != sedDocuments.end()) ? iter->second : nullptr;
+    if (iter == sedDocuments.end()) {
+        throw Napi::Error::New(pValue.Env(), "Unknown SED-ML document: " + std::to_string(id) + ".");
+    }
+
+    return iter->second;
 }
 
-libOpenCOR::SedInstancePtr toSedInstance(size_t pId)
+libOpenCOR::SedInstancePtr toSedInstance(const Napi::Value &pValue)
 {
-    auto iter = sedInstances.find(pId);
+    auto id = toSizeT(pValue);
+    auto iter = sedInstances.find(id);
 
-    return (iter != sedInstances.end()) ? iter->second : nullptr;
+    if (iter == sedInstances.end()) {
+        throw Napi::Error::New(pValue.Env(), "Unknown SED-ML instance: " + std::to_string(id) + ".");
+    }
+
+    return iter->second;
 }
 
 size_t toSizeT(const Napi::Value &pValue)

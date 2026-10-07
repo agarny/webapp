@@ -139,6 +139,12 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
             ${CMAKE_JS_SRC}
             ${CPP_FILES})
 
+# Convert any C++ exception (and not just Napi::Error) into a JavaScript exception rather than have it terminate the
+# renderer process.
+
+target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
+                           NODE_ADDON_API_CPP_EXCEPTIONS_ALL)
+
 # Don't have a "lib" prefix and use a ".node" suffix.
 
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES

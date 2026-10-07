@@ -5,6 +5,11 @@
 
 // FileManager API.
 
+napi_value fileManagerHasFile(const Napi::CallbackInfo &pInfo)
+{
+    return Napi::Boolean::New(pInfo.Env(), fileManager.file(pInfo[0].ToString().Utf8Value()) != nullptr);
+}
+
 void fileManagerUnmanage(const Napi::CallbackInfo &pInfo)
 {
     auto filePath = pInfo[0].ToString().Utf8Value();

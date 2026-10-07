@@ -39,7 +39,7 @@ class FileManager {
     // Note: the file we are after is already managed, so we just wrap it rather than create (and therefore own) it.
 
     if (cppVersion()) {
-      return _cppLocApi.fileContents(path) ? new File(path, undefined, {}) : null;
+      return _cppLocApi.fileManagerHasFile(path) ? new File(path, undefined, {}) : null;
     }
 
     // Note: every access to a WASM vector (and to its elements) yields a new handle that must be deleted, except for

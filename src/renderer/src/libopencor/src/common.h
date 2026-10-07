@@ -12,8 +12,8 @@ extern std::map<size_t, libOpenCOR::SedDocumentPtr> sedDocuments;
 extern std::map<size_t, libOpenCOR::SedInstancePtr> sedInstances;
 
 libOpenCOR::FilePtr toFile(const Napi::Value &pValue);
-libOpenCOR::SedDocumentPtr toSedDocument(size_t pId);
-libOpenCOR::SedInstancePtr toSedInstance(size_t pId);
+libOpenCOR::SedDocumentPtr toSedDocument(const Napi::Value &pValue);
+libOpenCOR::SedInstancePtr toSedInstance(const Napi::Value &pValue);
 size_t toSizeT(const Napi::Value &pValue);
 int32_t toInt32(const Napi::Value &pValue);
 double toDouble(const Napi::Value &pValue);
