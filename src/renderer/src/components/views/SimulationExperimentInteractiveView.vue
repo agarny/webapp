@@ -237,7 +237,95 @@ const documentIssues = document.issues();
 const isDocumentValid = documentIssues.length === 0;
 const uniformTimeCourse = isDocumentValid ? (document.simulation(0) as locApi.SedUniformTimeCourse) : null;
 const cvode = uniformTimeCourse?.cvode() ?? null;
+const mathEval = new math.Float64ArrayMath();
+const model = isDocumentValid ? document.model(0) : null;
+
+// Some helper functions to evaluate and apply the model changes resulting from the given parameters and scope.
+
+interface IModelChange {
+  componentName: string;
+  variableName: string;
+  newValue: string;
+}
+
+const evaluateModelChanges = (
+  parameters: locApi.IUiJsonParameter[],
+  modelScope: math.ExpressionScope,
+  issues: locApi.IIssue[]
+): IModelChange[] => {
+  const res: IModelChange[] = [];
+
+  for (const parameter of parameters) {
+    const componentVariableNames = parameter.name.split('/');
+
+    if (componentVariableNames[0] && componentVariableNames[1]) {
+      try {
+        res.push({
+          componentName: componentVariableNames[0],
+          variableName: componentVariableNames[1],
+          newValue: String(mathEval.evaluate(parameter.value, modelScope))
+        });
+      } catch (error: unknown) {
+        issues.push({
+          type: locApi.EIssueType.ERROR,
+          description: `An error occurred while applying parameter change for '${parameter.name}' (${common.formatMessage(common.formatError(error), false)}).`
+        });
+      }
+    }
+  }
+
+  return res;
+};
+
+const applyModelChanges = (modelChanges: IModelChange[]): void => {
+  if (!model) {
+    return;
+  }
+
+  model.removeAllChanges();
+
+  for (const modelChange of modelChanges) {
+    model.addChange(modelChange.componentName, modelChange.variableName, modelChange.newValue);
+  }
+};
+
+// Apply the model changes resulting from our default input values before instantiating our document, so that our first
+// simulation run can use our instance rather than have to instantiate our document again (see updateSimulation()).
+// Note: if those model changes result in our instance having issues, then we instantiate our document without them so
+//       that our view remains usable (any issue with those model changes will be reported when running the simulation).
+
+const NO_MODEL_CHANGES_KEY = JSON.stringify([]);
+let instanceModelChangesKey = NO_MODEL_CHANGES_KEY;
+
+if (model) {
+  const initialModelScope: math.ExpressionScope = {};
+
+  for (const input of props.uiJson?.input ?? []) {
+    initialModelScope[input.id] = input.defaultValue;
+  }
+
+  const initialModelChanges = evaluateModelChanges(props.uiJson?.parameters ?? [], initialModelScope, []);
+
+  applyModelChanges(initialModelChanges);
+
+  instanceModelChangesKey = JSON.stringify(initialModelChanges);
+}
+
 let instance = isDocumentValid ? document.instantiate() : null;
+
+if (instance?.hasIssues() && instanceModelChangesKey !== NO_MODEL_CHANGES_KEY) {
+  instance.release();
+
+  applyModelChanges([]);
+
+  instance = document.instantiate();
+  instanceModelChangesKey = NO_MODEL_CHANGES_KEY;
+}
+
+let instanceIsPristine = true;
+// Note: whether our instance has never been run. If so, and if it was built with the same model changes as those wanted
+//       by our next simulation run (see instanceModelChangesKey), then that run can use it as is rather than build a
+//       new one. In practice, this only applies to our first simulation run.
 const issues = documentIssues.length > 0 ? documentIssues : (instance?.issues() ?? []);
 let instanceTask = issues.length > 0 ? null : (instance?.task(0) ?? null);
 const allModelParameters = vue.ref<string[]>([]);
@@ -284,8 +372,6 @@ const uiJsonEmpty = vue.computed<boolean>(() => {
   return false;
 });
 
-const mathEval = new math.Float64ArrayMath();
-const model = isDocumentValid ? document.model(0) : null;
 const isSimulating = vue.ref<boolean>(false);
 const liveData = vue.ref<IGraphPanelData[]>([]);
 let margins: Record<string, IGraphPanelMargins> = {};
@@ -1143,28 +1229,9 @@ const updateSimulation = async (): Promise<void> => {
     }
   }
 
-  // Update the SED-ML document.
+  // Evaluate the model changes.
 
-  model.removeAllChanges();
-
-  for (const parameter of actualUiJson.value.parameters) {
-    const componentVariableNames = parameter.name.split('/');
-
-    if (componentVariableNames[0] && componentVariableNames[1]) {
-      try {
-        model.addChange(
-          componentVariableNames[0],
-          componentVariableNames[1],
-          String(mathEval.evaluate(parameter.value, modelScope))
-        );
-      } catch (error: unknown) {
-        simulationIssues.value.push({
-          type: locApi.EIssueType.ERROR,
-          description: `An error occurred while applying parameter change for '${parameter.name}' (${common.formatMessage(common.formatError(error), false)}).`
-        });
-      }
-    }
-  }
+  const modelChanges = evaluateModelChanges(actualUiJson.value.parameters, modelScope, simulationIssues.value);
 
   // Make sure that we haven't come across any issues so far.
 
@@ -1182,11 +1249,22 @@ const updateSimulation = async (): Promise<void> => {
     return;
   }
 
-  // Create a fresh instance for the new simulation run.
-  // Note: this ensures that the instance picks up the latest model changes and avoids reusing an instance which
+  // Use our instance as is if it has yet to be run and was instantiated with the same model changes (e.g., for our first
+  // simulation run), otherwise apply the model changes and create a fresh instance for the new simulation run.
+  // Note: using a fresh instance ensures that it picks up the latest model changes and avoids reusing an instance which
   //       internal state may have been corrupted by a previous cancellation.
 
-  const crtInstance = reinstantiateInstance();
+  const modelChangesKey = JSON.stringify(modelChanges);
+  let crtInstance = instance;
+
+  if (!instanceIsPristine || modelChangesKey !== instanceModelChangesKey) {
+    applyModelChanges(modelChanges);
+
+    crtInstance = reinstantiateInstance();
+    instanceModelChangesKey = modelChangesKey;
+  }
+
+  instanceIsPristine = false;
 
   // Start the simulation in a background thread and yield to the UI to keep it responsive while the simulation runs.
 
@@ -1760,8 +1838,6 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
 
   // Update our settings and hide the dialog.
 
-  const oldCvodeMaximumStep = cvode?.maximumStep();
-
   uniformTimeCourse.setInitialTime(updatedSettings.simulation.initialPoint);
   uniformTimeCourse.setOutputStartTime(updatedSettings.simulation.startingPoint);
   uniformTimeCourse.setOutputEndTime(updatedSettings.simulation.endingPoint);
@@ -1791,11 +1867,12 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
     return;
   }
 
-  // Reinstantiate our instance in case we modified CVODE's maximum step.
+  // Make sure that our next simulation run doesn't use our current instance since it was instantiated using our old
+  // settings.
+  // Note: this is only relevant if our current instance has yet to be run (e.g., if our previous simulation run couldn't
+  //       be started because of some issues).
 
-  if (cvode && cvode.maximumStep() !== oldCvodeMaximumStep) {
-    reinstantiateInstance();
-  }
+  instanceIsPristine = false;
 
   // Update our UI.
 
