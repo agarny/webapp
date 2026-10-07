@@ -1160,27 +1160,14 @@ const reinstantiateInstance = (): locApi.SedInstance => {
 };
 
 // Run the interactive simulation.
+// Note: this is called by updateSimulation(), which takes care of keeping track of the fact that we are simulating.
 
-const updateSimulation = async (): Promise<void> => {
+const runSimulation = async (currentSimulationGeneration: number): Promise<void> => {
   // Make sure that the view is usable, i.e. that we have a model and an instance.
 
   if (!model || !instance) {
     return;
   }
-
-  // Make sure that there are no issues with the UI JSON.
-
-  if (uiJsonIssues.value.length) {
-    return;
-  }
-
-  // Increment the simulation generation so that we can cancel any previous simulation runs that are still in progress.
-
-  const currentSimulationGeneration = ++simulationGeneration;
-
-  // Keep track of the fact that we are simulating.
-
-  isSimulating.value = true;
 
   // Stop the current simulation if it is still running or paused.
 
@@ -1238,8 +1225,6 @@ const updateSimulation = async (): Promise<void> => {
   if (simulationIssues.value.length) {
     simulationIssues.value.push(informationIssue);
 
-    isSimulating.value = false;
-
     return;
   }
 
@@ -1269,16 +1254,16 @@ const updateSimulation = async (): Promise<void> => {
   // Start the simulation in a background thread and yield to the UI to keep it responsive while the simulation runs.
 
   if (!crtInstance.startRun()) {
-    isSimulating.value = false;
-
     return;
   }
 
   runningInstances.add(crtInstance);
 
-  await vueCommon.waitWhileRunning(crtInstance).promise;
-
-  runningInstances.delete(crtInstance);
+  try {
+    await vueCommon.waitWhileRunning(crtInstance).promise;
+  } finally {
+    runningInstances.delete(crtInstance);
+  }
 
   // Release our instance if it has been replaced by a newer one while the simulation was running, in which case our
   // results are stale anyway.
@@ -1299,8 +1284,6 @@ const updateSimulation = async (): Promise<void> => {
 
   if (crtInstance.hasIssues()) {
     simulationIssues.value = crtInstance.issues();
-
-    isSimulating.value = false;
 
     return;
   }
@@ -1370,8 +1353,6 @@ const updateSimulation = async (): Promise<void> => {
 
   if (simulationIssues.value.length) {
     simulationIssues.value.push(informationIssue);
-
-    isSimulating.value = false;
 
     return;
   }
@@ -1560,10 +1541,6 @@ const updateSimulation = async (): Promise<void> => {
 
   liveData.value = newLiveData;
 
-  // The simulation has completed, so we are no longer simulating.
-
-  isSimulating.value = false;
-
   // Make sure that we haven't come across any issues so far.
 
   if (simulationIssues.value.length) {
@@ -1575,6 +1552,49 @@ const updateSimulation = async (): Promise<void> => {
   // Let people know that the simulation data has been updated.
 
   emit('simulationData');
+};
+
+const updateSimulation = async (): Promise<void> => {
+  // Make sure that the view is usable, i.e. that we have a model and an instance.
+
+  if (!model || !instance) {
+    return;
+  }
+
+  // Make sure that there are no issues with the UI JSON.
+
+  if (uiJsonIssues.value.length) {
+    return;
+  }
+
+  // Increment the simulation generation so that we can cancel any previous simulation runs that are still in progress.
+
+  const currentSimulationGeneration = ++simulationGeneration;
+
+  // Run the simulation, keeping track of the fact that we are simulating, and report any unexpected error (e.g., an
+  // exception thrown by libOpenCOR) as a simulation issue rather than leave us in a simulating state forever.
+  // Note: only the latest simulation run gets to report an error and to say that we are no longer simulating since an
+  //       older one has been superseded and the latest one is still in charge.
+
+  isSimulating.value = true;
+
+  try {
+    await runSimulation(currentSimulationGeneration);
+  } catch (error: unknown) {
+    if (currentSimulationGeneration === simulationGeneration) {
+      simulationIssues.value = [
+        {
+          type: locApi.EIssueType.ERROR,
+          description: `An unexpected error occurred while running the simulation (${common.formatMessage(common.formatError(error), false)}).`
+        },
+        informationIssue
+      ];
+    }
+  } finally {
+    if (currentSimulationGeneration === simulationGeneration) {
+      isSimulating.value = false;
+    }
+  }
 };
 
 // Margins-related event handlers.
