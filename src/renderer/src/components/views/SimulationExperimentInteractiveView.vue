@@ -354,8 +354,15 @@ const voiName = vue.ref(instanceTask ? instanceTask.voiName() : '');
 const voiId = vue.ref(instanceTask ? (voiName.value.split('/')[1] ?? '') : '');
 
 const actualUiJson = vue.ref<locApi.IUiJson>(
+  // Note: we deep clone our UI JSON using JSON serialisation, which means that we need to normalise it afterwards so
+  //       that our external data values are Float64Arrays again rather than plain arrays. Indeed, plain arrays would be
+  //       deeply tracked by Vue (i.e. element by element), which would be both slow and memory hungry for large
+  //       external data.
+
   uiJsonWithExpectedStructure
-    ? (JSON.parse(JSON.stringify(uiJsonWithExpectedStructure.uiJson, locApi.uiJsonReplacer)) as locApi.IUiJson)
+    ? locApi.normaliseUiJson(
+        JSON.parse(JSON.stringify(uiJsonWithExpectedStructure.uiJson, locApi.uiJsonReplacer)) as locApi.IUiJson
+      )
     : {
         input: [],
         output: {
@@ -534,7 +541,7 @@ const preSimulationDuration = vue.computed<number>(() => {
   return settingsVal.simulation.startingPoint - settingsVal.simulation.initialPoint;
 });
 
-const oldSettings = vue.ref<string>(JSON.stringify(vue.toRaw(settings.value)));
+const oldSettings = vue.ref<string>(JSON.stringify(vue.toRaw(settings.value), locApi.uiJsonReplacer));
 
 // Information issue shown when an interactive simulation error occurs.
 
@@ -1867,7 +1874,7 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
     return;
   }
 
-  const newSettingsJson = JSON.stringify(vue.toRaw(updatedSettings));
+  const newSettingsJson = JSON.stringify(vue.toRaw(updatedSettings), locApi.uiJsonReplacer);
   const settingsHaveChanges = newSettingsJson !== oldSettings.value;
 
   oldSettings.value = newSettingsJson;
