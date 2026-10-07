@@ -153,6 +153,7 @@ export {
   type IUiJsonParameter,
   type IUiJsonScalarInput,
   cleanUiJson,
+  cloneUiJson,
   isScalarInput,
   isDiscreteInput,
   normaliseUiJson,

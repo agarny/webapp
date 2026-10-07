@@ -354,15 +354,13 @@ const voiName = vue.ref(instanceTask ? instanceTask.voiName() : '');
 const voiId = vue.ref(instanceTask ? (voiName.value.split('/')[1] ?? '') : '');
 
 const actualUiJson = vue.ref<locApi.IUiJson>(
-  // Note: we deep clone our UI JSON using JSON serialisation, which means that we need to normalise it afterwards so
-  //       that our external data values are Float64Arrays again rather than plain arrays. Indeed, plain arrays would be
-  //       deeply tracked by Vue (i.e. element by element), which would be both slow and memory hungry for large
-  //       external data.
+  // Note: we deep clone our UI JSON, sharing its external data values rather than copying them (see cloneUiJson()),
+  //       and normalise it to make sure that its external data values are Float64Arrays rather than plain arrays.
+  //       Indeed, plain arrays would be deeply tracked by Vue (i.e. element by element), which would be both slow and
+  //       memory hungry for large external data.
 
   uiJsonWithExpectedStructure
-    ? locApi.normaliseUiJson(
-        JSON.parse(JSON.stringify(uiJsonWithExpectedStructure.uiJson, locApi.uiJsonReplacer)) as locApi.IUiJson
-      )
+    ? locApi.normaliseUiJson(locApi.cloneUiJson(uiJsonWithExpectedStructure.uiJson))
     : {
         input: [],
         output: {
@@ -541,7 +539,21 @@ const preSimulationDuration = vue.computed<number>(() => {
   return settingsVal.simulation.startingPoint - settingsVal.simulation.initialPoint;
 });
 
-const oldSettings = vue.ref<string>(JSON.stringify(vue.toRaw(settings.value), locApi.uiJsonReplacer));
+// A helper function to serialise some settings so that they can be compared with some other settings.
+// Note: our settings dialog adds an empty list of external data to a UI JSON that doesn't have any, so we ignore an
+//       empty list of external data to avoid detecting changes where there are none.
+
+const serialisedSettings = (settingsToSerialise: ISimulationExperimentInteractiveViewSettingsDialog): string => {
+  return JSON.stringify(vue.toRaw(settingsToSerialise), (key: string, value: unknown): unknown => {
+    if (key === 'externalData' && Array.isArray(value) && !value.length) {
+      return undefined;
+    }
+
+    return locApi.uiJsonReplacer(key, value);
+  });
+};
+
+const oldSettings = vue.ref<string>(serialisedSettings(settings.value));
 
 // Information issue shown when an interactive simulation error occurs.
 
@@ -1874,7 +1886,7 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
     return;
   }
 
-  const newSettingsJson = JSON.stringify(vue.toRaw(updatedSettings), locApi.uiJsonReplacer);
+  const newSettingsJson = serialisedSettings(updatedSettings);
   const settingsHaveChanges = newSettingsJson !== oldSettings.value;
 
   oldSettings.value = newSettingsJson;

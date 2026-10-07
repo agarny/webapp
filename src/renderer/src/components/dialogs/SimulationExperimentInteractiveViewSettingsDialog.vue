@@ -892,13 +892,11 @@ const DEFAULT_INTERACTIVE_TAB = 'simulationInputs';
 function deepCloneSettings(
   settings: ISimulationExperimentInteractiveViewSettingsDialog
 ): ISimulationExperimentInteractiveViewSettingsDialog {
-  // Perform a deep clone of our settings using JSON serialisation.
-  // Note: we use our custom replacer to make sure that any typed arrays (e.g., Float64Array) in our UI JSON are
-  //       correctly serialised and deserialised.
+  // Perform a deep clone of our settings.
+  // Note: our external data values (i.e. Float64Arrays) are shared rather than copied (see cloneUiJson()), which is
+  //       fine since we never modify them in place.
 
-  const deepClonedSettings = JSON.parse(
-    JSON.stringify(settings, locApi.uiJsonReplacer)
-  ) as ISimulationExperimentInteractiveViewSettingsDialog;
+  const deepClonedSettings = locApi.cloneUiJson(settings);
 
   // Make sure that our UI JSON has the expected structure.
 

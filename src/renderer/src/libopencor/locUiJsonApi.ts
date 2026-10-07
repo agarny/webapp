@@ -177,8 +177,17 @@ const toFloat64Array = (values: unknown): unknown => {
   return Array.isArray(values) ? new Float64Array(values) : values;
 };
 
-const fromFloat64Array = (values: unknown): unknown => {
-  return values instanceof Float64Array ? Array.from(values) : values;
+const fromFloat64ArrayForSchemaValidation = (values: unknown): unknown => {
+  // Note: a Float64Array can only contain numbers, so for schema validation purposes, we only need an array that has
+  //       the same "emptiness" and that contains numbers. This means that we don't have to convert (and then validate)
+  //       all the values of a Float64Array, which would be costly for large external data. (The actual length of a
+  //       Float64Array is checked separately, see validateUiJson().)
+
+  if (!(values instanceof Float64Array)) {
+    return values;
+  }
+
+  return values.length ? [values[0]] : [];
 };
 
 // A helper function to map the external data of a UI JSON, if it has any.
@@ -237,7 +246,33 @@ export const normaliseUiJson = (uiJson: IUiJson): IUiJson => {
 };
 
 const uiJsonForSchemaValidation = (uiJson: IUiJson): unknown => {
-  return mapExternalData(uiJson, fromFloat64Array, false) ?? uiJson;
+  return mapExternalData(uiJson, fromFloat64ArrayForSchemaValidation, false) ?? uiJson;
+};
+
+// A helper function to deep clone a UI JSON (or some settings containing a UI JSON).
+// Note: Float64Arrays (i.e. external data values) are shared rather than copied since they are never modified in place
+//       (they are only ever replaced), which avoids copying potentially large external data.
+
+export const cloneUiJson = <T>(value: T): T => {
+  if (value instanceof Float64Array) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(cloneUiJson) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    const res: Record<string, unknown> = {};
+
+    for (const [key, keyValue] of Object.entries(value)) {
+      res[key] = cloneUiJson(keyValue);
+    }
+
+    return res as T;
+  }
+
+  return value;
 };
 
 export const cleanUiJson = (uiJson: IUiJson): IUiJson => {
