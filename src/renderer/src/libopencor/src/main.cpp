@@ -57,6 +57,7 @@ Napi::Object init(Napi::Env pEnv, Napi::Object pExports)
     // SolverCvode API.
     // TODO: this is only temporary until we have full support for our different solvers.
 
+    pExports.Set(Napi::String::New(pEnv, "solverCvodeExists"), Napi::Function::New(pEnv, solverCvodeExists));
     pExports.Set(Napi::String::New(pEnv, "solverCvodeMaximumStep"), Napi::Function::New(pEnv, solverCvodeMaximumStep));
     pExports.Set(Napi::String::New(pEnv, "solverCvodeSetMaximumStep"), Napi::Function::New(pEnv, solverCvodeSetMaximumStep));
 

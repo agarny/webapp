@@ -57,6 +57,7 @@ export interface ICppLocApi {
   // SolverCvode API.
   // TODO: this is only temporary until we have full support for our different solvers.
 
+  solverCvodeExists: (documentId: number, index: number) => boolean;
   solverCvodeMaximumStep: (documentId: number, index: number) => number;
   solverCvodeSetMaximumStep: (documentId: number, index: number, value: number) => void;
 

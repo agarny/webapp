@@ -263,6 +263,7 @@ electron.contextBridge.exposeInMainWorld('locApi', {
   // SolverCvode API.
   // TODO: this is only temporary until we have full support for our different solvers.
 
+  solverCvodeExists: (documentId: number, index: number) => loc.solverCvodeExists(documentId, index),
   solverCvodeMaximumStep: (documentId: number, index: number) => loc.solverCvodeMaximumStep(documentId, index),
   solverCvodeSetMaximumStep: (documentId: number, index: number, value: number) =>
     loc.solverCvodeSetMaximumStep(documentId, index, value),

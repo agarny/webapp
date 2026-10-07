@@ -1736,7 +1736,7 @@ const onDownloadCombineArchive = (): void => {
 // Settings dialog event handler.
 
 const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSettingsDialog): void => {
-  if (!uniformTimeCourse || !cvode) {
+  if (!uniformTimeCourse) {
     settingsVisible.value = false;
 
     return;
@@ -1759,7 +1759,7 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
 
   // Update our settings and hide the dialog.
 
-  const oldCvodeMaximumStep = cvode.maximumStep();
+  const oldCvodeMaximumStep = cvode?.maximumStep();
 
   uniformTimeCourse.setInitialTime(updatedSettings.simulation.initialPoint);
   uniformTimeCourse.setOutputStartTime(updatedSettings.simulation.startingPoint);
@@ -1774,7 +1774,7 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
     )
   );
 
-  cvode.setMaximumStep(updatedSettings.solvers.cvodeMaximumStep);
+  cvode?.setMaximumStep(updatedSettings.solvers.cvodeMaximumStep);
 
   actualUiJson.value = locApi.cleanUiJson(updatedSettings.interactive.uiJson);
   settingsVisible.value = false;
@@ -1792,7 +1792,7 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
 
   // Reinstantiate our instance in case we modified CVODE's maximum step.
 
-  if (cvode.maximumStep() !== oldCvodeMaximumStep) {
+  if (cvode && cvode.maximumStep() !== oldCvodeMaximumStep) {
     reinstantiateInstance();
   }
 

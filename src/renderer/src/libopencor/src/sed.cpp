@@ -195,22 +195,44 @@ void sedUniformTimeCourseSetNumberOfSteps(const Napi::CallbackInfo &pInfo)
 // SolverCvode API.
 // TODO: this is only temporary until we have full support for our different solvers.
 
+namespace {
+
+libOpenCOR::SolverCvodePtr solverCvode(const Napi::CallbackInfo &pInfo)
+{
+    // Note: the simulation's ODE solver is not necessarily CVODE (e.g., it could be Forward Euler or not set at all),
+    //       hence we return nullptr in that case.
+
+    auto sedDocument = toSedDocument(toSizeT(pInfo[0]));
+    auto simulation = (sedDocument != nullptr) ? sedDocument->simulation(toInt32(pInfo[1])) : nullptr;
+
+    return (simulation != nullptr) ? std::dynamic_pointer_cast<libOpenCOR::SolverCvode>(simulation->odeSolver()) : nullptr;
+}
+
+} // namespace
+
+napi_value solverCvodeExists(const Napi::CallbackInfo &pInfo)
+{
+    return Napi::Boolean::New(pInfo.Env(), solverCvode(pInfo) != nullptr);
+}
+
 napi_value solverCvodeMaximumStep(const Napi::CallbackInfo &pInfo)
 {
-    auto sedDocument = toSedDocument(toSizeT(pInfo[0]));
-    auto simulation = sedDocument->simulation(toInt32(pInfo[1]));
-    auto solver = std::dynamic_pointer_cast<libOpenCOR::SolverCvode>(simulation->odeSolver());
+    auto solver = solverCvode(pInfo);
+
+    if (solver == nullptr) {
+        return pInfo.Env().Undefined();
+    }
 
     return Napi::Number::New(pInfo.Env(), solver->maximumStep());
 }
 
 void solverCvodeSetMaximumStep(const Napi::CallbackInfo &pInfo)
 {
-    auto sedDocument = toSedDocument(toSizeT(pInfo[0]));
-    auto simulation = sedDocument->simulation(toInt32(pInfo[1]));
-    auto solver = std::dynamic_pointer_cast<libOpenCOR::SolverCvode>(simulation->odeSolver());
+    auto solver = solverCvode(pInfo);
 
-    solver->setMaximumStep(toDouble(pInfo[2]));
+    if (solver != nullptr) {
+        solver->setMaximumStep(toDouble(pInfo[2]));
+    }
 }
 
 // SedInstance API.

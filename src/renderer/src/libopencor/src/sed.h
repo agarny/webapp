@@ -37,6 +37,7 @@ void sedUniformTimeCourseSetNumberOfSteps(const Napi::CallbackInfo &pInfo);
 // SolverCvode API.
 // TODO: this is only temporary until we have full support for our different solvers.
 
+napi_value solverCvodeExists(const Napi::CallbackInfo &pInfo);
 napi_value solverCvodeMaximumStep(const Napi::CallbackInfo &pInfo);
 void solverCvodeSetMaximumStep(const Napi::CallbackInfo &pInfo);
 

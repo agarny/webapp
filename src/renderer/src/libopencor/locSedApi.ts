@@ -383,7 +383,7 @@ export class SedOneStep extends SedSimulation {
 
 export class SedUniformTimeCourse extends SedSimulation {
   private _wasmSedUniformTimeCourse: IWasmSedUniformTimeCourse = {} as IWasmSedUniformTimeCourse;
-  private _cvode: SolverCvode | null = null;
+  private _cvode: SolverCvode | null | undefined;
 
   constructor(cppDocumentId: number, wasmSedDocument: IWasmSedDocument, index: number, type: ESedSimulationType) {
     super(cppDocumentId, wasmSedDocument, index, type);
@@ -396,7 +396,7 @@ export class SedUniformTimeCourse extends SedSimulation {
   override release(): void {
     this._cvode?.release();
 
-    this._cvode = null;
+    this._cvode = undefined;
 
     if (wasmVersion()) {
       this._wasmSedUniformTimeCourse?.delete();
@@ -459,10 +459,28 @@ export class SedUniformTimeCourse extends SedSimulation {
     }
   }
 
-  cvode(): SolverCvode {
-    // Note: we cache our solver so that we can release it when releasing the simulation.
+  cvode(): SolverCvode | null {
+    // Note: we cache our solver so that we can release it when releasing the simulation. Also, the simulation's ODE
+    //       solver is not necessarily CVODE (e.g., it could be Forward Euler or not set at all), in which case we
+    //       return null.
 
-    this._cvode ??= new SolverCvode(this._cppDocumentId, this._wasmSedUniformTimeCourse, this._index);
+    if (this._cvode === undefined) {
+      if (cppVersion()) {
+        this._cvode = _cppLocApi.solverCvodeExists(this._cppDocumentId, this._index)
+          ? new SolverCvode(this._cppDocumentId, null, this._index)
+          : null;
+      } else {
+        const wasmOdeSolver = this._wasmSedUniformTimeCourse.odeSolver;
+
+        if (wasmOdeSolver instanceof _wasmLocApi.SolverCvode) {
+          this._cvode = new SolverCvode(this._cppDocumentId, wasmOdeSolver as IWasmSolverCvode, this._index);
+        } else {
+          wasmOdeSolver?.delete();
+
+          this._cvode = null;
+        }
+      }
+    }
 
     return this._cvode;
   }
@@ -472,13 +490,13 @@ export class SolverCvode extends SedIndex {
   private _cppDocumentId: number;
   private _wasmSolverCvode: IWasmSolverCvode = {} as IWasmSolverCvode;
 
-  constructor(cppDocumentId: number, wasmSedUniformTimeCourse: IWasmSedUniformTimeCourse, index: number) {
+  constructor(cppDocumentId: number, wasmSolverCvode: IWasmSolverCvode | null, index: number) {
     super(index);
 
     this._cppDocumentId = cppDocumentId;
 
-    if (wasmVersion()) {
-      this._wasmSolverCvode = wasmSedUniformTimeCourse.odeSolver as IWasmSolverCvode;
+    if (wasmSolverCvode) {
+      this._wasmSolverCvode = wasmSolverCvode;
     }
   }
 
