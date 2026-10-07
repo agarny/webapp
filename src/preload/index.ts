@@ -10,6 +10,23 @@ import type { ISplashScreenInfo } from '../renderer/src/common/electronApi';
 
 const exec = promisify(_exec);
 
+// A helper function to listen to a channel from the main process.
+// Note: it returns a function to stop listening to that channel so that a listener can be removed (e.g., when the
+//       component that registered it gets unmounted). Otherwise, a listener would remain registered (and keep its
+//       callback, and therefore its component, alive) for the lifetime of the renderer process.
+
+const onIpc = <T extends unknown[]>(channel: string, callback: (...args: T) => void): (() => void) => {
+  const listener = (_event: electron.IpcRendererEvent, ...args: T): void => {
+    callback(...args);
+  };
+
+  electron.ipcRenderer.on(channel, listener);
+
+  return () => {
+    electron.ipcRenderer.removeListener(channel, listener);
+  };
+};
+
 let _operatingSystem: string | null = null;
 const defaultOperatingSystem = `${process.platform} (${process.arch === 'x64' ? 'Intel' : 'ARM'})`;
 
@@ -100,9 +117,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   // Splash screen window.
 
   onInitSplashScreenWindow: (callback: (info: ISplashScreenInfo) => void) =>
-    electron.ipcRenderer.on('init-splash-screen-window', (_event, info: ISplashScreenInfo) => {
-      callback(info);
-    }),
+    onIpc('init-splash-screen-window', callback),
 
   // Renderer process asking the main process to do something for it.
 
@@ -129,78 +144,24 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
 
   // Renderer process listening to the main process.
 
-  onAbout: (callback: () => void) =>
-    electron.ipcRenderer.on('about', () => {
-      callback();
-    }),
-  onAction: (callback: (action: string) => void) =>
-    electron.ipcRenderer.on('action', (_event, action: string) => {
-      callback(action);
-    }),
-  onCheckForUpdates: (callback: () => void) =>
-    electron.ipcRenderer.on('check-for-updates', () => {
-      callback();
-    }),
-  onEnableDisableUi: (callback: (enable: boolean) => void) =>
-    electron.ipcRenderer.on('enable-disable-ui', (_event, enable: boolean) => {
-      callback(enable);
-    }),
-  onOpen: (callback: (filePath: string) => void) =>
-    electron.ipcRenderer.on('open', (_event, filePath: string) => {
-      callback(filePath);
-    }),
-  onOpenRemote: (callback: () => void) =>
-    electron.ipcRenderer.on('open-remote', () => {
-      callback();
-    }),
-  onOpenSampleLorenz: (callback: () => void) =>
-    electron.ipcRenderer.on('open-sample-lorenz', () => {
-      callback();
-    }),
-  onClose: (callback: () => void) =>
-    electron.ipcRenderer.on('close', () => {
-      callback();
-    }),
-  onCloseAll: (callback: () => void) =>
-    electron.ipcRenderer.on('close-all', () => {
-      callback();
-    }),
-  onResetAll: (callback: () => void) =>
-    electron.ipcRenderer.on('reset-all', () => {
-      callback();
-    }),
-  onSelect: (callback: (filePath: string) => void) =>
-    electron.ipcRenderer.on('select', (_event, filePath: string) => {
-      callback(filePath);
-    }),
-  onSettings: (callback: () => void) =>
-    electron.ipcRenderer.on('settings', () => {
-      callback();
-    }),
-  onUpdateAvailable: (callback: (version: string) => void) =>
-    electron.ipcRenderer.on('update-available', (_event, version: string) => {
-      callback(version);
-    }),
-  onUpdateCheckError: (callback: (issue: string) => void) =>
-    electron.ipcRenderer.on('update-check-error', (_event, issue: string) => {
-      callback(issue);
-    }),
-  onUpdateDownloaded: (callback: () => void) =>
-    electron.ipcRenderer.on('update-downloaded', () => {
-      callback();
-    }),
-  onUpdateDownloadError: (callback: (issue: string) => void) =>
-    electron.ipcRenderer.on('update-download-error', (_event, issue: string) => {
-      callback(issue);
-    }),
-  onUpdateDownloadProgress: (callback: (percent: number) => void) =>
-    electron.ipcRenderer.on('update-download-progress', (_event, percent: number) => {
-      callback(percent);
-    }),
-  onUpdateNotAvailable: (callback: () => void) =>
-    electron.ipcRenderer.on('update-not-available', () => {
-      callback();
-    })
+  onAbout: (callback: () => void) => onIpc('about', callback),
+  onAction: (callback: (action: string) => void) => onIpc('action', callback),
+  onCheckForUpdates: (callback: () => void) => onIpc('check-for-updates', callback),
+  onEnableDisableUi: (callback: (enable: boolean) => void) => onIpc('enable-disable-ui', callback),
+  onOpen: (callback: (filePath: string) => void) => onIpc('open', callback),
+  onOpenRemote: (callback: () => void) => onIpc('open-remote', callback),
+  onOpenSampleLorenz: (callback: () => void) => onIpc('open-sample-lorenz', callback),
+  onClose: (callback: () => void) => onIpc('close', callback),
+  onCloseAll: (callback: () => void) => onIpc('close-all', callback),
+  onResetAll: (callback: () => void) => onIpc('reset-all', callback),
+  onSelect: (callback: (filePath: string) => void) => onIpc('select', callback),
+  onSettings: (callback: () => void) => onIpc('settings', callback),
+  onUpdateAvailable: (callback: (version: string) => void) => onIpc('update-available', callback),
+  onUpdateCheckError: (callback: (issue: string) => void) => onIpc('update-check-error', callback),
+  onUpdateDownloaded: (callback: () => void) => onIpc('update-downloaded', callback),
+  onUpdateDownloadError: (callback: (issue: string) => void) => onIpc('update-download-error', callback),
+  onUpdateDownloadProgress: (callback: (percent: number) => void) => onIpc('update-download-progress', callback),
+  onUpdateNotAvailable: (callback: () => void) => onIpc('update-not-available', callback)
 });
 
 // Give our renderer process access to the native node module for libOpenCOR.
@@ -324,6 +285,10 @@ electron.contextBridge.exposeInMainWorld('locApi', {
     loc.sedInstanceTaskAlgebraicVariableName(instanceId, index, algebraicVariableIndex),
   sedInstanceTaskAlgebraicVariableUnit: (instanceId: number, index: number, algebraicVariableIndex: number) =>
     loc.sedInstanceTaskAlgebraicVariableUnit(instanceId, index, algebraicVariableIndex),
-  sedInstanceTaskAlgebraicVariable: (instanceId: number, index: number, algebraicVariableIndex: number, count?: number) =>
-    loc.sedInstanceTaskAlgebraicVariable(instanceId, index, algebraicVariableIndex, count)
+  sedInstanceTaskAlgebraicVariable: (
+    instanceId: number,
+    index: number,
+    algebraicVariableIndex: number,
+    count?: number
+  ) => loc.sedInstanceTaskAlgebraicVariable(instanceId, index, algebraicVariableIndex, count)
 });

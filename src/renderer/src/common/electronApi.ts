@@ -14,7 +14,7 @@ interface IElectronApi {
 
   // Splash screen window.
 
-  onInitSplashScreenWindow: (callback: (info: ISplashScreenInfo) => void) => void;
+  onInitSplashScreenWindow: (callback: (info: ISplashScreenInfo) => void) => () => void;
 
   // Renderer process asking the main process to do something for it.
 
@@ -39,24 +39,24 @@ interface IElectronApi {
 
   // Renderer process listening to the main process.
 
-  onAbout: (callback: () => void) => void;
-  onAction: (callback: (action: string) => void) => void;
-  onCheckForUpdates: (callback: () => void) => void;
-  onEnableDisableUi: (callback: (enable: boolean) => void) => void;
-  onOpen: (callback: (filePath: string) => void) => void;
-  onOpenRemote: (callback: () => void) => void;
-  onOpenSampleLorenz: (callback: () => void) => void;
-  onClose: (callback: () => void) => void;
-  onCloseAll: (callback: () => void) => void;
-  onResetAll: (callback: () => void) => void;
-  onSelect: (callback: (filePath: string) => void) => void;
-  onSettings: (callback: () => void) => void;
-  onUpdateAvailable: (callback: (version: string) => void) => void;
-  onUpdateCheckError: (callback: (issue: string) => void) => void;
-  onUpdateDownloaded: (callback: () => void) => void;
-  onUpdateDownloadError: (callback: (issue: string) => void) => void;
-  onUpdateDownloadProgress: (callback: (percent: number) => void) => void;
-  onUpdateNotAvailable: (callback: () => void) => void;
+  onAbout: (callback: () => void) => () => void;
+  onAction: (callback: (action: string) => void) => () => void;
+  onCheckForUpdates: (callback: () => void) => () => void;
+  onEnableDisableUi: (callback: (enable: boolean) => void) => () => void;
+  onOpen: (callback: (filePath: string) => void) => () => void;
+  onOpenRemote: (callback: () => void) => () => void;
+  onOpenSampleLorenz: (callback: () => void) => () => void;
+  onClose: (callback: () => void) => () => void;
+  onCloseAll: (callback: () => void) => () => void;
+  onResetAll: (callback: () => void) => () => void;
+  onSelect: (callback: (filePath: string) => void) => () => void;
+  onSettings: (callback: () => void) => () => void;
+  onUpdateAvailable: (callback: (version: string) => void) => () => void;
+  onUpdateCheckError: (callback: (issue: string) => void) => () => void;
+  onUpdateDownloaded: (callback: () => void) => () => void;
+  onUpdateDownloadError: (callback: (issue: string) => void) => () => void;
+  onUpdateDownloadProgress: (callback: (percent: number) => void) => () => void;
+  onUpdateNotAvailable: (callback: () => void) => () => void;
 }
 
 interface IWindow {

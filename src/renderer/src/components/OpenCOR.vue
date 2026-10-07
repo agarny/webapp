@@ -305,13 +305,43 @@ const compIsActiveApp = vue.computed<boolean>(() => {
   return activeInstanceUid.value === crtInstanceUid;
 });
 
+// Keep track of what needs to be cleaned up when we get unmounted (e.g., when OpenCOR is used as a library or during
+// development with hot module replacement), i.e. our Electron API listeners (which would otherwise keep us alive and
+// get called for an unmounted instance), our timers, and our watchers that are not bound to our component.
+
+const cleanups: (() => void)[] = [];
+
+const trackCleanup = (cleanup: (() => void) | undefined): void => {
+  if (cleanup) {
+    cleanups.push(cleanup);
+  }
+};
+
+const setTrackedTimeout = (callback: () => void, delay: number): void => {
+  const timeoutId = window.setTimeout(callback, delay);
+
+  trackCleanup(() => {
+    window.clearTimeout(timeoutId);
+  });
+};
+
+vue.onUnmounted(() => {
+  for (const cleanup of cleanups) {
+    cleanup();
+  }
+
+  cleanups.length = 0;
+});
+
 // Enable/disable the UI from Electron.
 
 const electronUiEnabled = vue.ref<boolean>(true);
 
-electronApi?.onEnableDisableUi((enable: boolean) => {
-  electronUiEnabled.value = enable;
-});
+trackCleanup(
+  electronApi?.onEnableDisableUi((enable: boolean) => {
+    electronUiEnabled.value = enable;
+  })
+);
 
 // Determine whether the component UI should be blocked/enabled.
 // Note: compBlockUiEnabled is used to determine whether PrimeVue's BlockUI component should be enabled, whereas
@@ -518,9 +548,11 @@ loadGitHubAccessToken();
 
 // Handle an action.
 
-electronApi?.onAction((action: string) => {
-  handleAction(action);
-});
+trackCleanup(
+  electronApi?.onAction((action: string) => {
+    handleAction(action);
+  })
+);
 
 const handleAction = (action: string): void => {
   const isAction = (actionName: string, expectedActionName: string): boolean => {
@@ -566,9 +598,11 @@ vue.watch(hasFiles, (newHasFiles: boolean) => {
 
 // Auto update.
 
-electronApi?.onCheckForUpdates(() => {
-  electronApi?.checkForUpdates(false);
-});
+trackCleanup(
+  electronApi?.onCheckForUpdates(() => {
+    electronApi?.checkForUpdates(false);
+  })
+);
 
 const updateErrorVisible = vue.ref<boolean>(false);
 const updateErrorTitle = vue.ref<string>('');
@@ -584,10 +618,12 @@ const updateDownloadProgressVisible = vue.ref<boolean>(false);
 const updateVersion = vue.ref<string>('');
 const updateDownloadPercent = vue.ref<number>(0);
 
-electronApi?.onUpdateAvailable((version: string) => {
-  desktopUpdateAvailableVisible.value = true;
-  updateVersion.value = version;
-});
+trackCleanup(
+  electronApi?.onUpdateAvailable((version: string) => {
+    desktopUpdateAvailableVisible.value = true;
+    updateVersion.value = version;
+  })
+);
 
 const onDownloadAndInstall = (): void => {
   updateDownloadPercent.value = 0; // Just to be on the safe side.
@@ -597,33 +633,43 @@ const onDownloadAndInstall = (): void => {
   electronApi?.downloadAndInstallUpdate();
 };
 
-electronApi?.onUpdateDownloadError((issue: string) => {
-  updateErrorTitle.value = 'Downloading Update...';
-  updateErrorIssue.value = `An error occurred while downloading the update (${common.formatMessage(issue, false)}).`;
-  updateErrorVisible.value = true;
-});
+trackCleanup(
+  electronApi?.onUpdateDownloadError((issue: string) => {
+    updateErrorTitle.value = 'Downloading Update...';
+    updateErrorIssue.value = `An error occurred while downloading the update (${common.formatMessage(issue, false)}).`;
+    updateErrorVisible.value = true;
+  })
+);
 
-electronApi?.onUpdateDownloadProgress((percent: number) => {
-  updateDownloadPercent.value = percent;
-});
+trackCleanup(
+  electronApi?.onUpdateDownloadProgress((percent: number) => {
+    updateDownloadPercent.value = percent;
+  })
+);
 
-electronApi?.onUpdateDownloaded(() => {
-  updateDownloadPercent.value = 100; // Just to be on the safe side.
+trackCleanup(
+  electronApi?.onUpdateDownloaded(() => {
+    updateDownloadPercent.value = 100; // Just to be on the safe side.
 
-  electronApi?.installUpdateAndRestart();
-});
+    electronApi?.installUpdateAndRestart();
+  })
+);
 
 const updateNotAvailableVisible = vue.ref<boolean>(false);
 
-electronApi?.onUpdateNotAvailable(() => {
-  updateNotAvailableVisible.value = true;
-});
+trackCleanup(
+  electronApi?.onUpdateNotAvailable(() => {
+    updateNotAvailableVisible.value = true;
+  })
+);
 
-electronApi?.onUpdateCheckError((issue: string) => {
-  updateErrorTitle.value = 'Checking For Updates...';
-  updateErrorIssue.value = `An error occurred while checking for updates (${common.formatMessage(issue, false)}).`;
-  updateErrorVisible.value = true;
-});
+trackCleanup(
+  electronApi?.onUpdateCheckError((issue: string) => {
+    updateErrorTitle.value = 'Checking For Updates...';
+    updateErrorIssue.value = `An error occurred while checking for updates (${common.formatMessage(issue, false)}).`;
+    updateErrorVisible.value = true;
+  })
+);
 
 // Handle errors.
 
@@ -640,9 +686,11 @@ const onError = (message: string): void => {
 
 const aboutVisible = vue.ref<boolean>(false);
 
-electronApi?.onAbout(() => {
-  onAboutMenu();
-});
+trackCleanup(
+  electronApi?.onAbout(() => {
+    onAboutMenu();
+  })
+);
 
 const onAboutMenu = (): void => {
   if (props.omex) {
@@ -656,9 +704,11 @@ const onAboutMenu = (): void => {
 
 const settingsVisible = vue.ref<boolean>(false);
 
-electronApi?.onSettings(() => {
-  onSettingsMenu();
-});
+trackCleanup(
+  electronApi?.onSettings(() => {
+    onSettingsMenu();
+  })
+);
 
 const onSettingsMenu = (): void => {
   if (props.omex) {
@@ -959,9 +1009,11 @@ const onDragLeave = (): void => {
 
 // Open.
 
-electronApi?.onOpen((filePath: string) => {
-  openFile(filePath);
-});
+trackCleanup(
+  electronApi?.onOpen((filePath: string) => {
+    openFile(filePath);
+  })
+);
 
 const onOpenMenu = (): void => {
   if (props.omex) {
@@ -975,9 +1027,11 @@ const onOpenMenu = (): void => {
 
 const openRemoteVisible = vue.ref<boolean>(false);
 
-electronApi?.onOpenRemote(() => {
-  openRemoteVisible.value = true;
-});
+trackCleanup(
+  electronApi?.onOpenRemote(() => {
+    openRemoteVisible.value = true;
+  })
+);
 
 const onOpenRemoteMenu = (): void => {
   if (props.omex) {
@@ -998,9 +1052,11 @@ const onOpenRemote = (url: string): void => {
 
 // Open sample Lorenz.
 
-electronApi?.onOpenSampleLorenz(() => {
-  onOpenSampleLorenzMenu();
-});
+trackCleanup(
+  electronApi?.onOpenSampleLorenz(() => {
+    onOpenSampleLorenzMenu();
+  })
+);
 
 const onOpenSampleLorenzMenu = (): void => {
   if (props.omex) {
@@ -1012,9 +1068,11 @@ const onOpenSampleLorenzMenu = (): void => {
 
 // Close.
 
-electronApi?.onClose(() => {
-  onCloseMenu();
-});
+trackCleanup(
+  electronApi?.onClose(() => {
+    onCloseMenu();
+  })
+);
 
 const onCloseMenu = (): void => {
   if (props.omex) {
@@ -1026,9 +1084,11 @@ const onCloseMenu = (): void => {
 
 // Close all.
 
-electronApi?.onCloseAll(() => {
-  onCloseAllMenu();
-});
+trackCleanup(
+  electronApi?.onCloseAll(() => {
+    onCloseAllMenu();
+  })
+);
 
 const onCloseAllMenu = (): void => {
   if (props.omex) {
@@ -1042,9 +1102,11 @@ const onCloseAllMenu = (): void => {
 
 const resetAllVisible = vue.ref<boolean>(false);
 
-electronApi?.onResetAll(() => {
-  resetAllVisible.value = true;
-});
+trackCleanup(
+  electronApi?.onResetAll(() => {
+    resetAllVisible.value = true;
+  })
+);
 
 const onResetAll = (): void => {
   electronApi?.resetAll();
@@ -1052,9 +1114,11 @@ const onResetAll = (): void => {
 
 // Select.
 
-electronApi?.onSelect((filePath: string) => {
-  contentsRef.value?.selectFile(filePath);
-});
+trackCleanup(
+  electronApi?.onSelect((filePath: string) => {
+    contentsRef.value?.selectFile(filePath);
+  })
+);
 
 // A few things that can only be done when the component is mounted.
 
@@ -1063,13 +1127,13 @@ vue.onMounted(() => {
 
   // Make ourselves the active instance.
 
-  setTimeout(() => {
+  setTrackedTimeout(() => {
     activateInstance();
   }, SHORT_DELAY);
 
   // Ensure that our toasts are shown within our block UI.
 
-  setTimeout(() => {
+  setTrackedTimeout(() => {
     const toastElement = document.getElementById(toastId.value);
 
     if (toastElement && safeBlockUiElement && toastElement.parentElement !== safeBlockUiElement) {
@@ -1147,7 +1211,7 @@ if (props.omex) {
   vue.onMounted(() => {
     // Do what follows with a bit of a delay to give our background (with the OpenCOR logo) time to be renderered.
 
-    setTimeout(() => {
+    setTrackedTimeout(() => {
       if (electronApi) {
         // Check for updates.
         // Note: the main process will actually check for updates if requested and if OpenCOR is packaged.
@@ -1155,35 +1219,39 @@ if (props.omex) {
         electronApi.checkForUpdates(true);
       } else {
         // Handle the action passed to our Web app, if any.
-        // Note: to use vue.nextTick() doesn't do the trick, so we have no choice but to use setTimeout().
+        // Note #1: to use vue.nextTick() doesn't do the trick, so we have no choice but to use setTimeout().
+        // Note #2: our watcher is created outside of our component's setup, so it is not automatically stopped when we
+        //          get unmounted, hence we keep track of it.
 
-        vue.watch(initialisingOpencorMessageVisible, (newInitialisingOpencorMessageVisible: boolean) => {
-          if (!newInitialisingOpencorMessageVisible && window.location.search) {
-            // Retrieve the action from the URL.
-            // Note: we also include the hash since it is used to pass a model that is encoded as a data URL.
+        trackCleanup(
+          vue.watch(initialisingOpencorMessageVisible, (newInitialisingOpencorMessageVisible: boolean) => {
+            if (!newInitialisingOpencorMessageVisible && window.location.search) {
+              // Retrieve the action from the URL.
+              // Note: we also include the hash since it is used to pass a model that is encoded as a data URL.
 
-            let action = window.location.search.substring(1);
+              let action = window.location.search.substring(1);
 
-            if (window.location.hash) {
-              action += window.location.hash;
+              if (window.location.hash) {
+                action += window.location.hash;
+              }
+
+              // Ensure that the URL is cleaned up.
+
+              window.history.replaceState({}, document.title, window.location.pathname);
+
+              if (action.startsWith(FULL_URI_SCHEME)) {
+                handleAction(action.slice(FULL_URI_SCHEME.length));
+              } else {
+                addToast({
+                  severity: 'error',
+                  summary: 'Handling an action',
+                  detail: `${action}\n\nThe action could not be handled.`,
+                  life: TOAST_LIFE
+                });
+              }
             }
-
-            // Ensure that the URL is cleaned up.
-
-            window.history.replaceState({}, document.title, window.location.pathname);
-
-            if (action.startsWith(FULL_URI_SCHEME)) {
-              handleAction(action.slice(FULL_URI_SCHEME.length));
-            } else {
-              addToast({
-                severity: 'error',
-                summary: 'Handling an action',
-                detail: `${action}\n\nThe action could not be handled.`,
-                life: TOAST_LIFE
-              });
-            }
-          }
-        });
+          })
+        );
       }
     }, SHORT_DELAY);
   });

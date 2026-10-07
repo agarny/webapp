@@ -83,30 +83,15 @@ export interface ICppLocApi {
   sedInstanceTaskStateCount: (instanceId: number, index: number) => number;
   sedInstanceTaskStateName: (instanceId: number, index: number, stateIndex: number) => string;
   sedInstanceTaskStateUnit: (instanceId: number, index: number, stateIndex: number) => string;
-  sedInstanceTaskState: (
-    instanceId: number,
-    index: number,
-    stateIndex: number,
-    count?: number
-  ) => Float64Array;
+  sedInstanceTaskState: (instanceId: number, index: number, stateIndex: number, count?: number) => Float64Array;
   sedInstanceTaskRateCount: (instanceId: number, index: number) => number;
   sedInstanceTaskRateName: (instanceId: number, index: number, rateIndex: number) => string;
   sedInstanceTaskRateUnit: (instanceId: number, index: number, rateIndex: number) => string;
-  sedInstanceTaskRate: (
-    instanceId: number,
-    index: number,
-    rateIndex: number,
-    count?: number
-  ) => Float64Array;
+  sedInstanceTaskRate: (instanceId: number, index: number, rateIndex: number, count?: number) => Float64Array;
   sedInstanceTaskConstantCount: (instanceId: number, index: number) => number;
   sedInstanceTaskConstantName: (instanceId: number, index: number, constantIndex: number) => string;
   sedInstanceTaskConstantUnit: (instanceId: number, index: number, constantIndex: number) => string;
-  sedInstanceTaskConstant: (
-    instanceId: number,
-    index: number,
-    constantIndex: number,
-    count?: number
-  ) => Float64Array;
+  sedInstanceTaskConstant: (instanceId: number, index: number, constantIndex: number, count?: number) => Float64Array;
   sedInstanceTaskComputedConstantCount: (instanceId: number, index: number) => number;
   sedInstanceTaskComputedConstantName: (instanceId: number, index: number, computedConstantIndex: number) => string;
   sedInstanceTaskComputedConstantUnit: (instanceId: number, index: number, computedConstantIndex: number) => string;
