@@ -225,7 +225,21 @@ export const waitWhileRunning = (
     clearTimeout(progressResetTimer);
   };
 
-  const promise = new Promise<void>((resolve) => {
+  const promise = new Promise<void>((resolve, reject) => {
+    // Note: since we poll using setTimeout(), an error thrown while polling would otherwise be uncaught and our promise
+    //       would never settle (meaning that our caller would wait forever and, for instance, never release its
+    //       instance). So, an error thrown by one of our callbacks is reported, but doesn't stop us from polling, while
+    //       an error thrown by our instance (e.g., by libOpenCOR) rejects our promise since we cannot know its status
+    //       anymore.
+
+    const callSafely = (callback: () => void): void => {
+      try {
+        callback();
+      } catch (error: unknown) {
+        console.error('OpenCOR: an error occurred while waiting for a simulation run to finish:', error);
+      }
+    };
+
     const poll = (): void => {
       if (cancelled) {
         resolve();
@@ -233,12 +247,27 @@ export const waitWhileRunning = (
         return;
       }
 
-      const status = instance.status();
+      let status: locSedApi.ESedInstanceStatus;
+      let progress = 0;
+
+      try {
+        status = instance.status();
+
+        if (status === locSedApi.ESedInstanceStatus.RUNNING) {
+          progress = instance.progress();
+        }
+      } catch (error: unknown) {
+        cancel();
+
+        reject(error);
+
+        return;
+      }
 
       if (status !== lastStatus) {
         lastStatus = status;
 
-        onStatusChange?.(status);
+        callSafely(() => onStatusChange?.(status));
       }
 
       // Update the progress bar and keep polling while the simulation is running or paused, and resolve when the
@@ -246,7 +275,7 @@ export const waitWhileRunning = (
 
       switch (status) {
         case locSedApi.ESedInstanceStatus.RUNNING:
-          onProgress?.(100 * instance.progress());
+          callSafely(() => onProgress?.(100 * progress));
 
           setTimeout(poll, VERY_SHORT_DELAY);
 
@@ -257,13 +286,13 @@ export const waitWhileRunning = (
           break;
         default: // locSedApi.ESedInstanceStatus.IDLE:
           if (onProgress && !runAbortedRef?.value) {
-            onProgress(100);
+            callSafely(() => onProgress(100));
 
             // Reset the progress bar after a short delay.
 
             progressResetTimer = setTimeout(() => {
               if (!cancelled) {
-                onProgress?.(0);
+                callSafely(() => onProgress(0));
               }
             }, MEDIUM_DELAY);
           }

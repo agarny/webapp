@@ -219,17 +219,24 @@ let isUnmounted = false;
 let isWaitingOnRun = false;
 
 const releaseResources = async (): Promise<void> => {
-  if (instance) {
-    if (instance.status() !== locSedApi.ESedInstanceStatus.IDLE) {
-      instance.stopRun();
+  // Note: we always release our document, even if something goes wrong with our instance (e.g., if libOpenCOR throws an
+  //       exception while we wait for it to be idle) since we would otherwise leak it.
 
-      await vueCommon.waitWhileRunning(instance).promise;
+  try {
+    if (instance) {
+      if (instance.status() !== locSedApi.ESedInstanceStatus.IDLE) {
+        instance.stopRun();
+
+        await vueCommon.waitWhileRunning(instance).promise;
+      }
+
+      instance.release();
     }
-
-    instance.release();
+  } catch (error: unknown) {
+    console.error('OpenCOR: an error occurred while releasing a simulation instance:', common.formatError(error));
+  } finally {
+    document.release();
   }
-
-  document.release();
 };
 
 // Event handlers.
@@ -308,16 +315,33 @@ const onRunPause = async (): Promise<void> => {
 
       isWaitingOnRun = true;
 
-      await runPromise;
+      let runError: unknown = null;
 
-      isWaitingOnRun = false;
+      try {
+        await runPromise;
+      } catch (error: unknown) {
+        runError = error;
+      } finally {
+        isWaitingOnRun = false;
 
-      progressResetCancel = undefined;
+        progressResetCancel = undefined;
+      }
 
       // Release our resources if we got unmounted while the simulation was running (see onUnmounted() below).
 
       if (isUnmounted) {
         await releaseResources();
+
+        return;
+      }
+
+      // Report any error that occurred while waiting for the simulation to finish (e.g., if libOpenCOR threw an
+      // exception), in which case we cannot rely on our instance anymore.
+
+      if (runError) {
+        simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
+
+        consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${colors.REVERTED_PALETTE.Red};"><strong>Error:</strong> ${common.formatMessage(common.formatError(runError))}</span>`;
 
         return;
       }
