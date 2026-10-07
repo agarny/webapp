@@ -679,6 +679,7 @@ const onUpdateAvailable = () => {
 // Open a file.
 
 let globalOmexDataUrlCounter = 0;
+const filePathsBeingOpened = new Set<string>();
 
 interface IFileInfo {
   alreadyOpen: boolean;
@@ -751,17 +752,24 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
     }
   }
 
-  // Check whether the file is already open and if so then select it.
+  // Check whether the file is already open or being opened and if so then select it.
+  // Note: a file may be opened more than once at the same time (e.g., by dropping the same file twice or by selecting
+  //       the same sample file twice). Since a file is only considered open once it has a file tab, we also need to
+  //       keep track of the files that are being opened, so that we don't end up with several file tabs for the same
+  //       file (and, with the C++ version of libOpenCOR, several File objects sharing, and therefore releasing, the
+  //       same native file).
 
   const filePath = locCommon.filePath(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter);
 
-  if (contentsRef.value?.hasFile(filePath) ?? false) {
+  if ((contentsRef.value?.hasFile(filePath) ?? false) || filePathsBeingOpened.has(filePath)) {
     return {
       alreadyOpen: true,
       file: null,
       filePath
     };
   }
+
+  filePathsBeingOpened.add(filePath);
 
   // Retrieve a locApi.File object for the given file or file path.
 
@@ -790,6 +798,8 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
 
       file.release();
 
+      filePathsBeingOpened.delete(filePath);
+
       return null;
     }
 
@@ -800,6 +810,8 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
     };
   } catch (error: unknown) {
     reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
+
+    filePathsBeingOpened.delete(filePath);
 
     return null;
   } finally {
@@ -813,26 +825,29 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
 
 const openFileInContents = async (file: locApi.File, wait: boolean = false): Promise<void> => {
   // Open the given file in our contents component or release it if we can't (e.g., we got unmounted in the meantime).
-  // Note: to open a file may fail (e.g., if libOpenCOR throws an exception), in which case we report the issue and
-  //       release the file, unless it got opened (i.e. it has a file tab), in which case it is now managed by our
-  //       contents component. Either way, the issue doesn't stop other files from being opened.
+  // Note #1: to open a file may fail (e.g., if libOpenCOR throws an exception), in which case we report the issue and
+  //          release the file, unless it got opened (i.e. it has a file tab), in which case it is now managed by our
+  //          contents component. Either way, the issue doesn't stop other files from being opened.
+  // Note #2: either way, the file is no longer being opened once we are done (see processFile()).
 
-  if (!contentsRef.value) {
-    file.release();
-
-    return;
-  }
+  const filePath = file.path();
 
   try {
+    if (!contentsRef.value) {
+      file.release();
+
+      return;
+    }
+
     await contentsRef.value.openFile(file, wait);
   } catch (error: unknown) {
-    const filePath = file.path();
-
     if (!contentsRef.value?.hasFile(filePath)) {
       file.release();
     }
 
     reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
+  } finally {
+    filePathsBeingOpened.delete(filePath);
   }
 };
 
@@ -862,7 +877,10 @@ const openFiles = (filesFilePathsOrFileContents: (string | Uint8Array | File)[])
   });
 
   filePromises.reduce(async (previousFilePromises, currentFilePromise) => {
-    await previousFilePromises;
+    // Note: we ignore any error with the previous files so that it doesn't prevent the current file from being opened
+    //       (and therefore from no longer being considered as being opened, see processFile()).
+
+    await previousFilePromises.catch(() => {});
 
     const currentFileInfo = await currentFilePromise;
 
