@@ -168,7 +168,23 @@ export const uiJsonWithExpectedStructure = (value: unknown): IUiJsonWithExpected
 //       n was some (invalid) large number.
 
 const toFloat64Array = (values: unknown): unknown => {
-  return Array.isArray(values) ? new Float64Array(values) : values;
+  // Note: new Float64Array(values) would silently convert some non-numeric values to valid numbers (e.g., null, false,
+  //       "", and [] to 0, true to 1, "3" to 3, and [5] to 5), so we convert any non-numeric value to NaN ourselves,
+  //       so that validateUiJson() reports it (see fromFloat64ArrayForSchemaValidation()).
+
+  if (!Array.isArray(values)) {
+    return values;
+  }
+
+  const res = new Float64Array(values.length);
+
+  for (let i = 0; i < values.length; ++i) {
+    const value: unknown = values[i];
+
+    res[i] = typeof value === 'number' ? value : Number.NaN;
+  }
+
+  return res;
 };
 
 const fromFloat64ArrayForSchemaValidation = (values: unknown): unknown => {
