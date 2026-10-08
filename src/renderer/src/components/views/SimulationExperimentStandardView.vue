@@ -334,9 +334,12 @@ const onRunPause = async (): Promise<void> => {
       break;
     default: {
       // locSedApi.ESedInstanceStatus.IDLE:
-      // Reset our abort flag.
+      // Reset our abort flag and our live data.
+      // Note: our live data is normally reset at the end of a simulation run (see updatePlot()), but not if the run was
+      //       aborted or failed, in which case we would otherwise end up plotting (some of) the data of that run.
 
       runAborted.value = false;
+      liveData = null;
 
       // Start the simulation.
 
