@@ -616,8 +616,16 @@ export class SedInstance {
 
     this._released = true;
 
-    if (this.status() !== ESedInstanceStatus.IDLE) {
-      this.stopRun();
+    // Stop our simulation run, if needed.
+    // Note: we release our tasks and instance even if this fails (e.g., if libOpenCOR throws an exception) since we
+    //       would otherwise leak them (we are now considered released, so we won't get another chance).
+
+    try {
+      if (this.status() !== ESedInstanceStatus.IDLE) {
+        this.stopRun();
+      }
+    } catch (error: unknown) {
+      console.error('OpenCOR: an error occurred while stopping a simulation run:', error);
     }
 
     for (const task of this._tasks) {

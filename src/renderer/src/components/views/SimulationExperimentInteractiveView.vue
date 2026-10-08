@@ -1330,18 +1330,26 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
 
   runningInstances.add(crtInstance);
 
+  // Release our instance if it has been replaced by a newer one (or if we got unmounted) while the simulation was
+  // running, in which case our results are stale anyway.
+  // Note: we do this even if waiting for the simulation to finish failed (e.g., if libOpenCOR threw an exception) since
+  //       nothing else will release our instance (see reinstantiateInstance() and onBeforeUnmount()).
+
+  let instanceReplaced = false;
+
   try {
     await vueCommon.waitWhileRunning(crtInstance).promise;
   } finally {
     runningInstances.delete(crtInstance);
+
+    if (crtInstance !== instance) {
+      instanceReplaced = true;
+
+      crtInstance.release();
+    }
   }
 
-  // Release our instance if it has been replaced by a newer one while the simulation was running, in which case our
-  // results are stale anyway.
-
-  if (crtInstance !== instance) {
-    crtInstance.release();
-
+  if (instanceReplaced) {
     return;
   }
 
