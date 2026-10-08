@@ -1,5 +1,6 @@
 import type { IOpenCORSimulationDataValue, OpenCORSimulationData } from '../../index';
 
+import { VERY_LONG_DELAY } from './constants';
 import * as dependencies from './dependencies';
 import { electronApi } from './electronApi';
 
@@ -215,7 +216,13 @@ export const downloadFile = (filename: string, content: string | Blob, type: str
 
   document.body.removeChild(link);
 
-  URL.revokeObjectURL(url);
+  // Revoke our object URL, but only once the download has started.
+  // Note: some browsers (e.g., Safari) start the download asynchronously, so revoking our object URL straight away may
+  //       cancel it.
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, VERY_LONG_DELAY);
 };
 
 // A method to get the file name from a file path.
