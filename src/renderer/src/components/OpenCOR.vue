@@ -744,10 +744,36 @@ const onUpdateAvailable = () => {
 // Open a file.
 
 let globalOmexDataUrlCounter = 0;
-const filePathsBeingOpened = new Set<string>();
+
+// The files that are being opened, keyed by their canonical path, each with a promise that gets resolved once the file
+// has been opened (or not).
+
+interface IFileBeingOpened {
+  promise: Promise<void>;
+  resolve: () => void;
+}
+
+const filesBeingOpened = new Map<string, IFileBeingOpened>();
+
+const fileBeingOpened = (canonicalFilePath: string): void => {
+  let resolve: () => void = () => {};
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+
+  filesBeingOpened.set(canonicalFilePath, { promise, resolve });
+};
+
+const fileNoLongerBeingOpened = (canonicalFilePath: string): void => {
+  filesBeingOpened.get(canonicalFilePath)?.resolve();
+  filesBeingOpened.delete(canonicalFilePath);
+};
 
 interface IFileInfo {
   alreadyOpen: boolean;
+  beingOpened?: Promise<void>;
+  // Note: if the file is already being opened (i.e. it doesn't have a file tab yet), then a promise that gets resolved
+  //       once the file has been opened (or not).
   file: locApi.File | null;
   filePath: string;
   canonicalFilePath: string;
@@ -830,16 +856,20 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
   const filePath = locCommon.filePath(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter);
   const canonicalFilePath = locApi.fileManager.canonicalPath(filePath);
 
-  if ((contentsRef.value?.hasFile(filePath) ?? false) || filePathsBeingOpened.has(canonicalFilePath)) {
+  const fileIsOpen = contentsRef.value?.hasFile(filePath) ?? false;
+  const beingOpened = fileIsOpen ? undefined : filesBeingOpened.get(canonicalFilePath)?.promise;
+
+  if (fileIsOpen || beingOpened) {
     return {
       alreadyOpen: true,
+      beingOpened,
       file: null,
       filePath,
       canonicalFilePath
     };
   }
 
-  filePathsBeingOpened.add(canonicalFilePath);
+  fileBeingOpened(canonicalFilePath);
 
   // Retrieve a locApi.File object for the given file or file path.
 
@@ -868,7 +898,7 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
 
       file.release();
 
-      filePathsBeingOpened.delete(canonicalFilePath);
+      fileNoLongerBeingOpened(canonicalFilePath);
 
       return null;
     }
@@ -882,7 +912,7 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
   } catch (error: unknown) {
     reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
 
-    filePathsBeingOpened.delete(canonicalFilePath);
+    fileNoLongerBeingOpened(canonicalFilePath);
 
     return null;
   } finally {
@@ -922,8 +952,35 @@ const openFileInContents = async (
 
     reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
   } finally {
-    filePathsBeingOpened.delete(canonicalFilePath);
+    fileNoLongerBeingOpened(canonicalFilePath);
   }
+};
+
+const fileAlreadyOpen = async (fileInfo: IFileInfo, wait: boolean = false): Promise<void> => {
+  // Let our main process know whether the file is open since it may be waiting for it (e.g., if the file is being
+  // reopened at startup, see MainWindow.fileOpenedOrNot()), and select it.
+  // Note: if the file is being opened, then we can only let our main process know once it has been opened (or not), in
+  //       which case it will also have been selected (see ContentsComponent.openFile()). However, we must not wait for
+  //       that here since we may be called from openFiles() and the file may be opened after us in its chain, in which
+  //       case we would wait forever.
+
+  const beingOpened = fileInfo.beingOpened;
+
+  if (beingOpened) {
+    void beingOpened.then(() => {
+      if (contentsRef.value?.hasFile(fileInfo.filePath)) {
+        electronApi?.fileOpened(fileInfo.filePath);
+      } else {
+        electronApi?.fileIssue(fileInfo.filePath);
+      }
+    });
+
+    return;
+  }
+
+  electronApi?.fileOpened(fileInfo.filePath);
+
+  await contentsRef.value?.selectFile(fileInfo.filePath, wait);
 };
 
 const openFile = (fileFilePathOrFileContents: string | Uint8Array | File): void => {
@@ -933,12 +990,7 @@ const openFile = (fileFilePathOrFileContents: string | Uint8Array | File): void 
     }
 
     if (fileInfo.alreadyOpen) {
-      // Note: we let our main process know that the file is open since it may be waiting for it (e.g., if the file is
-      //       being reopened at startup, see MainWindow.fileOpenedOrNot()).
-
-      electronApi?.fileOpened(fileInfo.filePath);
-
-      await contentsRef.value?.selectFile(fileInfo.filePath);
+      await fileAlreadyOpen(fileInfo);
 
       return;
     }
@@ -969,11 +1021,7 @@ const openFiles = (filesFilePathsOrFileContents: (string | Uint8Array | File)[])
     }
 
     if (currentFileInfo.alreadyOpen) {
-      // Note: see the note in openFile() above.
-
-      electronApi?.fileOpened(currentFileInfo.filePath);
-
-      await contentsRef.value?.selectFile(currentFileInfo.filePath, true);
+      await fileAlreadyOpen(currentFileInfo, true);
 
       return;
     }
