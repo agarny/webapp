@@ -6,7 +6,6 @@ export const VERY_SHORT_DELAY: number = 19;
 export const SHORT_DELAY: number = 69;
 export const MEDIUM_DELAY: number = 169;
 export const LONG_DELAY: number = 369;
-export const VERY_LONG_DELAY: number = 969;
 
 export const TOAST_LIFE: number = 3000;
 

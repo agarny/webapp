@@ -1,6 +1,5 @@
 import type { IOpenCORSimulationDataValue, OpenCORSimulationData } from '../../index';
 
-import { VERY_LONG_DELAY } from './constants';
 import * as dependencies from './dependencies';
 import { electronApi } from './electronApi';
 
@@ -202,6 +201,8 @@ export const isDivisible = (a: number, b: number): boolean => {
 
 // A method to trigger a browser download for a file.
 
+const DOWNLOAD_OBJECT_URL_LIFETIME = 60000; // 60 seconds.
+
 export const downloadFile = (filename: string, content: string | Blob, type: string): void => {
   const link = document.createElement('a');
   const blob = content instanceof Blob ? content : new Blob([content], { type });
@@ -217,12 +218,13 @@ export const downloadFile = (filename: string, content: string | Blob, type: str
   document.body.removeChild(link);
 
   // Revoke our object URL, but only once the download has started.
-  // Note: some browsers (e.g., Safari) start the download asynchronously, so revoking our object URL straight away may
-  //       cancel it.
+  // Note: some browsers start the download asynchronously, so revoking our object URL straight away may cancel it. In
+  //       Safari, this may even be once the user has allowed downloads from our site (it asks the first time a site
+  //       downloads a file), so we give the user plenty of time to do so (like FileSaver.js does).
 
   setTimeout(() => {
     URL.revokeObjectURL(url);
-  }, VERY_LONG_DELAY);
+  }, DOWNLOAD_OBJECT_URL_LIFETIME);
 };
 
 // A method to get the file name from a file path.
