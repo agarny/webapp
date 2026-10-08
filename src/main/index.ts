@@ -56,6 +56,7 @@ interface IElectronConf {
       recent: string[];
       selected: string;
     };
+    rendererServerPort: number;
     state: IElectronConfState;
   };
   settings: ISettings;
@@ -205,6 +206,7 @@ electron.app
             recent: [],
             selected: ''
           },
+          rendererServerPort: 0,
           state: {
             x: horizontalSpace,
             y: verticalSpace,
@@ -231,9 +233,19 @@ electron.app
     // Note: any error is handled when creating our main window, but we need to handle it here too, so that it isn't
     //       reported as an unhandled rejection in the meantime.
 
+    // Note: we want our renderer server to always use the same port (if possible), so that the origin of our renderer
+    //       remains the same from one launch to another. This means that our renderer's HTTP cache can be used across
+    //       launches and that our renderer's origin-scoped storage doesn't get orphaned (and accumulate) on each
+    //       launch. So, we ask our renderer server to try the port it used last time and keep track of the port it ends
+    //       up using.
+
     const rendererUrl = process.env.ELECTRON_RENDERER_URL
       ? Promise.resolve(process.env.ELECTRON_RENDERER_URL)
-      : startRendererServer();
+      : startRendererServer(electronConf.get('app.rendererServerPort')).then((url: string) => {
+          electronConf.set('app.rendererServerPort', Number(new URL(url).port));
+
+          return url;
+        });
 
     rendererUrl.catch(() => {});
 
