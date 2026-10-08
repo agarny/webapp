@@ -17,6 +17,7 @@ Napi::Object init(Napi::Env pEnv, Napi::Object pExports)
 
     // FileManager API.
 
+    pExports.Set(Napi::String::New(pEnv, "fileManagerCanonicalPath"), Napi::Function::New(pEnv, fileManagerCanonicalPath));
     pExports.Set(Napi::String::New(pEnv, "fileManagerHasFile"), Napi::Function::New(pEnv, fileManagerHasFile));
     pExports.Set(Napi::String::New(pEnv, "fileManagerUnmanage"), Napi::Function::New(pEnv, fileManagerUnmanage));
 

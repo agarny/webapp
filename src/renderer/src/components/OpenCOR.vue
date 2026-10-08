@@ -750,6 +750,7 @@ interface IFileInfo {
   alreadyOpen: boolean;
   file: locApi.File | null;
   filePath: string;
+  canonicalFilePath: string;
 }
 
 // A helper function to report an issue with a file that couldn't be opened.
@@ -822,19 +823,23 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
   //       the same sample file twice). Since a file is only considered open once it has a file tab, we also need to
   //       keep track of the files that are being opened, so that we don't end up with several file tabs for the same
   //       file (and, with the C++ version of libOpenCOR, several File objects sharing, and therefore releasing, the
-  //       same native file).
+  //       same native file). Also, a file may be referred to using different paths (e.g., through a symbolic link),
+  //       hence we keep track of the canonical path of the files that are being opened (our contents component does
+  //       the same for the files that are open, see ContentsComponent.findFileTab()).
 
   const filePath = locCommon.filePath(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter);
+  const canonicalFilePath = locApi.fileManager.canonicalPath(filePath);
 
-  if ((contentsRef.value?.hasFile(filePath) ?? false) || filePathsBeingOpened.has(filePath)) {
+  if ((contentsRef.value?.hasFile(filePath) ?? false) || filePathsBeingOpened.has(canonicalFilePath)) {
     return {
       alreadyOpen: true,
       file: null,
-      filePath
+      filePath,
+      canonicalFilePath
     };
   }
 
-  filePathsBeingOpened.add(filePath);
+  filePathsBeingOpened.add(canonicalFilePath);
 
   // Retrieve a locApi.File object for the given file or file path.
 
@@ -863,7 +868,7 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
 
       file.release();
 
-      filePathsBeingOpened.delete(filePath);
+      filePathsBeingOpened.delete(canonicalFilePath);
 
       return null;
     }
@@ -871,12 +876,13 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
     return {
       alreadyOpen: false,
       file,
-      filePath
+      filePath,
+      canonicalFilePath
     };
   } catch (error: unknown) {
     reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
 
-    filePathsBeingOpened.delete(filePath);
+    filePathsBeingOpened.delete(canonicalFilePath);
 
     return null;
   } finally {
@@ -888,7 +894,11 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
   }
 };
 
-const openFileInContents = async (file: locApi.File, wait: boolean = false): Promise<void> => {
+const openFileInContents = async (
+  file: locApi.File,
+  canonicalFilePath: string,
+  wait: boolean = false
+): Promise<void> => {
   // Open the given file in our contents component or release it if we can't (e.g., we got unmounted in the meantime).
   // Note #1: to open a file may fail (e.g., if libOpenCOR throws an exception), in which case we report the issue and
   //          release the file, unless it got opened (i.e. it has a file tab), in which case it is now managed by our
@@ -912,7 +922,7 @@ const openFileInContents = async (file: locApi.File, wait: boolean = false): Pro
 
     reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
   } finally {
-    filePathsBeingOpened.delete(filePath);
+    filePathsBeingOpened.delete(canonicalFilePath);
   }
 };
 
@@ -934,7 +944,7 @@ const openFile = (fileFilePathOrFileContents: string | Uint8Array | File): void 
     }
 
     if (fileInfo.file) {
-      await openFileInContents(fileInfo.file);
+      await openFileInContents(fileInfo.file, fileInfo.canonicalFilePath);
     }
   });
 };
@@ -969,7 +979,7 @@ const openFiles = (filesFilePathsOrFileContents: (string | Uint8Array | File)[])
     }
 
     if (currentFileInfo.file) {
-      await openFileInContents(currentFileInfo.file, true);
+      await openFileInContents(currentFileInfo.file, currentFileInfo.canonicalFilePath, true);
     }
   }, Promise.resolve());
 };

@@ -6,6 +6,7 @@ import type { IIssue } from './locLoggerApi';
 export interface ICppLocApi {
   // FileManager API.
 
+  fileManagerCanonicalPath: (path: string) => string;
   fileManagerHasFile: (path: string) => boolean;
   fileManagerUnmanage: (path: string) => void;
 

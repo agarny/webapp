@@ -139,6 +139,7 @@ electron.contextBridge.exposeInMainWorld('locApi', {
 
   // FileManager API.
 
+  fileManagerCanonicalPath: (path: string) => loc.fileManagerCanonicalPath(path),
   fileManagerHasFile: (path: string) => loc.fileManagerHasFile(path),
   fileManagerUnmanage: (path: string) => loc.fileManagerUnmanage(path),
 

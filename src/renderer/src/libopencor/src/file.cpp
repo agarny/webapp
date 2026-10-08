@@ -5,6 +5,18 @@
 
 // FileManager API.
 
+napi_value fileManagerCanonicalPath(const Napi::CallbackInfo &pInfo)
+{
+    // Note: libOpenCOR canonicalises the path of a file when creating it (e.g., it resolves symbolic links and decodes
+    //       URLs), so we create a file, without retrieving its contents, to get the canonical version of the given
+    //       path. If the file is already managed, then we get it rather than a new file, while if it isn't, then the
+    //       new file gets unmanaged as soon as it goes out of scope.
+
+    auto file = libOpenCOR::File::create(pInfo[0].ToString().Utf8Value(), false);
+
+    return Napi::String::New(pInfo.Env(), file->path());
+}
+
 napi_value fileManagerHasFile(const Napi::CallbackInfo &pInfo)
 {
     return Napi::Boolean::New(pInfo.Env(), fileManager.file(pInfo[0].ToString().Utf8Value()) != nullptr);

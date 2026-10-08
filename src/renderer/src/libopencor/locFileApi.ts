@@ -35,6 +35,15 @@ class FileManager {
     return this._fileManager;
   }
 
+  canonicalPath(path: string): string {
+    // Note: with the C++ version of libOpenCOR, a file may be referred to using different paths (e.g., through a
+    //       symbolic link), all of which refer to the same native file, i.e. the one with the canonical path. With the
+    //       WASM version of libOpenCOR, a file is referred to using a URL or a name that we generate (see
+    //       locCommon.filePath()), so there is no need to canonicalise it.
+
+    return cppVersion() ? _cppLocApi.fileManagerCanonicalPath(path) : path;
+  }
+
   file(path: string): File | null {
     // Note: the file we are after is already managed, so we just wrap it rather than create (and therefore own) it.
 
@@ -112,6 +121,7 @@ export interface IManagedFile {
 
 export class File {
   _path: string;
+  private _canonicalPath: string | undefined;
   _wasmFile: IWasmFile = {} as IWasmFile;
   _issues: IIssue[] = [];
   private _isOwner = true;
@@ -180,6 +190,12 @@ export class File {
 
   path(): string {
     return this._path;
+  }
+
+  canonicalPath(): string {
+    this._canonicalPath ??= fileManager.canonicalPath(this._path);
+
+    return this._canonicalPath;
   }
 
   issues(): IIssue[] {

@@ -189,12 +189,28 @@ const onSelectView = (fileTab: IFileTab, viewId: string): void => {
   fileTab.activeViewId = viewId;
 };
 
-const hasFile = (filePath: string): boolean => {
+const findFileTab = (filePath: string): IFileTab | undefined => {
+  // Retrieve the file tab for the given file path.
+  // Note: a file may be referred to using different paths (e.g., through a symbolic link), hence we also compare
+  //       canonical paths, but only if needed since it is more costly.
+
   if (props.simulationOnly) {
-    return false;
+    return undefined;
   }
 
-  return fileTabs.value.find((fileTab) => fileTab.file.path() === filePath) !== undefined;
+  const res = fileTabs.value.find((fileTab) => fileTab.file.path() === filePath);
+
+  if (res) {
+    return res;
+  }
+
+  const canonicalFilePath = locApi.fileManager.canonicalPath(filePath);
+
+  return fileTabs.value.find((fileTab) => fileTab.file.canonicalPath() === canonicalFilePath);
+};
+
+const hasFile = (filePath: string): boolean => {
+  return findFileTab(filePath) !== undefined;
 };
 
 const hasFiles = (): boolean => {
@@ -220,13 +236,16 @@ const waitForTabsUpdate = async (): Promise<void> => {
 };
 
 const selectFile = async (filePath: string, wait: boolean = false): Promise<void> => {
-  // Note: we can only select a file that has a file tab (hasFile() also returns false in simulation-only mode).
+  // Note: we can only select a file that has a file tab (findFileTab() also returns undefined in simulation-only mode),
+  //       and the given file path may not be the one of that file tab (see findFileTab()).
 
-  if (!hasFile(filePath)) {
+  const selectedFileTab = findFileTab(filePath);
+
+  if (!selectedFileTab) {
     return;
   }
 
-  activeFile.value = filePath;
+  activeFile.value = selectedFileTab.file.path();
 
   if (wait) {
     await waitForTabsUpdate();
