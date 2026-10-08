@@ -9,8 +9,20 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { pipeline } from 'node:stream';
 
-let rendererServer: http.Server | null = null;
+let rendererServers: http.Server[] = [];
 let rendererBaseUrl: string | null = null;
+
+const closeServer = (server: http.Server): Promise<void> => {
+  return new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    });
+  });
+};
 
 export const startRendererServer = async (preferredPort: number = 0): Promise<string> => {
   // Note: we try to use the given preferred port (if any), so that the origin of our renderer remains the same from one
@@ -27,7 +39,6 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
   // Note: we only support the MIME types that are needed by our renderer (check the files in out/renderer).
 
   const rendererDistPath = path.resolve(import.meta.dirname, '../../out/renderer');
-  const rendererHost = 'localhost';
   const MIME_TYPES: Record<string, string> = {
     '.css': 'text/css',
     '.eot': 'application/vnd.ms-fontobject',
@@ -108,30 +119,35 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
     });
   };
 
-  // Optimise TCP for localhost connections by disabling Nagle's algorithm.
+  // Create a server.
+  // Note: we optimise TCP for localhost connections by disabling Nagle's algorithm.
 
-  rendererServer = http.createServer((request: http.IncomingMessage, response: http.ServerResponse) => {
-    handleRequest(request, response).catch(() => {
-      if (response.headersSent) {
-        response.destroy();
-      } else {
-        notFound(response);
-      }
+  const createServer = (): http.Server => {
+    const server = http.createServer((request: http.IncomingMessage, response: http.ServerResponse) => {
+      handleRequest(request, response).catch(() => {
+        if (response.headersSent) {
+          response.destroy();
+        } else {
+          notFound(response);
+        }
+      });
     });
-  });
 
-  rendererServer.on('connection', (socket) => socket.setNoDelay(true));
+    server.on('connection', (socket) => socket.setNoDelay(true));
 
-  // Start listening on our preferred port or, if it cannot be used, on a random available port.
+    return server;
+  };
 
-  const listen = (port: number): Promise<void> => {
-    return new Promise<void>((resolve, reject) => {
+  // Start a server listening on the given port and host, and return the port it is listening on.
+
+  const listen = (server: http.Server, port: number, host: string): Promise<number> => {
+    return new Promise<number>((resolve, reject) => {
       // Handle any errors that occur while starting the server.
-      // Note: we stop listening for the server to be listening since we may try to start it again (on another port), in
-      //       which case we don't want this attempt to be notified about it.
+      // Note: we stop listening for the server to be listening since we may try to start another server (on another
+      //       port), in which case we don't want this attempt to be notified about it.
 
       const onError = (error: Error): void => {
-        rendererServer?.off('listening', onListening);
+        server.off('listening', onListening);
 
         reject(error);
       };
@@ -139,77 +155,106 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
       // Handle the server listening.
 
       const onListening = (): void => {
-        rendererServer?.off('error', onError);
+        server.off('error', onError);
 
-        const addressInfo = rendererServer?.address() as AddressInfo | null;
+        const addressInfo = server.address() as AddressInfo | null;
 
         if (addressInfo?.port) {
-          rendererBaseUrl = `http://${rendererHost}:${addressInfo.port}`;
-
-          resolve();
+          resolve(addressInfo.port);
         } else {
           reject(new Error("Failed to determine the renderer server's port."));
         }
       };
 
-      rendererServer?.once('error', onError);
-      rendererServer?.once('listening', onListening);
+      server.once('error', onError);
+      server.once('listening', onListening);
 
       // Start the server listening.
 
-      rendererServer?.listen(port, rendererHost);
+      server.listen(port, host);
     });
   };
 
-  try {
-    await listen(preferredPort);
-  } catch (error: unknown) {
-    if (!preferredPort) {
-      throw error;
+  // Start servers listening on both the IPv4 and IPv6 loopback addresses, using the same port.
+  // Note: our renderer is loaded from http://localhost:<port> (localhost being an authorised domain for GitHub OAuth,
+  //       see GITHUB.md), which may resolve to either loopback address. So, if we only listened on one of them, then
+  //       another application could listen on the other one, using the same port (which is predictable since we try to
+  //       always use the same port), and our renderer could then be loaded from that application. If there is no IPv6
+  //       loopback address, then we only listen on the IPv4 loopback address since no other application can listen on
+  //       the IPv6 loopback address either.
+
+  const listenOnLoopbackAddresses = async (port: number): Promise<void> => {
+    const ipv4Server = createServer();
+    const loopbackPort = await listen(ipv4Server, port, '127.0.0.1');
+    const ipv6Server = createServer();
+
+    try {
+      await listen(ipv6Server, loopbackPort, '::1');
+
+      rendererServers = [ipv4Server, ipv6Server];
+    } catch (error: unknown) {
+      const errorCode = (error as NodeJS.ErrnoException).code;
+
+      if (errorCode !== 'EADDRNOTAVAIL' && errorCode !== 'EAFNOSUPPORT') {
+        await closeServer(ipv4Server).catch(() => {});
+
+        throw error;
+      }
+
+      rendererServers = [ipv4Server];
     }
 
-    await listen(0);
+    rendererBaseUrl = `http://localhost:${loopbackPort}`;
+  };
+
+  // Start listening on our preferred port or, if it cannot be used, on a random available port.
+  // Note: a random port that is available on the IPv4 loopback address may not be available on the IPv6 loopback
+  //       address, hence we try a few random ports, if needed.
+
+  const ports = preferredPort ? [preferredPort, 0, 0, 0] : [0, 0, 0];
+  let listenError: unknown = null;
+
+  for (const port of ports) {
+    try {
+      await listenOnLoopbackAddresses(port);
+
+      break;
+    } catch (error: unknown) {
+      listenError = error;
+    }
   }
 
   if (!rendererBaseUrl) {
-    throw new Error('Failed to initialise the renderer server.');
+    throw listenError ?? new Error('Failed to initialise the renderer server.');
   }
 
-  // Log any error that occurs once the server is listening (e.g., if it fails to accept a connection because there are
-  // too many open files).
-  // Note: indeed, the server keeps listening after such an error, but without an error listener, the error would result
+  // Log any error that occurs once our servers are listening (e.g., if one of them fails to accept a connection because
+  // there are too many open files).
+  // Note: indeed, a server keeps listening after such an error, but without an error listener, the error would result
   //       in an uncaught exception in our main process.
 
-  rendererServer.on('error', (error: Error) => {
-    console.error('OpenCOR: the renderer server encountered an error:', error);
-  });
+  for (const rendererServer of rendererServers) {
+    rendererServer.on('error', (error: Error) => {
+      console.error('OpenCOR: the renderer server encountered an error:', error);
+    });
+  }
 
   return rendererBaseUrl;
 };
 
 export const stopRendererServer = async (): Promise<void> => {
-  // Make sure that we have a server to stop.
+  // Make sure that we have servers to stop.
 
-  if (!rendererServer) {
+  if (!rendererServers.length) {
     return;
   }
 
-  // Close the server.
+  // Close our servers.
 
-  await new Promise<void>((resolve, reject) => {
-    rendererServer?.close((error) => {
-      if (error) {
-        // An error occurred, so reject the promise.
+  await Promise.all(rendererServers.map(closeServer));
 
-        reject(error);
-      } else {
-        resolve();
-      }
-    });
-  });
+  // Clear our servers and base URL references.
 
-  // Clear our server and base URL references.
-
-  rendererServer = null;
+  rendererServers = [];
   rendererBaseUrl = null;
 };
