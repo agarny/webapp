@@ -461,12 +461,22 @@ export class MainWindow extends ApplicationWindow {
     });
 
     // Load the renderer URL.
-    // Note: a navigation that gets interrupted (e.g., by another navigation) results in an ERR_ABORTED error, which is
-    //       not fatal. Any other error means that OpenCOR cannot be used, so we report it and quit.
+    // Note: a navigation that gets interrupted by another navigation (e.g., our renderer being reloaded after it
+    //       crashed) results in an ERR_ABORTED error while one that gets interrupted by us being closed (e.g., because
+    //       OpenCOR is being quit) or destroyed results in an ERR_FAILED error. Neither is fatal, but since Electron
+    //       rejects the navigation after we have been asked to close but before we have been destroyed, we need to keep
+    //       track of whether we are being closed. Any other error means that OpenCOR cannot be used, so we report it
+    //       and quit.
+
+    let closing = false;
+
+    this.once('close', () => {
+      closing = true;
+    });
 
     this.loadURL(rendererUrl).catch((error: unknown) => {
-      if ((error as { code?: string }).code === 'ERR_ABORTED') {
-        console.warn(`OpenCOR: loading of URL (${rendererUrl}) was aborted:`, formatError(error));
+      if ((error as { code?: string }).code === 'ERR_ABORTED' || closing || this.isDestroyed()) {
+        console.warn(`OpenCOR: loading of URL (${rendererUrl}) was interrupted:`, formatError(error));
 
         return;
       }
