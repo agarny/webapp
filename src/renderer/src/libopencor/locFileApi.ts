@@ -2,6 +2,8 @@ import * as vue from 'vue';
 
 import type { File as IWasmFile, FileManager as IWasmFileManagerInstance } from '@opencor/libopencor-types';
 
+import * as common from '../common/common';
+
 import {
   _cppLocApi,
   _wasmLocApi,
@@ -36,12 +38,26 @@ class FileManager {
   }
 
   canonicalPath(path: string): string {
-    // Note: with the C++ version of libOpenCOR, a file may be referred to using different paths (e.g., through a
-    //       symbolic link), all of which refer to the same native file, i.e. the one with the canonical path. With the
-    //       WASM version of libOpenCOR, a file is referred to using a URL or a name that we generate (see
-    //       locCommon.filePath()), so there is no need to canonicalise it.
+    // Note #1: with the C++ version of libOpenCOR, a file may be referred to using different paths (e.g., through a
+    //          symbolic link), all of which refer to the same native file, i.e. the one with the canonical path. With
+    //          the WASM version of libOpenCOR, a file is referred to using a URL or a name that we generate (see
+    //          locCommon.filePath()), so there is no need to canonicalise it.
+    // Note #2: canonicalising a path may fail (e.g., if one of its folders cannot be accessed, if it contains a
+    //          symbolic link loop, or if it is too long), in which case we use the path as is. Indeed, a canonical path
+    //          is only used to determine whether two paths refer to the same file, so it must not prevent a file from
+    //          being opened (which will then fail and get reported as such) or a file tab from being found.
 
-    return cppVersion() ? _cppLocApi.fileManagerCanonicalPath(path) : path;
+    if (!cppVersion()) {
+      return path;
+    }
+
+    try {
+      return _cppLocApi.fileManagerCanonicalPath(path);
+    } catch (error: unknown) {
+      console.warn(`OpenCOR: failed to canonicalise path (${path}):`, common.formatError(error));
+
+      return path;
+    }
   }
 
   file(path: string): File | null {

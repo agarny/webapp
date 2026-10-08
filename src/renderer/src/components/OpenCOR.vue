@@ -779,6 +779,16 @@ interface IFileInfo {
   canonicalFilePath: string;
 }
 
+// A helper function to describe a file for which we don't (yet) have a file path.
+
+const fileDescription = (fileFilePathOrFileContents: string | Uint8Array | File): string => {
+  return typeof fileFilePathOrFileContents === 'string'
+    ? fileFilePathOrFileContents
+    : fileFilePathOrFileContents instanceof File
+      ? fileFilePathOrFileContents.name
+      : 'Unknown file';
+};
+
 // A helper function to report an issue with a file that couldn't be opened.
 
 const reportFileIssue = (filePath: string, issueMessage: string): void => {
@@ -852,11 +862,27 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
   //       same native file). Also, a file may be referred to using different paths (e.g., through a symbolic link),
   //       hence we keep track of the canonical path of the files that are being opened (our contents component does
   //       the same for the files that are open, see ContentsComponent.findFileTab()).
+  // Note: this may fail (e.g., if the file path cannot be determined), in which case we report the issue so that the
+  //       user knows about it and our main process doesn't wait for the file forever (e.g., if the file is being
+  //       reopened at startup, see MainWindow.fileOpenedOrNot()).
 
-  const filePath = locCommon.filePath(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter);
-  const canonicalFilePath = locApi.fileManager.canonicalPath(filePath);
+  let filePath = '';
+  let canonicalFilePath = '';
+  let fileIsOpen = false;
 
-  const fileIsOpen = contentsRef.value?.hasFile(filePath) ?? false;
+  try {
+    filePath = locCommon.filePath(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter);
+    canonicalFilePath = locApi.fileManager.canonicalPath(filePath);
+    fileIsOpen = contentsRef.value?.hasFile(filePath) ?? false;
+  } catch (error: unknown) {
+    reportFileIssue(
+      filePath || fileDescription(fileFilePathOrFileContents),
+      common.formatMessage(common.formatError(error))
+    );
+
+    return null;
+  }
+
   const beingOpened = fileIsOpen ? undefined : filesBeingOpened.get(canonicalFilePath)?.promise;
 
   if (fileIsOpen || beingOpened) {
@@ -983,52 +1009,65 @@ const fileAlreadyOpen = async (fileInfo: IFileInfo, wait: boolean = false): Prom
   await contentsRef.value?.selectFile(fileInfo.filePath, wait);
 };
 
-const openFile = (fileFilePathOrFileContents: string | Uint8Array | File): void => {
-  processFile(fileFilePathOrFileContents).then(async (fileInfo) => {
+const openProcessedFile = async (
+  fileFilePathOrFileContents: string | Uint8Array | File,
+  fileInfoPromise: Promise<IFileInfo | null>,
+  wait: boolean
+): Promise<void> => {
+  // Open the given processed file (see processFile()) or select it if it is already open.
+  // Note: we never reject. Indeed, processFile() and the functions we call report the issues that they come across, but
+  //       should something unexpected go wrong, then we still need to report it so that the user knows about it, our
+  //       main process doesn't wait for the file forever (e.g., if the file is being reopened at startup, see
+  //       MainWindow.fileOpenedOrNot()), and the next files can still be opened (see openFiles()).
+
+  let fileInfo: IFileInfo | null = null;
+
+  try {
+    fileInfo = await fileInfoPromise;
+
     if (!fileInfo) {
       return;
     }
 
     if (fileInfo.alreadyOpen) {
-      await fileAlreadyOpen(fileInfo);
+      await fileAlreadyOpen(fileInfo, wait);
 
       return;
     }
 
     if (fileInfo.file) {
-      await openFileInContents(fileInfo.file, fileInfo.canonicalFilePath);
+      await openFileInContents(fileInfo.file, fileInfo.canonicalFilePath, wait);
     }
-  });
+  } catch (error: unknown) {
+    console.error('OpenCOR: an unexpected error occurred while opening a file:', common.formatError(error));
+
+    reportFileIssue(
+      fileInfo?.filePath || fileDescription(fileFilePathOrFileContents),
+      common.formatMessage(common.formatError(error))
+    );
+  }
+};
+
+const openFile = (fileFilePathOrFileContents: string | Uint8Array | File): void => {
+  void openProcessedFile(fileFilePathOrFileContents, processFile(fileFilePathOrFileContents), false);
 };
 
 const openFiles = (filesFilePathsOrFileContents: (string | Uint8Array | File)[]): void => {
   // Start processing all files in parallel but open their tabs in the original order.
+  // Note: openProcessedFile() never rejects, so an issue with a file doesn't prevent the next files from being opened
+  //       (and therefore from no longer being considered as being opened, see processFile()).
 
-  const filePromises = filesFilePathsOrFileContents.map((fileFilePathOrFileContents) => {
-    return processFile(fileFilePathOrFileContents);
+  const processedFiles = filesFilePathsOrFileContents.map((fileFilePathOrFileContents) => {
+    return {
+      fileFilePathOrFileContents,
+      fileInfoPromise: processFile(fileFilePathOrFileContents)
+    };
   });
 
-  filePromises.reduce(async (previousFilePromises, currentFilePromise) => {
-    // Note: we ignore any error with the previous files so that it doesn't prevent the current file from being opened
-    //       (and therefore from no longer being considered as being opened, see processFile()).
+  void processedFiles.reduce(async (previousFilesOpened, processedFile) => {
+    await previousFilesOpened;
 
-    await previousFilePromises.catch(() => {});
-
-    const currentFileInfo = await currentFilePromise;
-
-    if (!currentFileInfo) {
-      return;
-    }
-
-    if (currentFileInfo.alreadyOpen) {
-      await fileAlreadyOpen(currentFileInfo, true);
-
-      return;
-    }
-
-    if (currentFileInfo.file) {
-      await openFileInContents(currentFileInfo.file, currentFileInfo.canonicalFilePath, true);
-    }
+    await openProcessedFile(processedFile.fileFilePathOrFileContents, processedFile.fileInfoPromise, true);
   }, Promise.resolve());
 };
 
