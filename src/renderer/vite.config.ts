@@ -13,6 +13,7 @@ import * as vite from 'vite';
 
 import { downloadLibopencorJsIfNeeded } from './scripts/download.libopencor.js';
 import { libopencorVersion } from './scripts/libopencor.version';
+import { stripPrimeIconsFontFacePlugin } from './scripts/primeicons.plugin';
 
 await downloadLibopencorJsIfNeeded(
   path.join(import.meta.dirname, 'public', 'libopencor', 'downloads', 'wasm', libopencorVersion)
@@ -38,19 +39,8 @@ export default vite.defineConfig({
   plugins: [
     // Note: this must be in sync with electron.vite.config.ts.
 
-    {
-      // Plugin to strip unneeded PrimeIcons files.
-
-      name: 'strip-unneeded-primeicons-files',
-      generateBundle(_options, bundle) {
-        for (const fileName of Object.keys(bundle)) {
-          if (fileName.includes('assets/primeicons') && /\.(eot|svg|ttf|woff2?)$/.test(fileName)) {
-            delete bundle[fileName];
-          }
-        }
-      }
-    },
     tailwindcssPlugin(),
+    stripPrimeIconsFontFacePlugin(),
     vuePlugin({
       script: {
         fs: {

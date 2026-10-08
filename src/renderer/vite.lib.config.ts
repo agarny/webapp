@@ -10,6 +10,7 @@ import * as vite from 'vite';
 
 import { downloadLibopencorJsIfNeeded } from './scripts/download.libopencor.js';
 import { libopencorVersion } from './scripts/libopencor.version';
+import { stripPrimeIconsFontFacePlugin } from './scripts/primeicons.plugin';
 
 await downloadLibopencorJsIfNeeded(
   path.join(import.meta.dirname, 'public', 'libopencor', 'downloads', 'wasm', libopencorVersion)
@@ -39,7 +40,11 @@ export default vite.defineConfig({
         }
       }
     },
-    target: 'esnext'
+    target: 'esnext',
+    copyPublicDir: false
+    // Note: our public folder only contains libOpenCOR's glue (see downloadLibopencorJsIfNeeded()), which host
+    //       applications don't serve from our package anyway (we fall back on importing it from https://opencor.ws in
+    //       that case, see src/common/initialisation.ts), so there is no need to ship it.
   },
   publicDir: path.join(import.meta.dirname, 'public'),
   define: {
@@ -91,6 +96,7 @@ export default vite.defineConfig({
       }
     },
     tailwindcssPlugin(),
+    stripPrimeIconsFontFacePlugin(),
     vuePlugin({
       script: {
         fs: {

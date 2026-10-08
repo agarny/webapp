@@ -9,7 +9,8 @@ for (const path of [
   'src/main/build',
   'src/renderer/components.d.ts',
   'src/renderer/dist',
-  'src/renderer/node_modules'
+  'src/renderer/node_modules',
+  'src/renderer/public/libopencor'
 ]) {
   if (fs.existsSync(path)) {
     fs.rmSync(path, { recursive: true, force: true });
