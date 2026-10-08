@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { formatError, isDataUrlOmexFileName, type ISettings, isUrl } from '../renderer/src/common/common';
 import { FULL_URI_SCHEME, LONG_DELAY } from '../renderer/src/common/constants';
-import { isLinux, isMacOs, isPackaged, isWindows } from '../renderer/src/common/electron';
+import { isMacOs, isPackaged } from '../renderer/src/common/electron';
 /* TODO: enable once our GitHub integration is fully ready.
 import { deleteGitHubAccessToken } from '../renderer/src/common/gitHubIntegration';
 */
@@ -193,6 +193,45 @@ const currentFilesToReopen = (): IFilesToReopen => {
   return { opened, selected };
 };
 
+// Determine whether the given argument is an OpenCOR action (i.e. an opencor:// link).
+
+const isAction = (argument: string | undefined): boolean => {
+  return argument?.startsWith(FULL_URI_SCHEME) ?? false;
+};
+
+// Normalise the given command line (i.e. the process.argv of an instance of OpenCOR), so that it only contains the
+// files to open and the OpenCOR actions to handle, with files given as absolute paths.
+// Note: this is used both for our own command line and for the command line of another instance of OpenCOR that was
+//       started while we were running (see the second-instance event in src/main/index.ts), in which case relative
+//       paths must be resolved against the working directory of that other instance.
+
+export const normaliseCommandLine = (commandLine: string[], workingDirectory: string): string[] => {
+  const res = [...commandLine];
+
+  // The command line can either be a classical command line or an OpenCOR action (i.e. an opencor:// link). In the
+  // former case, we need to remove the path to OpenCOR and, if we are not packaged, the path to our app, while, in the
+  // latter case, nothing should be removed.
+
+  if (!isAction(res[0])) {
+    res.shift();
+
+    if (!isPackaged() && res.length) {
+      res.shift();
+    }
+  }
+
+  // Ignore any switch (e.g., --updated when auto-updating OpenCOR on Windows and macOS, --no-sandbox on Linux, or any
+  // switch added by Electron or Chromium) and make sure that local files are given as absolute paths.
+
+  return res
+    .filter((argument) => !argument.startsWith('--'))
+    .map((argument) =>
+      isAction(argument) || isUrl(argument) || path.isAbsolute(argument)
+        ? argument
+        : path.resolve(workingDirectory, argument)
+    );
+};
+
 // Report a fatal error (e.g., OpenCOR couldn't be started) and quit.
 // Note: our splash screen window is always on top, so we must close it first. Otherwise, it would hide our error dialog
 //       and remain shown forever.
@@ -283,31 +322,9 @@ export class MainWindow extends ApplicationWindow {
 
     updateReopenMenu(recentFilePaths);
 
-    // The command line can either be a classical command line or an OpenCOR action (i.e. an opencor:// link). In the
-    // former case, we need to remove one or two arguments while, in the latter case, nothing should be removed.
-
-    if (!this.isAction(commandLine[0])) {
-      // The first argument is not an action, so remove the first argument and then the second argument, but only if we
-      // are not packaged.
-
-      commandLine.shift();
-
-      if (!isPackaged() && commandLine.length) {
-        commandLine.shift();
-      }
-    }
-
-    // When auto updating OpenCOR, we may end up with an extra argument that we need to ignore.
-
-    if ((isWindows() || isMacOs()) && commandLine[0] === '--updated') {
-      commandLine.shift();
-    } else if (isLinux() && commandLine[0] === '--no-sandbox') {
-      commandLine.shift();
-    }
-
     // Handle our command line, which will effectively be done once our renderer is ready (see rendererReady()).
 
-    this.handleArguments(commandLine);
+    this.handleArguments(normaliseCommandLine(commandLine, process.cwd()));
 
     // Keep track of our settings unless we are resetting all.
 
@@ -573,15 +590,7 @@ export class MainWindow extends ApplicationWindow {
     }
   }
 
-  // Handle our command line arguments.
-
-  isAction(argument: string | undefined): boolean {
-    if (!argument) {
-      return false;
-    }
-
-    return argument.startsWith(FULL_URI_SCHEME);
-  }
+  // Handle the given (normalised) command line arguments (see normaliseCommandLine()).
 
   handleArguments(commandLine: string[]): void {
     if (!commandLine.length) {
@@ -596,26 +605,12 @@ export class MainWindow extends ApplicationWindow {
       return;
     }
 
-    for (let argument of commandLine) {
-      if (this.isAction(argument)) {
+    for (const argument of commandLine) {
+      if (isAction(argument)) {
         this.send('action', argument.slice(FULL_URI_SCHEME.length));
-
-        continue;
+      } else {
+        this.send('open', argument);
       }
-
-      if (argument === '--allow-file-access-from-files' || argument === '--enable-avfoundation') {
-        continue;
-      }
-
-      // The argument is not an action (and not --allow-file-access-from-files or --enable-avfoundation either), so it
-      // must be a file to open. But, first, check whether the argument is a relative path and, if so, convert it to
-      // an absolute path.
-
-      if (!path.isAbsolute(argument)) {
-        argument = path.resolve(argument);
-      }
-
-      this.send('open', argument);
     }
   }
 

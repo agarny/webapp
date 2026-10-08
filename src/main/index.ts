@@ -32,6 +32,7 @@ import {
   installUpdateAndRestart,
   loadSettings,
   MainWindow,
+  normaliseCommandLine,
   reportFatalErrorAndQuit,
   resetAll,
   saveSettings
@@ -65,8 +66,10 @@ interface IElectronConf {
 export let electronConf: ElectronConf<IElectronConf>;
 
 // Allow only one instance of OpenCOR.
+// Note: we pass our command line and working directory to the instance that is already running (see the second-instance
+//       event below).
 
-if (!electron.app.requestSingleInstanceLock()) {
+if (!electron.app.requestSingleInstanceLock({ argv: process.argv, cwd: process.cwd() })) {
   electron.app.quit();
 }
 
@@ -80,8 +83,12 @@ export let mainWindow: MainWindow | null = null;
 
 const pendingArguments: string[][] = [];
 
-electron.app.on('second-instance', (_event, argv) => {
-  argv.shift(); // Remove the first argument, which is the path to OpenCOR.
+electron.app.on('second-instance', (_event, argv, workingDirectory, additionalData) => {
+  // Use the command line and working directory that the other instance passed to us, if available, since, according to
+  // Electron's documentation, argv may have been reordered and have additional switches.
+
+  const otherInstanceData = additionalData as { argv?: string[]; cwd?: string } | undefined;
+  const commandLine = normaliseCommandLine(otherInstanceData?.argv ?? argv, otherInstanceData?.cwd ?? workingDirectory);
 
   if (mainWindow) {
     if (mainWindow.isMinimized()) {
@@ -90,9 +97,9 @@ electron.app.on('second-instance', (_event, argv) => {
 
     mainWindow.focus();
 
-    mainWindow.handleArguments(argv);
+    mainWindow.handleArguments(commandLine);
   } else {
-    pendingArguments.push(argv);
+    pendingArguments.push(commandLine);
   }
 });
 
