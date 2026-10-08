@@ -649,6 +649,14 @@ trackCleanup(
 );
 
 trackCleanup(
+  electronApi?.onUpdateInstallError((issue: string) => {
+    updateErrorTitle.value = 'Installing Update...';
+    updateErrorIssue.value = `An error occurred while installing the update (${common.formatMessage(issue, false)}).`;
+    updateErrorVisible.value = true;
+  })
+);
+
+trackCleanup(
   electronApi?.onUpdateDownloadProgress((percent: number) => {
     updateDownloadPercent.value = percent;
   })

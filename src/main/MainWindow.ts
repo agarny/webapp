@@ -57,10 +57,29 @@ autoUpdater.on('download-progress', (info: ProgressInfo) => {
   MainWindow.instance?.send('update-download-progress', info.percent);
 });
 
+// Forward any issue with installing an update.
+// Note: on macOS, electron-updater hands a downloaded update over to Squirrel.Mac, which reports any issue (e.g., the
+//       update couldn't be staged or its signature is invalid) only through an error event, i.e. after downloadUpdate()
+//       has resolved, so our renderer would otherwise wait forever for the update to be installed. Other issues are
+//       reported through the promises returned by checkForUpdates() and downloadUpdate() (as well as through an error
+//       event), so we only forward error events once an update has been downloaded, to avoid reporting an issue twice.
+
+let updateDownloaded = false;
+
+autoUpdater.on('error', (error: Error) => {
+  if (updateDownloaded) {
+    MainWindow.instance?.send('update-install-error', formatError(error));
+  }
+});
+
 export const downloadAndInstallUpdate = (): void => {
+  updateDownloaded = false;
+
   autoUpdater
     .downloadUpdate()
     .then(() => {
+      updateDownloaded = true;
+
       MainWindow.instance?.send('update-downloaded');
     })
     .catch((error: unknown) => {
