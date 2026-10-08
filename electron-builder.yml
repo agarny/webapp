@@ -1,5 +1,14 @@
 appId: ws.opencor.app
 productName: OpenCOR
+# Only package what is needed at runtime, i.e. our built main, preload, and renderer files (out/), the files used by our
+# splash screen window and for our application icon (src/main/assets/ and our logo), and package.json.
+# Note: our production dependencies get added automatically.
+files:
+  - out/**
+  - src/main/assets/**
+  - "!src/main/assets/README.md"
+  - src/renderer/src/assets/logo.svg
+  - package.json
 publish:
   provider: github
   channel: latest-${arch}
