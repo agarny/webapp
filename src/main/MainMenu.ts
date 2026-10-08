@@ -1,10 +1,10 @@
 import electron from 'electron';
 
 import { formatError } from '../renderer/src/common/common';
-import { isMacOs, isPackaged } from '../renderer/src/common/electron';
+import { isMacOs } from '../renderer/src/common/electron';
 
 import { mainWindow } from './index';
-import { clearRecentFiles } from './MainWindow';
+import { canCheckForUpdates, clearRecentFiles } from './MainWindow';
 
 let enabledMenu: electron.Menu | null = null;
 let disabledMenu: electron.Menu | null = null;
@@ -36,7 +36,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
 
     let checkForUpdatesMenuItem: electron.MenuItemConstructorOptions | null = null;
 
-    if (isPackaged()) {
+    if (canCheckForUpdates()) {
       checkForUpdatesMenuItem = {
         label: 'Check for Updates...',
         click: () => {

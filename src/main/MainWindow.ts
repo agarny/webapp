@@ -1,5 +1,6 @@
 import electron from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateCheckResult } from 'electron-updater';
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { formatError, isDataUrlOmexFileName, type ISettings, isUrl } from '../renderer/src/common/common';
@@ -18,10 +19,23 @@ import type { SplashScreenWindow } from './SplashScreenWindow';
 autoUpdater.autoDownload = false;
 autoUpdater.logger = null;
 
-export const checkForUpdates = (atStartup: boolean): void => {
-  // Check for updates, if requested and if OpenCOR is packaged.
+// Determine whether we can check for updates.
+// Note: we can only check for updates if OpenCOR is packaged and has some update information, i.e. an app-update.yml
+//       file next to its app.asar file, which electron-builder only generates when building a release (e.g., not when
+//       building an unpacked version of OpenCOR using electron-builder --dir).
 
-  if (isPackaged() && electronConf.get('settings.general.checkForUpdatesAtStartup')) {
+let _canCheckForUpdates: boolean | null = null;
+
+export const canCheckForUpdates = (): boolean => {
+  _canCheckForUpdates ??= isPackaged() && fs.existsSync(path.join(process.resourcesPath, 'app-update.yml'));
+
+  return _canCheckForUpdates;
+};
+
+export const checkForUpdates = (atStartup: boolean): void => {
+  // Check for updates, if we can and if requested (i.e. at startup, if the user wants us to, or by the user).
+
+  if (canCheckForUpdates() && (!atStartup || electronConf.get('settings.general.checkForUpdatesAtStartup'))) {
     autoUpdater
       .checkForUpdates()
       .then((result: UpdateCheckResult | null) => {
