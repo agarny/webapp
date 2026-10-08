@@ -144,7 +144,7 @@ export const fileIssue = (filePath: string): void => {
   // A file couldn't be opened, possibly while reopening files during OpenCOR startup, in which case we need to make sure
   // that it doesn't get selected and reopen the next file.
 
-  MainWindow.instance?.reopenFilePathsAndSelectFilePath(filePath);
+  MainWindow.instance?.fileOpenedOrNot(filePath, false);
 };
 
 export const fileOpened = (filePath: string): void => {
@@ -152,11 +152,10 @@ export const fileOpened = (filePath: string): void => {
     updateReopenMenu(recentFilePaths);
   }
 
-  // A file has been opened, but it may have been opened while reopening files during OpenCOR startup, in which case we
-  // need to reopen the next file, hence our call to reopenFilePathsAndSelectFilePath(), which will do nothing if there
-  // are no more files to reopen.
+  // A file has been opened, possibly while reopening files during OpenCOR startup, in which case we need to reopen the
+  // next file.
 
-  MainWindow.instance?.reopenFilePathsAndSelectFilePath();
+  MainWindow.instance?.fileOpenedOrNot(filePath, true);
 };
 
 let openedFilePaths: string[] = [];
@@ -261,6 +260,7 @@ export class MainWindow extends ApplicationWindow {
   //       onRenderProcessGone()).
   private _openedFilePaths: string[] = [];
   private _openedFilePathIndex = 0;
+  private _reopeningFilePath: string | null = null;
   private _selectedFilePath = '';
 
   // Constructor.
@@ -514,6 +514,7 @@ export class MainWindow extends ApplicationWindow {
     this._pendingArguments = [];
     this._openedFilePaths = [];
     this._openedFilePathIndex = 0;
+    this._reopeningFilePath = null;
     this._selectedFilePath = '';
     this._filesToReopen = filesToReopen;
 
@@ -551,20 +552,36 @@ export class MainWindow extends ApplicationWindow {
     this.handleArguments(this._pendingArguments.splice(0));
   }
 
-  // Reopen previously opened files, if any, and select the previously selected file.
-  // Note: we reopen one file at a time since a file may be a remote file which means that it may take some time to
-  //       reopen. So, we need to wait for the file to be reopened before reopening the next one.
+  // A file has been opened or not (e.g., because it couldn't be retrieved).
+  // Note: we only reopen the next file if the given file is the one that we are reopening. Indeed, other files may be
+  //       opened while we are reopening files (e.g., files passed on the command line or files opened by the user)
+  //       and they must not result in us reopening the next file before the file that we are reopening has been opened
+  //       (or not) since we would otherwise end up reopening several files at once and selecting the previously
+  //       selected file before it has been reopened.
 
-  reopenFilePathsAndSelectFilePath(failedFilePath?: string): void {
+  fileOpenedOrNot(filePath: string, opened: boolean): void {
     // Make sure that we don't select a file that couldn't be (re)opened.
 
-    if (failedFilePath && failedFilePath === this._selectedFilePath) {
+    if (!opened && filePath === this._selectedFilePath) {
       this._selectedFilePath = '';
     }
 
+    // Reopen the next file, if any, if the given file is the one that we are reopening.
+
+    if (filePath === this._reopeningFilePath) {
+      this._reopeningFilePath = null;
+
+      this.reopenFilePathsAndSelectFilePath();
+    }
+  }
+
+  // Reopen previously opened files, if any, and select the previously selected file.
+  // Note: we reopen one file at a time since a file may be a remote file which means that it may take some time to
+  //       reopen. So, we only reopen the next file once our renderer has told us that the previous file has been
+  //       opened (or couldn't be opened), see fileOpenedOrNot().
+
+  reopenFilePathsAndSelectFilePath(): void {
     // Reopen the next file, if any.
-    // Note: we reopen files one at a time, i.e. we only reopen the next file once the renderer has told us that the
-    //       previous file has been opened (or couldn't be opened).
 
     while (this._openedFilePathIndex < this._openedFilePaths.length) {
       const filePath = this._openedFilePaths[this._openedFilePathIndex];
@@ -572,6 +589,8 @@ export class MainWindow extends ApplicationWindow {
       ++this._openedFilePathIndex;
 
       if (filePath) {
+        this._reopeningFilePath = filePath;
+
         this.send('open', filePath);
 
         return;

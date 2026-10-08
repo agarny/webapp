@@ -915,6 +915,11 @@ const openFile = (fileFilePathOrFileContents: string | Uint8Array | File): void 
     }
 
     if (fileInfo.alreadyOpen) {
+      // Note: we let our main process know that the file is open since it may be waiting for it (e.g., if the file is
+      //       being reopened at startup, see MainWindow.fileOpenedOrNot()).
+
+      electronApi?.fileOpened(fileInfo.filePath);
+
       await contentsRef.value?.selectFile(fileInfo.filePath);
 
       return;
@@ -946,6 +951,10 @@ const openFiles = (filesFilePathsOrFileContents: (string | Uint8Array | File)[])
     }
 
     if (currentFileInfo.alreadyOpen) {
+      // Note: see the note in openFile() above.
+
+      electronApi?.fileOpened(currentFileInfo.filePath);
+
       await contentsRef.value?.selectFile(currentFileInfo.filePath, true);
 
       return;
