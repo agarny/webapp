@@ -181,10 +181,19 @@ const fromFloat64ArrayForSchemaValidation = (values: unknown): unknown => {
   // Note: a Float64Array can only contain numbers, so for schema validation purposes, we only need an array that has
   //       the same "emptiness" and that contains numbers. This means that we don't have to convert (and then validate)
   //       all the values of a Float64Array, which would be costly for large external data. (The actual length of a
-  //       Float64Array is checked separately, see validateUiJson().)
+  //       Float64Array is checked separately, see validateUiJson().) However, a Float64Array may contain non-finite
+  //       numbers (e.g., NaN for a non-numeric value, see toFloat64Array()), which are not valid numbers as far as our
+  //       schema validation is concerned, so if there are any then we convert all the values of the Float64Array so
+  //       that each of them gets reported.
 
   if (!(values instanceof Float64Array)) {
     return values;
+  }
+
+  for (const value of values) {
+    if (!Number.isFinite(value)) {
+      return Array.from(values);
+    }
   }
 
   return values.length ? [values[0]] : [];
