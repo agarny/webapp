@@ -336,7 +336,8 @@ for (const externalDependency of externalDependencies) {
   });
 }
 
-dependencies.initialiseXxhash
+dependencies
+  .initialiseXxhash()
   .then(() => {
     ++crtNbOfSteps.value;
   })
