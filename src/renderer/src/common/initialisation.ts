@@ -83,14 +83,33 @@ const withRetries = async <T>(name: string, operation: (attempt: number) => Prom
 };
 
 // A helper function to return the URL to use for the given attempt at loading a resource.
-// Note: browsers remember that a module failed to be imported from a given URL and will fail to import it again from
-//       that same URL without even trying. So, from our second attempt onwards, we add a query string to the URL, which
-//       is ignored when serving static files (e.g., by jsDelivr and https://opencor.ws), so that our browser considers
-//       it to be a different URL. Note that this doesn't apply to blob URLs, which wouldn't be valid anymore with a
-//       query string (and which don't involve the network anyway).
+// Note #1: browsers remember that a module failed to be imported from a given URL and will fail to import it again from
+//          that same URL without even trying. So, from our second attempt onwards, we add a query string to the URL,
+//          which is ignored when serving static files (e.g., by https://opencor.ws), so that our browser considers it
+//          to be a different URL. Note that this doesn't apply to blob URLs, which wouldn't be valid anymore with a
+//          query string (and which don't involve the network anyway).
+// Note #2: a module from jsDelivr may import other modules from jsDelivr (e.g., Math.js imports typed-function, using
+//          /npm/typed-function@x.y.z/+esm), and if one of them fails to be imported, then a query string won't help
+//          since it only applies to the module itself. So, from our second attempt onwards, we instead use an
+//          alternative jsDelivr host (each served by a different CDN provider), which the imported modules'
+//          (root-relative) URLs resolve against, so that our browser considers all of them to be different URLs.
+
+const JSDELIVR_HOST = 'cdn.jsdelivr.net';
+const JSDELIVR_ALTERNATIVE_HOSTS = ['fastly.jsdelivr.net', 'gcore.jsdelivr.net'];
+// Note: these hosts must be allowed by our Content Security Policy (see index.html).
 
 const attemptUrl = (url: string, attempt: number): string => {
-  return attempt === 1 || url.startsWith('blob:') ? url : `${url}${url.includes('?') ? '&' : '?'}retry=${attempt}`;
+  if (attempt === 1 || url.startsWith('blob:')) {
+    return url;
+  }
+
+  const jsDelivrAlternativeHost = JSDELIVR_ALTERNATIVE_HOSTS[attempt - 2];
+
+  if (jsDelivrAlternativeHost && url.startsWith(`https://${JSDELIVR_HOST}/`)) {
+    return `https://${jsDelivrAlternativeHost}/${url.slice(`https://${JSDELIVR_HOST}/`.length)}`;
+  }
+
+  return `${url}${url.includes('?') ? '&' : '?'}retry=${attempt}`;
 };
 
 // Import libOpenCOR's glue (i.e. its JavaScript loader), retrying if needed.
