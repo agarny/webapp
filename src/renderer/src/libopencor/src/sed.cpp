@@ -43,17 +43,19 @@ libOpenCOR::SedInstanceTaskPtr toSedInstanceTask(const Napi::CallbackInfo &pInfo
     return task;
 }
 
-// Retrieve the first values of the given values.
-// Note: the number of values is optional and allows us to retrieve only the values that have been computed so far (e.g.,
-//       while a simulation is running), thus avoiding the copy of values that are not needed.
+// Retrieve a slice of the given values.
+// Note: the start and end of the slice are optional (with the same semantics as JavaScript's Array.prototype.slice(),
+//       except for negative values, which are not supported) and allow us to retrieve only some of the values (e.g.,
+//       the values that have been computed since we last retrieved some while a simulation is running), thus avoiding
+//       the copy of values that are not needed.
 
-std::span<const double> firstValues(std::span<const double> pValues, const Napi::Value &pCount)
+std::span<const double> sliceValues(std::span<const double> pValues, const Napi::Value &pStart, const Napi::Value &pEnd)
 {
-    if (!pCount.IsNumber()) {
-        return pValues;
-    }
+    const auto size = pValues.size();
+    const auto start = pStart.IsNumber() ? std::min(toSizeT(pStart), size) : 0;
+    const auto end = pEnd.IsNumber() ? std::min(toSizeT(pEnd), size) : size;
 
-    return pValues.first(std::min(toSizeT(pCount), pValues.size()));
+    return (start < end) ? pValues.subspan(start, end - start) : std::span<const double>();
 }
 
 } // namespace
@@ -371,7 +373,7 @@ napi_value sedInstanceTaskVoi(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->voi(), pInfo[2]));
+    return doublesToNapiFloat64Array(pInfo.Env(), sliceValues(task->voi(), pInfo[2], pInfo[3]));
 }
 
 napi_value sedInstanceTaskStateCount(const Napi::CallbackInfo &pInfo)
@@ -399,7 +401,7 @@ napi_value sedInstanceTaskState(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->state(toInt32(pInfo[2])), pInfo[3]));
+    return doublesToNapiFloat64Array(pInfo.Env(), sliceValues(task->state(toInt32(pInfo[2])), pInfo[3], pInfo[4]));
 }
 
 napi_value sedInstanceTaskRateCount(const Napi::CallbackInfo &pInfo)
@@ -427,7 +429,7 @@ napi_value sedInstanceTaskRate(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->rate(toInt32(pInfo[2])), pInfo[3]));
+    return doublesToNapiFloat64Array(pInfo.Env(), sliceValues(task->rate(toInt32(pInfo[2])), pInfo[3], pInfo[4]));
 }
 
 napi_value sedInstanceTaskConstantCount(const Napi::CallbackInfo &pInfo)
@@ -455,7 +457,7 @@ napi_value sedInstanceTaskConstant(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->constant(toInt32(pInfo[2])), pInfo[3]));
+    return doublesToNapiFloat64Array(pInfo.Env(), sliceValues(task->constant(toInt32(pInfo[2])), pInfo[3], pInfo[4]));
 }
 
 napi_value sedInstanceTaskComputedConstantCount(const Napi::CallbackInfo &pInfo)
@@ -483,7 +485,7 @@ napi_value sedInstanceTaskComputedConstant(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->computedConstant(toInt32(pInfo[2])), pInfo[3]));
+    return doublesToNapiFloat64Array(pInfo.Env(), sliceValues(task->computedConstant(toInt32(pInfo[2])), pInfo[3], pInfo[4]));
 }
 
 napi_value sedInstanceTaskAlgebraicVariableCount(const Napi::CallbackInfo &pInfo)
@@ -511,5 +513,5 @@ napi_value sedInstanceTaskAlgebraicVariable(const Napi::CallbackInfo &pInfo)
 {
     auto task = toSedInstanceTask(pInfo);
 
-    return doublesToNapiFloat64Array(pInfo.Env(), firstValues(task->algebraicVariable(toInt32(pInfo[2])), pInfo[3]));
+    return doublesToNapiFloat64Array(pInfo.Env(), sliceValues(task->algebraicVariable(toInt32(pInfo[2])), pInfo[3], pInfo[4]));
 }

@@ -634,10 +634,10 @@ export class SedInstance {
   }
 }
 
-// A helper function to retrieve (a view of) the first values of the given values.
+// A helper function to retrieve (a view of) a slice of the given values.
 
-const firstValues = (values: Float64Array, count?: number): Float64Array => {
-  return count === undefined ? values : values.subarray(0, count);
+const sliceValues = (values: Float64Array, start?: number, end?: number): Float64Array => {
+  return start === undefined && end === undefined ? values : values.subarray(start ?? 0, end);
 };
 
 export class SedInstanceTask extends SedIndex {
@@ -672,15 +672,16 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.voiUnit;
   }
 
-  // Note: the various methods to retrieve simulation data accept an optional number of values, which allows us to
-  //       retrieve only the values that have been computed so far (e.g., while a simulation is running). With the C++
-  //       version of libOpenCOR, this avoids copying values that are not needed. With the WASM version of libOpenCOR,
-  //       the simulation data is a view of the WASM heap, so we simply return a view of the first values.
+  // Note: the various methods to retrieve simulation data accept an optional start and end (with the same semantics as
+  //       Array.prototype.slice(), except for negative values, which are not supported), which allow us to retrieve
+  //       only some of the values (e.g., those that have been computed since we last retrieved some while a simulation
+  //       is running). With the C++ version of libOpenCOR, this avoids copying values that are not needed. With the
+  //       WASM version of libOpenCOR, the simulation data is a view of the WASM heap, so we simply return a view of it.
 
-  voi(count?: number): Float64Array {
+  voi(start?: number, end?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskVoi(this._cppInstanceId, this._index, count)
-      : firstValues(this._wasmSedInstanceTask.voi, count);
+      ? _cppLocApi.sedInstanceTaskVoi(this._cppInstanceId, this._index, start, end)
+      : sliceValues(this._wasmSedInstanceTask.voi, start, end);
   }
 
   stateCount(): number {
@@ -701,10 +702,10 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.stateUnit(index);
   }
 
-  state(index: number, count?: number): Float64Array {
+  state(index: number, start?: number, end?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskState(this._cppInstanceId, this._index, index, count)
-      : firstValues(this._wasmSedInstanceTask.state(index), count);
+      ? _cppLocApi.sedInstanceTaskState(this._cppInstanceId, this._index, index, start, end)
+      : sliceValues(this._wasmSedInstanceTask.state(index), start, end);
   }
 
   rateCount(): number {
@@ -725,10 +726,10 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.rateUnit(index);
   }
 
-  rate(index: number, count?: number): Float64Array {
+  rate(index: number, start?: number, end?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskRate(this._cppInstanceId, this._index, index, count)
-      : firstValues(this._wasmSedInstanceTask.rate(index), count);
+      ? _cppLocApi.sedInstanceTaskRate(this._cppInstanceId, this._index, index, start, end)
+      : sliceValues(this._wasmSedInstanceTask.rate(index), start, end);
   }
 
   constantCount(): number {
@@ -749,10 +750,10 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.constantUnit(index);
   }
 
-  constant(index: number, count?: number): Float64Array {
+  constant(index: number, start?: number, end?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskConstant(this._cppInstanceId, this._index, index, count)
-      : firstValues(this._wasmSedInstanceTask.constant(index), count);
+      ? _cppLocApi.sedInstanceTaskConstant(this._cppInstanceId, this._index, index, start, end)
+      : sliceValues(this._wasmSedInstanceTask.constant(index), start, end);
   }
 
   computedConstantCount(): number {
@@ -773,10 +774,10 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.computedConstantUnit(index);
   }
 
-  computedConstant(index: number, count?: number): Float64Array {
+  computedConstant(index: number, start?: number, end?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskComputedConstant(this._cppInstanceId, this._index, index, count)
-      : firstValues(this._wasmSedInstanceTask.computedConstant(index), count);
+      ? _cppLocApi.sedInstanceTaskComputedConstant(this._cppInstanceId, this._index, index, start, end)
+      : sliceValues(this._wasmSedInstanceTask.computedConstant(index), start, end);
   }
 
   algebraicVariableCount(): number {
@@ -797,9 +798,9 @@ export class SedInstanceTask extends SedIndex {
       : this._wasmSedInstanceTask.algebraicVariableUnit(index);
   }
 
-  algebraicVariable(index: number, count?: number): Float64Array {
+  algebraicVariable(index: number, start?: number, end?: number): Float64Array {
     return cppVersion()
-      ? _cppLocApi.sedInstanceTaskAlgebraicVariable(this._cppInstanceId, this._index, index, count)
-      : firstValues(this._wasmSedInstanceTask.algebraicVariable(index), count);
+      ? _cppLocApi.sedInstanceTaskAlgebraicVariable(this._cppInstanceId, this._index, index, start, end)
+      : sliceValues(this._wasmSedInstanceTask.algebraicVariable(index), start, end);
   }
 }

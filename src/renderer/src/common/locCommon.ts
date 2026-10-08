@@ -417,40 +417,41 @@ export const simulationDataInfos = (instanceTask: locApi.SedInstanceTask): Map<s
 export const simulationDataValue = (
   instanceTask: locApi.SedInstanceTask,
   info: ISimulationDataInfo,
-  count?: number
+  start?: number,
+  end?: number
 ): IOpenCORSimulationDataValue => {
-  // Note: count allows us to retrieve only the first values (e.g., those that have been computed so far while a
-  //       simulation is running), see locApi.SedInstanceTask.voi() for instance.
+  // Note: start and end allow us to retrieve only some of the values (e.g., those that have been computed since we last
+  //       retrieved some while a simulation is running), see locApi.SedInstanceTask.voi() for instance.
 
   switch (info.type) {
     case ESimulationDataInfoType.VOI:
       return {
-        data: instanceTask.voi(count),
+        data: instanceTask.voi(start, end),
         unit: instanceTask.voiUnit()
       };
     case ESimulationDataInfoType.STATE:
       return {
-        data: instanceTask.state(info.index, count),
+        data: instanceTask.state(info.index, start, end),
         unit: instanceTask.stateUnit(info.index)
       };
     case ESimulationDataInfoType.RATE:
       return {
-        data: instanceTask.rate(info.index, count),
+        data: instanceTask.rate(info.index, start, end),
         unit: instanceTask.rateUnit(info.index)
       };
     case ESimulationDataInfoType.CONSTANT:
       return {
-        data: instanceTask.constant(info.index, count),
+        data: instanceTask.constant(info.index, start, end),
         unit: instanceTask.constantUnit(info.index)
       };
     case ESimulationDataInfoType.COMPUTED_CONSTANT:
       return {
-        data: instanceTask.computedConstant(info.index, count),
+        data: instanceTask.computedConstant(info.index, start, end),
         unit: instanceTask.computedConstantUnit(info.index)
       };
     case ESimulationDataInfoType.ALGEBRAIC:
       return {
-        data: instanceTask.algebraicVariable(info.index, count),
+        data: instanceTask.algebraicVariable(info.index, start, end),
         unit: instanceTask.algebraicVariableUnit(info.index)
       };
     default:

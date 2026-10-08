@@ -158,6 +158,67 @@ const yInfo = vue.computed<locCommon.ISimulationDataInfo>(() => {
   return instanceTask ? locCommon.simulationDataInfo(instanceTask, yParameter.value) : locCommon.NoSimulationDataInfo;
 });
 
+// Our live data, i.e. the data that we have retrieved so far while a simulation is running.
+// Note: while a simulation is running, we only retrieve the data that has been computed since our last update (rather
+//       than all of it every time) and store it in some buffers, which we then plot using views of them (so no copy is
+//       involved, while still providing Plotly with new arrays, which it needs to update our plot). Also, libOpenCOR
+//       counts a step as completed just before storing its results, so the last point that we retrieved may not have
+//       been stored at the time, which is why we always retrieve it again.
+
+interface ILiveData {
+  task: locSedApi.SedInstanceTask;
+  xInfo: locCommon.ISimulationDataInfo;
+  yInfo: locCommon.ISimulationDataInfo;
+  x: Float64Array;
+  y: Float64Array;
+  size: number;
+}
+
+let liveData: ILiveData | null = null;
+
+const retrieveLiveData = (task: locSedApi.SedInstanceTask, dataSize: number): ILiveData => {
+  // (Re)create our buffers if needed (e.g., at the start of a simulation run or if the X or Y parameter has changed) or
+  // grow them if they are too small.
+
+  if (!liveData || liveData.task !== task || liveData.xInfo !== xInfo.value || liveData.yInfo !== yInfo.value) {
+    const capacity = Math.max(dataSize, (uniformTimeCourse?.numberOfSteps() ?? 0) + 1);
+
+    liveData = {
+      task,
+      xInfo: xInfo.value,
+      yInfo: yInfo.value,
+      x: new Float64Array(capacity),
+      y: new Float64Array(capacity),
+      size: 0
+    };
+  } else if (dataSize > liveData.x.length) {
+    const x = new Float64Array(dataSize);
+    const y = new Float64Array(dataSize);
+
+    x.set(liveData.x);
+    y.set(liveData.y);
+
+    liveData.x = x;
+    liveData.y = y;
+  }
+
+  // Retrieve the data that has been computed since our last update (as well as our last point, see above).
+
+  const start = Math.max(0, liveData.size - 1);
+
+  if (dataSize > start) {
+    const x = locCommon.simulationDataValue(task, liveData.xInfo, start, dataSize).data;
+    const y = locCommon.simulationDataValue(task, liveData.yInfo, start, dataSize).data;
+
+    liveData.x.set(x, start);
+    liveData.y.set(y, start);
+
+    liveData.size = Math.max(liveData.size, start + Math.min(x.length, y.length));
+  }
+
+  return liveData;
+};
+
 const updatePlot = (dataSize: number = 0): void => {
   if (!instanceTask) {
     data.value = {
@@ -183,16 +244,28 @@ const updatePlot = (dataSize: number = 0): void => {
       : undefined;
 
   // Retrieve the data for the selected X and Y parameters and update the plot.
-  // Note: we only retrieve the data that has been computed so far. With the C++ version of libOpenCOR, that data is a
-  //       copy that we own, so we can use it as is. With the WASM version of libOpenCOR, that data is a view of the WASM
-  //       heap, so we need to copy it.
+  // Note: while a simulation is running (i.e. dataSize > 0), we use our live data (see retrieveLiveData()). Otherwise,
+  //       we retrieve all the data. With the C++ version of libOpenCOR, that data is a copy that we own, so we can use
+  //       it as is. With the WASM version of libOpenCOR, that data is a view of the WASM heap, so we need to copy it.
 
-  const dataCount = dataSize > 0 ? dataSize : undefined;
-  const xData = locCommon.simulationDataValue(instanceTask, xInfo.value, dataCount).data;
-  const yData = locCommon.simulationDataValue(instanceTask, yInfo.value, dataCount).data;
-  const ownData = (values: Float64Array): Float64Array => {
-    return locApi.cppVersion() ? values : values.slice();
-  };
+  let xData: Float64Array;
+  let yData: Float64Array;
+
+  if (dataSize > 0) {
+    const live = retrieveLiveData(instanceTask, dataSize);
+
+    xData = live.x.subarray(0, live.size);
+    yData = live.y.subarray(0, live.size);
+  } else {
+    liveData = null;
+
+    const ownData = (values: Float64Array): Float64Array => {
+      return locApi.cppVersion() ? values : values.slice();
+    };
+
+    xData = ownData(locCommon.simulationDataValue(instanceTask, xInfo.value).data);
+    yData = ownData(locCommon.simulationDataValue(instanceTask, yInfo.value).data);
+  }
 
   data.value = {
     xAxisTitle: xParameter.value,
@@ -203,9 +276,9 @@ const updatePlot = (dataSize: number = 0): void => {
       {
         name: vueCommon.traceName(undefined, xParameter.value, yParameter.value),
         xValue: xParameter.value,
-        x: ownData(xData),
+        x: xData,
         yValue: yParameter.value,
-        y: ownData(yData),
+        y: yData,
         color: colors.DEFAULT_COLOR
       }
     ]
