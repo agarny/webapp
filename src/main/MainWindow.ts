@@ -392,7 +392,7 @@ export class MainWindow extends ApplicationWindow {
         //       never was ready (e.g., OpenCOR couldn't be loaded), in which case it never told us about the files that
         //       are open, so we keep the files that were open when OpenCOR was last closed.
 
-        const filesToReopen = this._rendererReady ? currentFilesToReopen() : this._filesToReopen;
+        const filesToReopen = this._rendererReady ? this.filesToReopen() : this._filesToReopen;
 
         if (filesToReopen) {
           electronConf.set('app.files.opened', filesToReopen.opened);
@@ -575,15 +575,16 @@ export class MainWindow extends ApplicationWindow {
 
     // Reload our renderer, making sure that our main menu is enabled (our renderer may have disabled it, e.g., because
     // a dialog was open) and that we reopen our files once our renderer is ready again.
-    // Note: if our renderer was ready, then we keep track of the files that were open and of the selected file, so that
-    //       they can be reopened and selected once our renderer is ready again. If it wasn't ready, then it never told
-    //       us about the files that are open, so we keep the files that we were going to reopen (i.e. those from a
-    //       previous crash, if any, or those that were open when OpenCOR was last closed, see rendererReady()), as well
-    //       as the arguments that we were asked to handle (e.g., our command line), which were never handled. Unless,
-    //       that is, we were asked not to reopen any files, in which case we also discard those arguments since they
-    //       may include the file that caused the crash. Either way, the files to reopen are what gets saved should
-    //       OpenCOR be quit before our renderer is ready again, so the next time OpenCOR is started, it won't reopen
-    //       the files that might have caused the crash either.
+    // Note: if our renderer was ready, then we keep track of the files that were open (as well as those that we had yet
+    //       to reopen, see filesToReopen()) and of the selected file, so that they can be reopened and selected once
+    //       our renderer is ready again. If it wasn't ready, then it never told us about the files that are open, so we
+    //       keep the files that we were going to reopen (i.e. those from a previous crash, if any, or those that were
+    //       open when OpenCOR was last closed, see rendererReady()), as well as the arguments that we were asked to
+    //       handle (e.g., our command line), which were never handled. Unless, that is, we were asked not to reopen any
+    //       files, in which case we also discard those arguments since they may include the file that caused the crash.
+    //       Either way, the files to reopen are what gets saved should OpenCOR be quit before our renderer is ready
+    //       again, so the next time OpenCOR is started, it won't reopen the files that might have caused the crash
+    //       either.
 
     enableDisableMainMenu(true);
 
@@ -591,7 +592,7 @@ export class MainWindow extends ApplicationWindow {
       this._filesToReopen = { opened: [], selected: '' };
       this._pendingArguments = [];
     } else if (this._rendererReady) {
-      this._filesToReopen = currentFilesToReopen();
+      this._filesToReopen = this.filesToReopen();
     }
 
     // Forget about the files that our (crashed) renderer told us were open (and selected).
@@ -640,6 +641,39 @@ export class MainWindow extends ApplicationWindow {
     this.reopenFilePathsAndSelectFilePath();
 
     this.handleArguments(this._pendingArguments.splice(0));
+  }
+
+  // Retrieve the files to reopen and the file to select (e.g., because we are being closed or because our renderer has
+  // crashed).
+  // Note: if we are still reopening files (see reopenFilePathsAndSelectFilePath()), then our renderer has only told us
+  //       about the files that it has opened so far, so we must also account for the file that we are reopening and for
+  //       those that we have yet to reopen. Similarly, our renderer selects each file that it opens, so the file that
+  //       it has told us is selected is not necessarily the one that we have yet to select.
+
+  private filesToReopen(): IFilesToReopen {
+    const res = currentFilesToReopen();
+
+    if (this._reopeningFilePath === null) {
+      return res;
+    }
+
+    const opened = new Set(res.opened);
+
+    for (const filePath of [this._reopeningFilePath, ...this._openedFilePaths.slice(this._openedFilePathIndex)]) {
+      if (filePath && !isDataUrlOmexFileName(filePath)) {
+        opened.add(filePath);
+      }
+    }
+
+    const openedFilePaths = [...opened];
+
+    return {
+      opened: openedFilePaths,
+      selected:
+        this._selectedFilePath && opened.has(this._selectedFilePath)
+          ? this._selectedFilePath
+          : res.selected || (openedFilePaths[0] ?? '')
+    };
   }
 
   // A file has been opened or not (e.g., because it couldn't be retrieved).
