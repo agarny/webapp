@@ -42,7 +42,13 @@ const onPropertyUpdated = (index: number, newValue: number): void => {
   } else if (index === 1) {
     props.uniformTimeCourse.setOutputEndTime(newValue);
   } else if (index === 2) {
-    props.uniformTimeCourse.setNumberOfSteps((properties.value[1].value - properties.value[0].value) / newValue);
+    // Note: we round the number of steps since, due to rounding errors, dividing the simulation range by the point
+    //       interval may not give an integer (e.g., (2.3 - 0) / 0.1 = 22.999999999999996), which would otherwise get
+    //       truncated (i.e. 22 rather than 23 steps).
+
+    props.uniformTimeCourse.setNumberOfSteps(
+      Math.round((properties.value[1].value - properties.value[0].value) / newValue)
+    );
   }
 };
 </script>
