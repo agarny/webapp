@@ -594,14 +594,20 @@ const handleAction = (action: string): void => {
 };
 
 // Enable/disable some menu items.
+// Note: we let our main process know straight away whether we have files since our main menu may still reflect a
+//       previous instance of our renderer (e.g., if we got reloaded while some files were open).
 
 const hasFiles = vue.computed<boolean>(() => {
   return contentsRef.value?.hasFiles() ?? false;
 });
 
-vue.watch(hasFiles, (newHasFiles: boolean) => {
-  electronApi?.enableDisableFileCloseAndCloseAllMenuItems(newHasFiles);
-});
+vue.watch(
+  hasFiles,
+  (newHasFiles: boolean) => {
+    electronApi?.enableDisableFileCloseAndCloseAllMenuItems(newHasFiles);
+  },
+  { immediate: true }
+);
 
 // Auto update.
 

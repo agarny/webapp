@@ -13,7 +13,7 @@ import { deleteGitHubAccessToken } from '../renderer/src/common/gitHubIntegratio
 import icon from './assets/icon.png?asset';
 import { ApplicationWindow } from './ApplicationWindow';
 import { electronConf, type IElectronConfState, takeElectronConfBackupFileName } from './index';
-import { enableDisableMainMenu, updateReopenMenu } from './MainMenu';
+import { enableDisableFileCloseAndCloseAllMenuItems, enableDisableMainMenu, updateReopenMenu } from './MainMenu';
 import type { SplashScreenWindow } from './SplashScreenWindow';
 
 autoUpdater.autoDownload = false;
@@ -665,12 +665,16 @@ export class MainWindow extends ApplicationWindow {
     }
 
     // Forget about the files that our (crashed) renderer told us were open (and selected).
-    // Note: our reloaded renderer will tell us about the files that are open, but only once it has opened some, so we
-    //       would otherwise save the files that were open at the time of the crash (see currentFilesToReopen()) should
-    //       OpenCOR be quit before any file gets opened, i.e. reopen the files that might have caused the crash the
-    //       next time OpenCOR is started.
+    // Note #1: our reloaded renderer will tell us about the files that are open, but only once it has opened some, so
+    //          we would otherwise save the files that were open at the time of the crash (see currentFilesToReopen())
+    //          should OpenCOR be quit before any file gets opened, i.e. reopen the files that might have caused the
+    //          crash the next time OpenCOR is started.
+    // Note #2: similarly, our reloaded renderer has no files to start with, so our File|Close and File|Close All menu
+    //          items must be disabled (they will get enabled again once a file gets (re)opened).
 
     filesOpened([]);
+
+    enableDisableFileCloseAndCloseAllMenuItems(false);
 
     this._rendererReady = false;
     this._openedFilePaths = [];
