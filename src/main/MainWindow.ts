@@ -505,7 +505,12 @@ export class MainWindow extends ApplicationWindow {
   }
 
   // Our renderer process is gone (e.g., it crashed because of the native libOpenCOR module), so let the user know and
-  // either reload our renderer (and reopen the files that were open) or quit.
+  // either reload our renderer (and reopen the files that were open, or not) or quit.
+  // Note: our renderer may crash because of one of the files that are open (e.g., a model that crashes libOpenCOR when
+  //       it gets simulated, which happens as soon as it is opened if it has a UI JSON). Reopening that file would then
+  //       crash our renderer again, and again each time it is reloaded. We cannot reliably tell which file (if any)
+  //       caused our renderer to crash, so we let the user choose between reloading our renderer with or without the
+  //       files that were open, the latter allowing them to break such a cycle.
 
   onRenderProcessGone(details: electron.RenderProcessGoneDetails): void {
     if (details.reason === 'clean-exit') {
@@ -522,17 +527,21 @@ export class MainWindow extends ApplicationWindow {
       this.show();
     }
 
+    const RELOAD = 0;
+    const RELOAD_WITHOUT_FILES = 1;
+    const QUIT = 2;
+
     const choice = electron.dialog.showMessageBoxSync(this, {
       type: 'error',
       title: 'OpenCOR',
       message: 'OpenCOR has encountered a problem and needs to be reloaded.',
-      detail: `Reason: ${details.reason} (exit code ${details.exitCode}).`,
-      buttons: ['Reload', 'Quit'],
-      defaultId: 0,
-      cancelId: 1
+      detail: `Reason: ${details.reason} (exit code ${details.exitCode}).\n\nIf the problem keeps happening, reload OpenCOR without reopening the files that were open.`,
+      buttons: ['Reload', 'Reload Without Files', 'Quit'],
+      defaultId: RELOAD,
+      cancelId: QUIT
     });
 
-    if (choice !== 0) {
+    if (choice === QUIT) {
       electron.app.quit();
 
       return;
@@ -544,13 +553,28 @@ export class MainWindow extends ApplicationWindow {
     //       they can be reopened and selected once our renderer is ready again. If it wasn't ready, then it never told
     //       us about the files that are open, so we keep the files that we were going to reopen (i.e. those from a
     //       previous crash, if any, or those that were open when OpenCOR was last closed, see rendererReady()), as well
-    //       as the arguments that we were asked to handle (e.g., our command line), which were never handled.
+    //       as the arguments that we were asked to handle (e.g., our command line), which were never handled. Unless,
+    //       that is, we were asked not to reopen any files, in which case we also discard those arguments since they
+    //       may include the file that caused the crash. Either way, the files to reopen are what gets saved should
+    //       OpenCOR be quit before our renderer is ready again, so the next time OpenCOR is started, it won't reopen
+    //       the files that might have caused the crash either.
 
     enableDisableMainMenu(true);
 
-    if (this._rendererReady) {
+    if (choice === RELOAD_WITHOUT_FILES) {
+      this._filesToReopen = { opened: [], selected: '' };
+      this._pendingArguments = [];
+    } else if (this._rendererReady) {
       this._filesToReopen = currentFilesToReopen();
     }
+
+    // Forget about the files that our (crashed) renderer told us were open (and selected).
+    // Note: our reloaded renderer will tell us about the files that are open, but only once it has opened some, so we
+    //       would otherwise save the files that were open at the time of the crash (see currentFilesToReopen()) should
+    //       OpenCOR be quit before any file gets opened, i.e. reopen the files that might have caused the crash the
+    //       next time OpenCOR is started.
+
+    filesOpened([]);
 
     this._rendererReady = false;
     this._openedFilePaths = [];
