@@ -153,6 +153,8 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
       };
 
       // Handle the server listening.
+      // Note: if we cannot determine the port the server is listening on, then we close the server since it cannot be
+      //       used (and nothing else would close it).
 
       const onListening = (): void => {
         server.off('error', onError);
@@ -162,6 +164,8 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
         if (addressInfo?.port) {
           resolve(addressInfo.port);
         } else {
+          closeServer(server).catch(() => {});
+
           reject(new Error("Failed to determine the renderer server's port."));
         }
       };
@@ -208,10 +212,15 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
   };
 
   // Start listening on our preferred port or, if it cannot be used, on a random available port.
-  // Note: a random port that is available on the IPv4 loopback address may not be available on the IPv6 loopback
-  //       address, hence we try a few random ports, if needed.
+  // Note #1: a random port that is available on the IPv4 loopback address may not be available on the IPv6 loopback
+  //          address, hence we try a few random ports, if needed.
+  // Note #2: our preferred port comes from our configuration file, so it may not be a valid port (e.g., if our
+  //          configuration file was edited by hand), in which case we ignore it. Indeed, Node.js would otherwise either
+  //          throw an error or, if it is a string, consider it to be a pipe or socket path (and create a socket file on
+  //          Linux and macOS).
 
-  const ports = preferredPort ? [preferredPort, 0, 0, 0] : [0, 0, 0];
+  const preferredPortIsValid = Number.isInteger(preferredPort) && preferredPort > 0 && preferredPort <= 65535;
+  const ports = preferredPortIsValid ? [preferredPort, 0, 0, 0] : [0, 0, 0];
   let listenError: unknown = null;
 
   for (const port of ports) {

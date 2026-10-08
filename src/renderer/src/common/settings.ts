@@ -1,4 +1,4 @@
-import { formatError, type ISettings, type ISettingsGeneral } from './common';
+import { formatError, type ISettings, type ISettingsGeneral, isObject } from './common';
 import { electronApi } from './electronApi';
 
 // Our default settings.
@@ -12,15 +12,26 @@ const defaultSettings = (): ISettings => {
 };
 
 // A helper function to merge the given (loaded) settings over our default settings.
-// Note: the loaded settings may be incomplete (e.g., if they were saved by an older version of OpenCOR or edited by
-//       hand) or not even be an object, in which case we use our default settings for whatever is missing.
+// Note #1: the loaded settings may be incomplete (e.g., if they were saved by an older version of OpenCOR or edited by
+//          hand), have values of the wrong type (e.g., "false" rather than false), or not even be an object, in which
+//          case we use our default settings for whatever is missing or of the wrong type.
+// Note #2: we keep the settings for which we don't have a default value (e.g., settings saved by a newer version of
+//          OpenCOR).
 
 const withDefaultSettings = (settings: unknown): ISettings => {
   const res = defaultSettings();
-  const general = (settings as Partial<ISettings> | null)?.general;
+  const general = isObject(settings) ? settings.general : undefined;
 
-  if (general && typeof general === 'object') {
-    res.general = { ...res.general, ...general };
+  if (isObject(general)) {
+    const resGeneral = res.general as unknown as Record<string, unknown>;
+
+    for (const [key, value] of Object.entries(general)) {
+      const defaultValue = resGeneral[key];
+
+      if (defaultValue === undefined || typeof value === typeof defaultValue) {
+        resGeneral[key] = value;
+      }
+    }
   }
 
   return res;

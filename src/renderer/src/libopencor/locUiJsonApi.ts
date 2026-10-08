@@ -90,12 +90,6 @@ export const uiJsonReplacer = (_key: string, value: unknown): unknown => {
   return value instanceof Float64Array ? Array.from(value) : value;
 };
 
-// A helper function to determine whether the given value is an object (and not an array).
-
-const isObject = (value: unknown): value is Record<string, unknown> => {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-};
-
 // A helper function to return a version of the given UI JSON that has the structure that the rest of our code relies
 // on, i.e. that can be safely accessed. Anything that doesn't have that structure (e.g., a missing output or a plot
 // that is not an object) is replaced with an empty equivalent (or removed) while everything else is kept as is, so that
@@ -112,7 +106,7 @@ export const uiJsonWithExpectedStructure = (value: unknown): IUiJsonWithExpected
   let repaired = false;
 
   const object = (value: unknown): Record<string, unknown> => {
-    if (isObject(value)) {
+    if (common.isObject(value)) {
       return value;
     }
 
@@ -128,7 +122,7 @@ export const uiJsonWithExpectedStructure = (value: unknown): IUiJsonWithExpected
       return [];
     }
 
-    const res = value.filter(isObject);
+    const res = value.filter(common.isObject);
 
     if (res.length !== value.length) {
       repaired = true;
@@ -209,12 +203,12 @@ const mapExternalData = (
 ): IUiJson | undefined => {
   const output: unknown = (uiJson as unknown as Record<string, unknown>).output;
 
-  if (!isObject(output) || !Array.isArray(output.externalData) || !output.externalData.length) {
+  if (!common.isObject(output) || !Array.isArray(output.externalData) || !output.externalData.length) {
     return undefined;
   }
 
   const externalData = output.externalData.map((externalDataItem: unknown) => {
-    if (!isObject(externalDataItem)) {
+    if (!common.isObject(externalDataItem)) {
       return externalDataItem;
     }
 
@@ -224,7 +218,7 @@ const mapExternalData = (
 
     if (Array.isArray(externalDataItem.dataSeries)) {
       res.dataSeries = externalDataItem.dataSeries.map((dataSeries: unknown) => {
-        if (!isObject(dataSeries)) {
+        if (!common.isObject(dataSeries)) {
           return dataSeries;
         }
 

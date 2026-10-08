@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { formatError, type ISettings } from '../renderer/src/common/common';
+import { formatError, type ISettings, isObject } from '../renderer/src/common/common';
 import { SHORT_DELAY, URI_SCHEME } from '../renderer/src/common/constants';
 import { isLinux, isPackaged, isWindows } from '../renderer/src/common/electron';
 /* TODO: enable once our GitHub integration is fully ready.
@@ -75,17 +75,13 @@ export let electronConf: ElectronConf<IElectronConf>;
 // Note #3: we keep the values for which we don't have a default value (e.g., values saved by a newer version of
 //          OpenCOR).
 
-const isPlainObject = (value: unknown): value is Record<string, unknown> => {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-};
-
 const sanitisedConfValue = (value: unknown, defaultValue: unknown): unknown => {
   if (Array.isArray(defaultValue)) {
     return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [...defaultValue];
   }
 
-  if (isPlainObject(defaultValue)) {
-    const res: Record<string, unknown> = isPlainObject(value) ? { ...value } : {};
+  if (isObject(defaultValue)) {
+    const res: Record<string, unknown> = isObject(value) ? { ...value } : {};
 
     for (const [key, keyDefaultValue] of Object.entries(defaultValue)) {
       res[key] = sanitisedConfValue(res[key], keyDefaultValue);

@@ -85,6 +85,12 @@ export const isDataUrlOmexFileName = (fileName: string): boolean => {
   return fileName.startsWith(OMEX_PREFIX);
 };
 
+// A method to determine whether the given value is an object (and not an array).
+
+export const isObject = (value: unknown): value is Record<string, unknown> => {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+};
+
 // A method to determine whether a URL is an HTTP or HTTPS URL.
 
 export const isUrl = (filePath: string): boolean => {
