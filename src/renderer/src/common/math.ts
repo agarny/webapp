@@ -29,10 +29,16 @@ interface IMathJsLike {
 }
 
 const ELEMENTWISE_REGEX = /\.([*/^])/g;
-// Note: we match numbers as well as identifiers so that the exponent of a number in scientific notation (e.g., e3 in
-//       2e3) is not mistaken for an identifier while still allowing for implicit multiplication (e.g., 2x or 2e).
+// Note #1: we match numbers as well as identifiers so that the exponent of a number in scientific notation (e.g., e3
+//          in 2e3) is not mistaken for an identifier while still allowing for implicit multiplication (e.g., 2x or 2e).
+// Note #2: an identifier starts with a letter and is followed by letters and/or digits where a letter is what Math.js
+//          considers to be a letter (see parse.isAlpha() in Math.js), i.e. a Latin letter, an underscore, a dollar
+//          sign, a Latin-1 Supplement or Latin Extended letter (U+00C0 to U+02AF), a Greek or Coptic letter (U+0370 to
+//          U+03FF), a letterlike symbol (U+2100 to U+214F), or a mathematical alphanumeric symbol (U+1D400 to U+1D7FF,
+//          i.e. a surrogate pair, since we don't use the u flag).
 
-const NUMBER_OR_IDENTIFIER_REGEX = /(\d*\.?\d+(?:[eE][+-]?\d+)?)|([A-Za-z_$][A-Za-z0-9_$]*)/g;
+const NUMBER_OR_IDENTIFIER_REGEX =
+  /(\d*\.?\d+(?:[eE][+-]?\d+)?)|((?:[A-Za-z_$\u00C0-\u02AF\u0370-\u03FF\u2100-\u214F]|\uD835[\uDC00-\uDFFF])(?:[A-Za-z0-9_$\u00C0-\u02AF\u0370-\u03FF\u2100-\u214F]|\uD835[\uDC00-\uDFFF])*)/g;
 
 // A helper function to retrieve the identifiers (i.e. variables, functions, and constants) used in an expression.
 
