@@ -92,9 +92,13 @@ export const isUrl = (filePath: string): boolean => {
 };
 
 // A method to get the CORS proxy URL for a URL.
+// Note: the URL must be encoded since it is passed as a query parameter, which our CORS proxy decodes. Otherwise, the
+//       URL would get truncated at its first "&" (e.g., https://example.com/export?format=csv&gid=123 would become
+//       https://example.com/export?format=csv), lose its fragment, and have its "+" and percent-encoded characters
+//       decoded (e.g., "%2F" would become "/").
 
 export const corsProxyUrl = (url: string): string => {
-  return `https://cors-proxy.opencor.workers.dev/?url=${url}`;
+  return `https://cors-proxy.opencor.workers.dev/?url=${encodeURIComponent(url)}`;
 };
 
 // A method to fetch a URL through our CORS proxy or, if that fails, directly.
