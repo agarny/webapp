@@ -97,6 +97,24 @@ export const corsProxyUrl = (url: string): string => {
   return `https://cors-proxy.opencor.workers.dev/?url=${url}`;
 };
 
+// A method to fetch a URL through our CORS proxy or, if that fails, directly.
+// Note: our CORS proxy may not be reachable, not allow the content of the URL (HTTP 403 error), or not find the URL
+//       (HTTP 404 error), in which case fetching the URL directly may still work (see also locCommon.file()).
+
+export const fetchThroughCorsProxy = async (url: string): Promise<Response> => {
+  try {
+    const response = await fetch(corsProxyUrl(url));
+
+    if (response.status !== 403 && response.status !== 404) {
+      return response;
+    }
+  } catch {
+    // Our CORS proxy is not reachable, so fetch the URL directly.
+  }
+
+  return fetch(url);
+};
+
 // A method to compute the XXH64 value of some data.
 
 export const xxh64 = (data: string | Uint8Array): string => {

@@ -1315,9 +1315,7 @@ const importExternalDataFromUrl = async (): Promise<void> => {
   const url = externalDataUrl.value.trim();
 
   try {
-    const response = await fetch(common.corsProxyUrl(url)).catch(() => {
-      return fetch(url);
-    });
+    const response = await common.fetchThroughCorsProxy(url);
 
     if (!response.ok) {
       throw new Error(`Could not retrieve CSV file from URL (${response.status}: ${response.statusText}).`);

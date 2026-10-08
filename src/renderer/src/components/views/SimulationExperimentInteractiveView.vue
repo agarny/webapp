@@ -533,7 +533,7 @@ const addExternalData = async (
 
   if (common.isUrl(csv)) {
     try {
-      const response = await fetch(common.corsProxyUrl(csv));
+      const response = await common.fetchThroughCorsProxy(csv);
 
       if (!response.ok) {
         return Promise.resolve(
