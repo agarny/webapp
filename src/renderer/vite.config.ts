@@ -25,9 +25,14 @@ export default vite.defineConfig({
     chunkSizeWarningLimit: 2048,
     rollupOptions: {
       output: {
-        entryFileNames: `assets/[name].js`,
-        chunkFileNames: `assets/[name].js`,
-        assetFileNames: `assets/[name].[ext]`
+        // Note: our file names include a hash of their contents, so that they can be cached for a long time (since a
+        //       new version of a file will have a different name). Only index.html and assets/version.json have a fixed
+        //       name, which is why they must never be cached for long (see src/common/version.ts) and why they must be
+        //       uploaded last when deploying our Web app (see .github/workflows/cd.yml and cddev.yml).
+
+        entryFileNames: `assets/[name]-[hash].js`,
+        chunkFileNames: `assets/[name]-[hash].js`,
+        assetFileNames: `assets/[name]-[hash].[ext]`
       }
     },
     target: 'esnext'

@@ -19,25 +19,12 @@ if (!fs.existsSync(distAssetsPath)) {
   fs.mkdirSync(distAssetsPath, { recursive: true });
 }
 
-// List the files that the Web app needs to refresh when force reloading it.
-// Note: we exclude index.html (the Web app refreshes the page itself using its actual URL), version.json (it is always
-//       fetched with cache busting), stats.html (it is not part of the Web app), and libOpenCOR's files (their path
-//       contains libOpenCOR's version, so they never get stale).
-
-const files = (fs.readdirSync(distPath, { recursive: true }) as string[])
-  .map((file) => file.split(path.sep).join('/'))
-  .filter(
-    (file) =>
-      fs.statSync(path.join(distPath, file)).isFile() &&
-      !['index.html', 'assets/version.json', 'stats.html'].includes(file) &&
-      !file.startsWith('libopencor/')
-  )
-  .sort();
-
 // Write the version file.
+// Note: our assets have a hash in their file names (see vite.config.ts), so they never get stale, which means that we
+//       don't need to list them for when the Web app gets force reloaded (see src/common/version.ts).
 
-fs.writeFileSync(path.join(distAssetsPath, 'version.json'), JSON.stringify({ version, files }, null, 2));
+fs.writeFileSync(path.join(distAssetsPath, 'version.json'), JSON.stringify({ version }, null, 2));
 
 // Log the generated version.
 
-console.log(`Generated version.json with version ${version} and ${files.length} files.`);
+console.log(`Generated version.json with version ${version}.`);
