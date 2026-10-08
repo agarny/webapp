@@ -463,6 +463,32 @@ export class MainWindow extends ApplicationWindow {
       };
     });
 
+    // Prevent our renderer from navigating away from OpenCOR (e.g., if a file is dropped outside of the area where we
+    // handle drag and drop, in which case Chromium would replace OpenCOR with that file). Not only would the user lose
+    // their work, but the page we would navigate to would also have access to our preload API.
+    // Note: our renderer never needs to navigate to another origin (links are opened through our window open handler
+    //       above), so we only allow navigations within our renderer's origin (e.g., a reload).
+
+    const rendererOrigin = new URL(rendererUrl).origin;
+    const preventNavigationAway = (event: electron.Event, url: string): void => {
+      let origin: string | null = null;
+
+      try {
+        origin = new URL(url).origin;
+      } catch {
+        // The URL is invalid, so we block the navigation.
+      }
+
+      if (origin !== rendererOrigin) {
+        console.warn(`OpenCOR: blocked attempt to navigate to ${url}.`);
+
+        event.preventDefault();
+      }
+    };
+
+    this.webContents.on('will-navigate', preventNavigationAway);
+    this.webContents.on('will-redirect', preventNavigationAway);
+
     // Handle our renderer process crashing (or being killed).
 
     this.webContents.on('render-process-gone', (_event, details) => {
