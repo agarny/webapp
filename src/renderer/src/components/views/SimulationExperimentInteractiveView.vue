@@ -1207,27 +1207,57 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
 
 const runningInstances = new Set<locApi.SedInstance>();
 
+// A helper function to dispose of an instance that we no longer need, i.e. release it, unless a simulation run is still
+// waiting on it, in which case we stop that simulation run (since its results are going to be stale anyway) and let it
+// release the instance once it is done with it (see runSimulation()).
+
+const disposeInstance = (oldInstance: locApi.SedInstance): void => {
+  if (!runningInstances.has(oldInstance)) {
+    oldInstance.release();
+
+    return;
+  }
+
+  if (oldInstance.status() !== locSedApi.ESedInstanceStatus.IDLE) {
+    oldInstance.stopRun();
+  }
+};
+
 // A helper function to reinstantiate our instance.
+// Note: we instantiate our document before disposing of our previous instance. Indeed, if instantiating our document
+//       fails (e.g., if libOpenCOR throws an exception), then we would otherwise be left with a released instance,
+//       which would make all our future simulation runs fail, as well as our unmounting.
 
 const reinstantiateInstance = (): locApi.SedInstance => {
-  // Release our previous instance, unless a simulation run is still waiting on it, in which case we stop that
-  // simulation run (since its results are going to be stale anyway) and let it release our previous instance once it is
-  // done with it.
+  const newInstance = document.instantiate();
+  let newInstanceTask: locApi.SedInstanceTask;
 
-  if (instance) {
-    if (runningInstances.has(instance)) {
-      if (instance.status() !== locSedApi.ESedInstanceStatus.IDLE) {
-        instance.stopRun();
-      }
-    } else {
-      instance.release();
+  try {
+    newInstanceTask = newInstance.task(0);
+  } catch (error: unknown) {
+    newInstance.release();
+
+    throw error;
+  }
+
+  const oldInstance = instance;
+
+  instance = newInstance;
+  instanceTask = newInstanceTask;
+
+  // Dispose of our previous instance.
+  // Note: failing to do so (e.g., if libOpenCOR throws an exception while stopping the simulation run that is waiting
+  //       on it) must not prevent our new instance from being used.
+
+  if (oldInstance) {
+    try {
+      disposeInstance(oldInstance);
+    } catch (error: unknown) {
+      console.error('OpenCOR: an error occurred while disposing of a simulation instance:', common.formatError(error));
     }
   }
 
-  instance = document.instantiate();
-  instanceTask = instance.task(0);
-
-  return instance;
+  return newInstance;
 };
 
 // Run the interactive simulation.
@@ -2083,23 +2113,22 @@ vue.onBeforeUnmount(() => {
 
   inputSimulationUpdatePending = false;
 
-  if (instance?.status() !== locSedApi.ESedInstanceStatus.IDLE) {
-    instance?.stopRun();
+  // Dispose of our instance and release our document (and its model and simulation).
+  // Note: we always release our document, even if something goes wrong with our instance (e.g., if libOpenCOR throws an
+  //       exception while stopping a simulation run) since we would otherwise leak it.
+
+  try {
+    if (instance) {
+      disposeInstance(instance);
+    }
+  } catch (error: unknown) {
+    console.error('OpenCOR: an error occurred while disposing of a simulation instance:', common.formatError(error));
+  } finally {
+    instance = null;
+    instanceTask = null;
+
+    document.release();
   }
-
-  // Release our instance, unless a simulation run is still waiting on it, in which case it will be released by that
-  // simulation run once it is done with it.
-
-  if (instance && !runningInstances.has(instance)) {
-    instance.release();
-  }
-
-  instance = null;
-  instanceTask = null;
-
-  // Release our document (and its model and simulation).
-
-  document.release();
 });
 
 // Various things that need to be done once we are mounted.
