@@ -63,7 +63,7 @@
     "@biomejs/biome": "^2.5.15",
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@electron-toolkit/utils": "^4.0.0",
-    "@opencor/libopencor-types": "^1.20261007.0",
+    "@opencor/libopencor-types": "^1.20261009.3",
     "@primeuix/themes": "2.0.3",
     "@primevue/auto-import-resolver": "4.2.5",
     "@tailwindcss/postcss": "^4.3.3",

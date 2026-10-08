@@ -43,7 +43,7 @@
     "./style.css": "./dist/opencor.css"
   },
   "version": "1.20261010.0",
-  "libopencorVersion": "1.20261007.0",
+  "libopencorVersion": "1.20261009.3",
   "scripts": {
     "build": "vite build && bun scripts/generate.version.ts",
     "build:lib": "vite build --config vite.lib.config.ts && bun --bun scripts/type.check.ts --project tsconfig.lib.types.json",
@@ -68,7 +68,7 @@
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.0",
-    "@opencor/libopencor-types": "^1.20261007.0",
+    "@opencor/libopencor-types": "^1.20261009.3",
     "@primeuix/themes": "2.0.3",
     "@primevue/auto-import-resolver": "4.2.5",
     "@vueuse/core": "12.8.2",
