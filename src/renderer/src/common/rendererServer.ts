@@ -127,16 +127,18 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
   const listen = (port: number): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
       // Handle any errors that occur while starting the server.
+      // Note: we stop listening for the server to be listening since we may try to start it again (on another port), in
+      //       which case we don't want this attempt to be notified about it.
 
       const onError = (error: Error): void => {
+        rendererServer?.off('listening', onListening);
+
         reject(error);
       };
 
-      rendererServer?.once('error', onError);
+      // Handle the server listening.
 
-      // Start the server listening.
-
-      rendererServer?.listen(port, rendererHost, () => {
+      const onListening = (): void => {
         rendererServer?.off('error', onError);
 
         const addressInfo = rendererServer?.address() as AddressInfo | null;
@@ -148,7 +150,14 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
         } else {
           reject(new Error("Failed to determine the renderer server's port."));
         }
-      });
+      };
+
+      rendererServer?.once('error', onError);
+      rendererServer?.once('listening', onListening);
+
+      // Start the server listening.
+
+      rendererServer?.listen(port, rendererHost);
     });
   };
 
@@ -165,6 +174,15 @@ export const startRendererServer = async (preferredPort: number = 0): Promise<st
   if (!rendererBaseUrl) {
     throw new Error('Failed to initialise the renderer server.');
   }
+
+  // Log any error that occurs once the server is listening (e.g., if it fails to accept a connection because there are
+  // too many open files).
+  // Note: indeed, the server keeps listening after such an error, but without an error listener, the error would result
+  //       in an uncaught exception in our main process.
+
+  rendererServer.on('error', (error: Error) => {
+    console.error('OpenCOR: the renderer server encountered an error:', error);
+  });
 
   return rendererBaseUrl;
 };
