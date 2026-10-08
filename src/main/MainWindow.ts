@@ -282,10 +282,9 @@ export class MainWindow extends ApplicationWindow {
 
   private _splashScreenWindow: SplashScreenWindow | null = null;
   private _rendererReady = false;
+  private _rendererGone = false;
   private _pendingArguments: string[] = [];
   private _filesToReopen: IFilesToReopen | null = null;
-  // Note: the files to reopen and select once our renderer is ready after it has been reloaded following a crash (see
-  //       onRenderProcessGone()).
   private _openedFilePaths: string[] = [];
   private _openedFilePathIndex = 0;
   private _reopeningFilePath: string | null = null;
@@ -496,12 +495,20 @@ export class MainWindow extends ApplicationWindow {
     });
 
     // Load the renderer URL.
-    // Note: a navigation that gets interrupted by another navigation (e.g., our renderer being reloaded after it
-    //       crashed) results in an ERR_ABORTED error while one that gets interrupted by us being closed (e.g., because
-    //       OpenCOR is being quit) or destroyed results in an ERR_FAILED error. Neither is fatal, but since Electron
-    //       rejects the navigation after we have been asked to close but before we have been destroyed, we need to keep
-    //       track of whether we are being closed. Any other error means that OpenCOR cannot be used, so we report it
-    //       and quit.
+    // Note #1: a navigation that gets interrupted by another navigation (e.g., our renderer being reloaded after it
+    //          crashed) results in an ERR_ABORTED error while one that gets interrupted by us being closed (e.g.,
+    //          because OpenCOR is being quit) or destroyed results in an ERR_FAILED error. Neither is fatal, but since
+    //          Electron rejects the navigation after we have been asked to close but before we have been destroyed, we
+    //          need to keep track of whether we are being closed.
+    // Note #2: a navigation that gets interrupted by our renderer crashing (e.g., because of the native libOpenCOR
+    //          module) also results in an ERR_FAILED error. This is not fatal either since onRenderProcessGone() lets
+    //          the user reload OpenCOR (or quit it). However, Electron rejects the navigation before it emits
+    //          render-process-gone and even before our Web contents is flagged as crashed, so we cannot tell straight
+    //          away whether our renderer has crashed. So, rather than reporting the error straight away, we give our
+    //          renderer some time to be reported as gone (in practice, it is a matter of milliseconds).
+    // Note #3: any other error means that OpenCOR cannot be used, so we report it and quit.
+
+    const RENDERER_GONE_GRACE_PERIOD = 1000;
 
     let closing = false;
 
@@ -509,14 +516,35 @@ export class MainWindow extends ApplicationWindow {
       closing = true;
     });
 
-    this.loadURL(rendererUrl).catch((error: unknown) => {
-      if ((error as { code?: string }).code === 'ERR_ABORTED' || closing || this.isDestroyed()) {
+    const loadingWasInterrupted = (error: unknown): boolean => {
+      if (
+        (error as { code?: string }).code === 'ERR_ABORTED' ||
+        closing ||
+        this.isDestroyed() ||
+        this.webContents.isDestroyed() ||
+        this._rendererGone ||
+        this.webContents.isCrashed()
+      ) {
         console.warn(`OpenCOR: loading of URL (${rendererUrl}) was interrupted:`, formatError(error));
 
+        return true;
+      }
+
+      return false;
+    };
+
+    this.loadURL(rendererUrl).catch((error: unknown) => {
+      if (loadingWasInterrupted(error)) {
         return;
       }
 
-      reportFatalErrorAndQuit(`OpenCOR could not be loaded (${formatError(error)}).`, this._splashScreenWindow);
+      setTimeout(() => {
+        if (loadingWasInterrupted(error)) {
+          return;
+        }
+
+        reportFatalErrorAndQuit(`OpenCOR could not be loaded (${formatError(error)}).`, this._splashScreenWindow);
+      }, RENDERER_GONE_GRACE_PERIOD);
     });
   }
 
@@ -542,6 +570,12 @@ export class MainWindow extends ApplicationWindow {
     if (details.reason === 'clean-exit') {
       return;
     }
+
+    // Let our loading of the renderer URL know that our renderer is gone, so that it doesn't report it as a fatal error
+    // (see the constructor).
+    // Note: this must be done before showing our message box below since it blocks.
+
+    this._rendererGone = true;
 
     console.error(`OpenCOR: the renderer process is gone (${details.reason}, exit code ${details.exitCode}).`);
 
