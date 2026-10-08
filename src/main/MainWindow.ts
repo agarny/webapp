@@ -36,6 +36,11 @@ export const checkForUpdates = (atStartup: boolean): void => {
   // Check for updates, if we can and if requested (i.e. at startup, if the user wants us to, or by the user).
 
   if (canCheckForUpdates() && (!atStartup || electronConf.get('settings.general.checkForUpdatesAtStartup'))) {
+    // Note: any issue with checking for updates is reported through the promise returned by checkForUpdates(), so we
+    //       must make sure that it doesn't also get forwarded as an issue with installing an update (see below).
+
+    updateDownloaded = false;
+
     autoUpdater
       .checkForUpdates()
       .then((result: UpdateCheckResult | null) => {
@@ -63,11 +68,15 @@ autoUpdater.on('download-progress', (info: ProgressInfo) => {
 //       has resolved, so our renderer would otherwise wait forever for the update to be installed. Other issues are
 //       reported through the promises returned by checkForUpdates() and downloadUpdate() (as well as through an error
 //       event), so we only forward error events once an update has been downloaded, to avoid reporting an issue twice.
+//       Once forwarded, the installation of the update has failed, so we are done with it (and any subsequent error
+//       event, e.g., from checking for updates again, must not be forwarded as an issue with installing an update).
 
 let updateDownloaded = false;
 
 autoUpdater.on('error', (error: Error) => {
   if (updateDownloaded) {
+    updateDownloaded = false;
+
     MainWindow.instance?.send('update-install-error', formatError(error));
   }
 });
