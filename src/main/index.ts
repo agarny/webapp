@@ -66,10 +66,15 @@ interface IElectronConf {
 export let electronConf: ElectronConf<IElectronConf>;
 
 // Allow only one instance of OpenCOR.
-// Note: we pass our command line and working directory to the instance that is already running (see the second-instance
-//       event below).
+// Note #1: we pass our command line and working directory to the instance that is already running (see the
+//          second-instance event below).
+// Note #2: app.quit() doesn't stop the rest of this module from being executed, so we must make sure that we don't do
+//          anything else if we are not the primary instance (e.g., register our URI scheme or create our splash screen
+//          window).
 
-if (!electron.app.requestSingleInstanceLock({ argv: process.argv, cwd: process.cwd() })) {
+const isPrimaryInstance = electron.app.requestSingleInstanceLock({ argv: process.argv, cwd: process.cwd() });
+
+if (!isPrimaryInstance) {
   electron.app.quit();
 }
 
@@ -105,7 +110,9 @@ electron.app.on('second-instance', (_event, argv, workingDirectory, additionalDa
 
 // Register our URI scheme.
 
-electron.app.setAsDefaultProtocolClient(URI_SCHEME, isWindows() ? process.execPath : undefined);
+if (isPrimaryInstance) {
+  electron.app.setAsDefaultProtocolClient(URI_SCHEME, isWindows() ? process.execPath : undefined);
+}
 
 // Set up Linux desktop integration by creating a desktop file and making our application icon available.
 // Note: this is not needed on Windows and macOS since they automatically pick up the necessary information from
@@ -185,6 +192,12 @@ electron.app.on('open-url', (_event, url) => {
 electron.app
   .whenReady()
   .then(() => {
+    // Nothing to do if we are not the primary instance (see above).
+
+    if (!isPrimaryInstance) {
+      return;
+    }
+
     // Set up Linux desktop integration.
 
     if (isLinux()) {
