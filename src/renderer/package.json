@@ -82,7 +82,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.4",
-    "@types/plotly.js": "^3.0.14",
+    "@types/plotly.js": "^3.0.15",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vue/tsconfig": "^0.9.1",
     "autoprefixer": "^10.6.1",

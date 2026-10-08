@@ -26,7 +26,7 @@ const externalDependencies: ExternalDependency[] = [
   },
   {
     name: 'JSZip',
-    url: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm',
+    url: 'https://cdn.jsdelivr.net/npm/jszip@3.10.2/+esm',
     set: (m) => dependencies.setJsZip(m)
   },
   {
@@ -36,7 +36,7 @@ const externalDependencies: ExternalDependency[] = [
   },
   {
     name: 'Plotly.js',
-    url: 'https://cdn.jsdelivr.net/npm/plotly.js-cartesian-dist-min@3.7.0/+esm',
+    url: 'https://cdn.jsdelivr.net/npm/plotly.js-cartesian-dist-min@4.1.2/+esm',
     set: (m) => dependencies.setPlotlyJs(m)
   }
 ];
