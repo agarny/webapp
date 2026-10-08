@@ -216,47 +216,62 @@ export const useAppendTarget = (ancestorRef: vue.Ref<HTMLElement | null>) => {
 };
 
 // Populate the parameters of the given instance task.
+// Note: we collect our parameters into a plain array (rather than push them one by one into our reactive array, which
+//       would go through Vue's reactivity for each of them), sort them using a collator (which is faster than
+//       String.prototype.localeCompare() for a large number of comparisons), and then update our reactive array once.
+
+const parametersCollator = new Intl.Collator();
 
 export const populateParameters = (
   parameters: vue.Ref<string[]>,
   instanceTask: locSedApi.SedInstanceTask,
   onlyEditableModelParameters = false
 ): void => {
-  const addParameter = (param: string): void => {
-    parameters.value.push(param);
-  };
+  const res = [...parameters.value];
 
   if (!onlyEditableModelParameters) {
-    addParameter(instanceTask.voiName());
+    res.push(instanceTask.voiName());
   }
 
-  for (let i = 0; i < instanceTask.stateCount(); i++) {
-    addParameter(instanceTask.stateName(i));
+  const stateCount = instanceTask.stateCount();
+
+  for (let i = 0; i < stateCount; ++i) {
+    res.push(instanceTask.stateName(i));
   }
 
   if (!onlyEditableModelParameters) {
-    for (let i = 0; i < instanceTask.rateCount(); i++) {
-      addParameter(instanceTask.rateName(i));
+    const rateCount = instanceTask.rateCount();
+
+    for (let i = 0; i < rateCount; ++i) {
+      res.push(instanceTask.rateName(i));
     }
   }
 
-  for (let i = 0; i < instanceTask.constantCount(); i++) {
-    addParameter(instanceTask.constantName(i));
+  const constantCount = instanceTask.constantCount();
+
+  for (let i = 0; i < constantCount; ++i) {
+    res.push(instanceTask.constantName(i));
   }
 
   if (!onlyEditableModelParameters) {
-    for (let i = 0; i < instanceTask.computedConstantCount(); i++) {
-      addParameter(instanceTask.computedConstantName(i));
+    const computedConstantCount = instanceTask.computedConstantCount();
+
+    for (let i = 0; i < computedConstantCount; ++i) {
+      res.push(instanceTask.computedConstantName(i));
     }
 
-    for (let i = 0; i < instanceTask.algebraicVariableCount(); i++) {
-      addParameter(instanceTask.algebraicVariableName(i));
+    const algebraicVariableCount = instanceTask.algebraicVariableCount();
+
+    for (let i = 0; i < algebraicVariableCount; ++i) {
+      res.push(instanceTask.algebraicVariableName(i));
     }
   }
 
   // Sort the parameters alphabetically.
 
-  parameters.value.sort((parameter1: string, parameter2: string) => parameter1.localeCompare(parameter2));
+  res.sort(parametersCollator.compare);
+
+  parameters.value = res;
 };
 
 // A helper function to wait while a simulation instance is running, yielding to the UI to keep it responsive.
