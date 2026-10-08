@@ -12,7 +12,7 @@ import { deleteGitHubAccessToken } from '../renderer/src/common/gitHubIntegratio
 
 import icon from './assets/icon.png?asset';
 import { ApplicationWindow } from './ApplicationWindow';
-import { electronConf, type IElectronConfState } from './index';
+import { electronConf, type IElectronConfState, takeElectronConfBackupFileName } from './index';
 import { enableDisableMainMenu, updateReopenMenu } from './MainMenu';
 import type { SplashScreenWindow } from './SplashScreenWindow';
 
@@ -556,6 +556,41 @@ export class MainWindow extends ApplicationWindow {
     }
 
     this._splashScreenWindow = null;
+
+    this.reportElectronConfReset();
+  }
+
+  // Let the user know that our configuration file couldn't be loaded, and that our default configuration is therefore
+  // used instead, if needed (see createElectronConf()).
+  // Note: we wait for our renderer to be ready and for our splash screen window to be closed, so that our message box
+  //       isn't shown while OpenCOR is still starting or hidden by our splash screen window (which is always on top).
+
+  private reportElectronConfReset(): void {
+    if (
+      !this._rendererReady ||
+      (this._splashScreenWindow && !this._splashScreenWindow.isDestroyed()) ||
+      this.isDestroyed()
+    ) {
+      return;
+    }
+
+    const backupFileName = takeElectronConfBackupFileName();
+
+    if (!backupFileName) {
+      return;
+    }
+
+    electron.dialog
+      .showMessageBox(this, {
+        type: 'warning',
+        title: 'OpenCOR',
+        message: 'OpenCOR could not read its configuration file, so it has been reset.',
+        detail: `The position and size of the window, the files that were open, the recent files, and the settings have been reset to their defaults.\n\nThe configuration file that could not be read has been kept as:\n${backupFileName}`,
+        buttons: ['OK']
+      })
+      .catch((error: unknown) => {
+        console.warn('OpenCOR: failed to report that the configuration file has been reset:', formatError(error));
+      });
   }
 
   // Our renderer process is gone (e.g., it crashed because of the native libOpenCOR module), so let the user know and
@@ -675,6 +710,10 @@ export class MainWindow extends ApplicationWindow {
     this.reopenFilePathsAndSelectFilePath();
 
     this.handleArguments(this._pendingArguments.splice(0));
+
+    // Let the user know if our configuration file had to be reset.
+
+    this.reportElectronConfReset();
   }
 
   // Retrieve the files to reopen and the file to select (e.g., because we are being closed or because our renderer has

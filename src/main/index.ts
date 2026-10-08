@@ -65,6 +65,103 @@ interface IElectronConf {
 
 export let electronConf: ElectronConf<IElectronConf>;
 
+// A helper function to sanitise a (loaded) configuration value against its default value, i.e. to use the default
+// value for whatever is missing or of the wrong type.
+// Note #1: electron-conf only merges our default configuration at the top level, so a configuration file that was saved
+//          by an older version of OpenCOR or edited by hand may lack some (nested) values or have values of the wrong
+//          type (e.g., a string rather than an array of file paths), which would otherwise prevent OpenCOR from
+//          starting.
+// Note #2: our only arrays are arrays of file paths, so we only keep their strings.
+// Note #3: we keep the values for which we don't have a default value (e.g., values saved by a newer version of
+//          OpenCOR).
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+};
+
+const sanitisedConfValue = (value: unknown, defaultValue: unknown): unknown => {
+  if (Array.isArray(defaultValue)) {
+    return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [...defaultValue];
+  }
+
+  if (isPlainObject(defaultValue)) {
+    const res: Record<string, unknown> = isPlainObject(value) ? { ...value } : {};
+
+    for (const [key, keyDefaultValue] of Object.entries(defaultValue)) {
+      res[key] = sanitisedConfValue(res[key], keyDefaultValue);
+    }
+
+    return res;
+  }
+
+  return typeof value === typeof defaultValue ? value : defaultValue;
+};
+
+// The backup of our configuration file, if it couldn't be loaded (see createElectronConf()).
+
+let electronConfBackupFileName: string | null = null;
+
+// Retrieve the backup of our configuration file, if any, so that the user can be told about it (see
+// MainWindow.reportElectronConfReset()).
+// Note: we only return it once, so that the user is only told about it once.
+
+export const takeElectronConfBackupFileName = (): string | null => {
+  const res = electronConfBackupFileName;
+
+  electronConfBackupFileName = null;
+
+  return res;
+};
+
+// A helper function to create our Electron store.
+// Note: electron-conf throws if our configuration file cannot be read or parsed (e.g., if it is empty or truncated
+//       because it couldn't be fully written, or if it was edited by hand), in which case OpenCOR would never be able
+//       to start again. So, we back it up (so that it can be inspected or recovered), use our default configuration
+//       instead, and let the user know about it once OpenCOR is ready. If that fails too, then there is nothing more
+//       that we can do, so we let the error through.
+
+const createElectronConf = (defaults: IElectronConf): ElectronConf<IElectronConf> => {
+  const options = {
+    dir: electron.app.getPath('userData'),
+    name: 'config',
+    defaults
+  };
+  let res: ElectronConf<IElectronConf>;
+
+  try {
+    res = new ElectronConf<IElectronConf>(options);
+  } catch (error: unknown) {
+    const fileName = path.join(options.dir, `${options.name}.json`);
+
+    if (!fs.existsSync(fileName)) {
+      throw error;
+    }
+
+    const backupFileName = `${fileName}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+
+    fs.renameSync(fileName, backupFileName);
+
+    console.error(
+      `OpenCOR: the configuration file (${fileName}) could not be loaded (${formatError(error)}), so it has been backed up (as ${backupFileName}) and the default configuration is used instead.`
+    );
+
+    res = new ElectronConf<IElectronConf>(options);
+
+    electronConfBackupFileName = backupFileName;
+  }
+
+  // Sanitise our configuration and save it, if needed.
+
+  const store = res.store;
+  const sanitisedStore = sanitisedConfValue(store, defaults) as IElectronConf;
+
+  if (JSON.stringify(sanitisedStore) !== JSON.stringify(store)) {
+    res.store = sanitisedStore;
+  }
+
+  return res;
+};
+
 // Allow only one instance of OpenCOR.
 // Note #1: we pass our command line and working directory to the instance that is already running (see the
 //          second-instance event below).
@@ -226,21 +323,19 @@ electron.app
       isFullScreen: false
     };
 
-    electronConf = new ElectronConf<IElectronConf>({
-      defaults: {
-        app: {
-          files: {
-            opened: [],
-            recent: [],
-            selected: ''
-          },
-          rendererServerPort: 0,
-          state: defaultState
+    electronConf = createElectronConf({
+      app: {
+        files: {
+          opened: [],
+          recent: [],
+          selected: ''
         },
-        settings: {
-          general: {
-            checkForUpdatesAtStartup: true
-          }
+        rendererServerPort: 0,
+        state: defaultState
+      },
+      settings: {
+        general: {
+          checkForUpdatesAtStartup: true
         }
       }
     });
