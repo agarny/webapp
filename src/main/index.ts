@@ -217,6 +217,14 @@ electron.app
     const workAreaSize = electron.screen.getPrimaryDisplay().workAreaSize;
     const horizontalSpace = Math.round(workAreaSize.width / 13);
     const verticalSpace = Math.round(workAreaSize.height / 13);
+    const defaultState: IElectronConfState = {
+      x: horizontalSpace,
+      y: verticalSpace,
+      width: workAreaSize.width - 2 * horizontalSpace,
+      height: workAreaSize.height - 2 * verticalSpace,
+      isMaximized: false,
+      isFullScreen: false
+    };
 
     electronConf = new ElectronConf<IElectronConf>({
       defaults: {
@@ -227,14 +235,7 @@ electron.app
             selected: ''
           },
           rendererServerPort: 0,
-          state: {
-            x: horizontalSpace,
-            y: verticalSpace,
-            width: workAreaSize.width - 2 * horizontalSpace,
-            height: workAreaSize.height - 2 * verticalSpace,
-            isMaximized: false,
-            isFullScreen: false
-          }
+          state: defaultState
         },
         settings: {
           general: {
@@ -243,6 +244,30 @@ electron.app
         }
       }
     });
+
+    // Make sure that our saved window state is (still) visible on one of our displays. Indeed, a display may have been
+    // disconnected (or its resolution changed) since OpenCOR was last closed, in which case our main window (and our
+    // splash screen window, which is centred on it) would be shown off-screen. So, if our saved window state is not
+    // sufficiently visible on any of our displays, we reset its position and size (but keep whether it was maximised or
+    // in full-screen mode).
+
+    const MIN_VISIBLE_SIZE = 100;
+    const state: IElectronConfState = electronConf.get('app.state');
+    const stateIsVisible = electron.screen.getAllDisplays().some(({ workArea }) => {
+      const visibleWidth = Math.min(state.x + state.width, workArea.x + workArea.width) - Math.max(state.x, workArea.x);
+      const visibleHeight =
+        Math.min(state.y + state.height, workArea.y + workArea.height) - Math.max(state.y, workArea.y);
+
+      return visibleWidth >= MIN_VISIBLE_SIZE && visibleHeight >= MIN_VISIBLE_SIZE;
+    });
+
+    if (!stateIsVisible) {
+      electronConf.set('app.state', {
+        ...defaultState,
+        isMaximized: state.isMaximized,
+        isFullScreen: state.isFullScreen
+      });
+    }
 
     // Create our splash window.
 
