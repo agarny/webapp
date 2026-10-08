@@ -503,11 +503,6 @@ export class MainWindow extends ApplicationWindow {
       this.show();
     }
 
-    // Keep track of the files that were open and of the selected file, so that they can be reopened and selected once
-    // our renderer is ready again.
-
-    const filesToReopen = currentFilesToReopen();
-
     const choice = electron.dialog.showMessageBoxSync(this, {
       type: 'error',
       title: 'OpenCOR',
@@ -526,16 +521,23 @@ export class MainWindow extends ApplicationWindow {
 
     // Reload our renderer, making sure that our main menu is enabled (our renderer may have disabled it, e.g., because
     // a dialog was open) and that we reopen our files once our renderer is ready again.
+    // Note: if our renderer was ready, then we keep track of the files that were open and of the selected file, so that
+    //       they can be reopened and selected once our renderer is ready again. If it wasn't ready, then it never told
+    //       us about the files that are open, so we keep the files that we were going to reopen (i.e. those from a
+    //       previous crash, if any, or those that were open when OpenCOR was last closed, see rendererReady()), as well
+    //       as the arguments that we were asked to handle (e.g., our command line), which were never handled.
 
     enableDisableMainMenu(true);
 
+    if (this._rendererReady) {
+      this._filesToReopen = currentFilesToReopen();
+    }
+
     this._rendererReady = false;
-    this._pendingArguments = [];
     this._openedFilePaths = [];
     this._openedFilePathIndex = 0;
     this._reopeningFilePath = null;
     this._selectedFilePath = '';
-    this._filesToReopen = filesToReopen;
 
     this.webContents.reload();
   }
