@@ -14,7 +14,7 @@ jobs:
       - name: Set the timezone to New Zealand
         run: sudo timedatectl set-timezone Pacific/Auckland
       - name: Check out OpenCOR
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Install bun
         uses: oven-sh/setup-bun@v2
       - name: OpenCOR dependencies

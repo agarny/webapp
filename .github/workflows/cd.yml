@@ -51,7 +51,7 @@ jobs:
             macOS) sudo systemsetup -settimezone Pacific/Auckland ;;
           esac
       - name: Check out OpenCOR
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Retrieve the EV certificate (Windows only)
         if: ${{ runner.os == 'Windows' }}
         shell: bash
@@ -101,7 +101,7 @@ jobs:
       - name: Set the timezone to New Zealand
         run: sudo timedatectl set-timezone Pacific/Auckland
       - name: Check out OpenCOR
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Install bun
         uses: oven-sh/setup-bun@v2
       - name: OpenCOR dependencies
@@ -142,7 +142,7 @@ jobs:
       - name: Set the timezone to New Zealand
         run: sudo timedatectl set-timezone Pacific/Auckland
       - name: Check out OpenCOR
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Install Node.js
         uses: actions/setup-node@v7
         with:
