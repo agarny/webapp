@@ -43,11 +43,13 @@ jobs:
       DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 }}
     steps:
       - name: Set the timezone to New Zealand
-        uses: szenius/set-timezone@v2.0
-        with:
-          timezoneWindows: 'New Zealand Standard Time'
-          timezoneLinux: 'Pacific/Auckland'
-          timezoneMacos: 'Pacific/Auckland'
+        shell: bash
+        run: |
+          case "${RUNNER_OS}" in
+            Windows) MSYS_NO_PATHCONV=1 tzutil /s "New Zealand Standard Time" ;;
+            Linux) sudo timedatectl set-timezone Pacific/Auckland ;;
+            macOS) sudo systemsetup -settimezone Pacific/Auckland ;;
+          esac
       - name: Check out OpenCOR
         uses: actions/checkout@v4
       - name: Retrieve the EV certificate (Windows only)
@@ -97,9 +99,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Set the timezone to New Zealand
-        uses: szenius/set-timezone@v2.0
-        with:
-          timezoneLinux: 'Pacific/Auckland'
+        run: sudo timedatectl set-timezone Pacific/Auckland
       - name: Check out OpenCOR
         uses: actions/checkout@v4
       - name: Install bun
@@ -130,7 +130,7 @@ jobs:
       - name: Archive OpenCOR's Web app
         run: bun archive:web
       - name: Release OpenCOR's Web app
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/OpenCOR-*-WebApp.tar.gz
   npm:
@@ -138,13 +138,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Set the timezone to New Zealand
-        uses: szenius/set-timezone@v2.0
-        with:
-          timezoneLinux: 'Pacific/Auckland'
+        run: sudo timedatectl set-timezone Pacific/Auckland
       - name: Check out OpenCOR
         uses: actions/checkout@v4
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
           registry-url: 'https://registry.npmjs.org'

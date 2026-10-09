@@ -12,9 +12,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Set the timezone to New Zealand
-        uses: szenius/set-timezone@v2.0
-        with:
-          timezoneLinux: 'Pacific/Auckland'
+        run: sudo timedatectl set-timezone Pacific/Auckland
       - name: Check out OpenCOR
         uses: actions/checkout@v4
       - name: Install bun

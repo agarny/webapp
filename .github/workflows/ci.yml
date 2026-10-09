@@ -33,11 +33,13 @@ jobs:
             os: ubuntu-22.04
     steps:
       - name: Set the timezone to New Zealand
-        uses: szenius/set-timezone@v2.0
-        with:
-          timezoneWindows: 'New Zealand Standard Time'
-          timezoneLinux: 'Pacific/Auckland'
-          timezoneMacos: 'Pacific/Auckland'
+        shell: bash
+        run: |
+          case "${RUNNER_OS}" in
+            Windows) MSYS_NO_PATHCONV=1 tzutil /s "New Zealand Standard Time" ;;
+            Linux) sudo timedatectl set-timezone Pacific/Auckland ;;
+            macOS) sudo systemsetup -settimezone Pacific/Auckland ;;
+          esac
       - name: Check out OpenCOR
         uses: actions/checkout@v4
       - name: Install CMake and Ninja
