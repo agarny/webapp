@@ -188,25 +188,19 @@ const toFloat64Array = (values: unknown): unknown => {
 };
 
 const fromFloat64ArrayForSchemaValidation = (values: unknown): unknown => {
-  // Note: a Float64Array can only contain numbers, so for schema validation purposes, we only need an array that has
-  //       the same "emptiness" and that contains numbers. This means that we don't have to convert (and then validate)
-  //       all the values of a Float64Array, which would be costly for large external data. (The actual length of a
-  //       Float64Array is checked separately, see validateUiJson().) However, a Float64Array may contain non-finite
-  //       numbers (e.g., NaN for a non-numeric value, see toFloat64Array()), which are not valid numbers as far as our
-  //       schema validation is concerned, so if there are any then we convert all the values of the Float64Array so
-  //       that each of them gets reported.
+  // Note: for schema validation purposes, we only need an array that has the same "emptiness" as the given values and
+  //       that contains numbers. This means that we don't have to convert (and then validate) all the values, which
+  //       would be costly for large external data. Indeed, the actual length of the values and whether they are all
+  //       (finite) numbers are checked separately (see validateUiJson() and nonNumericValuesIssues()), the latter so
+  //       that values that are not numbers (e.g., NaN for a non-numeric value, see toFloat64Array()) get reported once
+  //       per array rather than once per value (there could be thousands of them, e.g., missing values in some CSV
+  //       data).
 
-  if (!(values instanceof Float64Array)) {
+  if (!(values instanceof Float64Array) && !Array.isArray(values)) {
     return values;
   }
 
-  for (const value of values) {
-    if (!Number.isFinite(value)) {
-      return Array.from(values);
-    }
-  }
-
-  return values.length ? [values[0]] : [];
+  return values.length ? [0] : [];
 };
 
 // A helper function to map the external data of a UI JSON, if it has any.
@@ -266,6 +260,82 @@ export const normaliseUiJson = (uiJson: IUiJson): IUiJson => {
 
 const uiJsonForSchemaValidation = (uiJson: IUiJson): unknown => {
   return mapExternalData(uiJson, fromFloat64ArrayForSchemaValidation, false) ?? uiJson;
+};
+
+// A helper function to report the external data values of a UI JSON that are not (finite) numbers, with one issue per
+// array of values (see fromFloat64ArrayForSchemaValidation()).
+// Note: the UI JSON may not have the expected structure, in which case we only check what can be checked (the rest gets
+//       reported by our schema validation).
+
+const MAX_REPORTED_NON_NUMERIC_VALUE_INDICES = 5;
+
+const nonNumericValuesIssues = (uiJson: IUiJson): IIssue[] => {
+  const res: IIssue[] = [];
+
+  const check = (values: unknown, what: string): void => {
+    if (!(values instanceof Float64Array) && !Array.isArray(values)) {
+      return;
+    }
+
+    const indices: number[] = [];
+    let count = 0;
+
+    for (let i = 0; i < values.length; ++i) {
+      const value: unknown = values[i];
+
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        if (indices.length < MAX_REPORTED_NON_NUMERIC_VALUE_INDICES) {
+          indices.push(i);
+        }
+
+        ++count;
+      }
+    }
+
+    if (!count) {
+      return;
+    }
+
+    const otherCount = count - indices.length;
+    const where =
+      count === 1
+        ? `the value at index ${indices[0]} is not`
+        : `${count} values are not, at indices ${indices.join(', ')}${otherCount ? `, and ${otherCount} more` : ''}`;
+
+    res.push({
+      type: EIssueType.WARNING,
+      description: `UI JSON: ${what} must only contain numbers (${where}).`
+    });
+  };
+
+  const output: unknown = (uiJson as unknown as Record<string, unknown>).output;
+
+  if (!common.isObject(output) || !Array.isArray(output.externalData)) {
+    return res;
+  }
+
+  for (const externalDataItem of output.externalData) {
+    if (!common.isObject(externalDataItem)) {
+      continue;
+    }
+
+    check(externalDataItem.voiValues, 'an output external data VOI values');
+
+    if (Array.isArray(externalDataItem.dataSeries)) {
+      for (const dataSeries of externalDataItem.dataSeries) {
+        if (common.isObject(dataSeries)) {
+          check(
+            dataSeries.values,
+            typeof dataSeries.name === 'string' && dataSeries.name
+              ? `an output external data series values ('${dataSeries.name}')`
+              : 'an output external data series values'
+          );
+        }
+      }
+    }
+  }
+
+  return res;
 };
 
 // A helper function to deep clone a UI JSON (or some settings containing a UI JSON).
@@ -621,17 +691,26 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
     nestedErrors: true
   });
 
-  if (!validatorRes.valid) {
+  // Note: external data values that are not numbers are not reported by our schema validation (see
+  //       fromFloat64ArrayForSchemaValidation()), but they are just as invalid, so we report them alongside.
+
+  const nonNumericIssues = nonNumericValuesIssues(uiJson);
+
+  if (!validatorRes.valid || nonNumericIssues.length) {
     const res: IIssue[] = [];
 
-    for (const issue of String(validatorRes).split('\n')) {
-      if (issue) {
-        res.push({
-          type: EIssueType.WARNING,
-          description: `UI JSON: ${common.formatMessage(issue)}`
-        });
+    if (!validatorRes.valid) {
+      for (const issue of String(validatorRes).split('\n')) {
+        if (issue) {
+          res.push({
+            type: EIssueType.WARNING,
+            description: `UI JSON: ${common.formatMessage(issue)}`
+          });
+        }
       }
     }
+
+    res.push(...nonNumericIssues);
 
     return res;
   }
