@@ -110,11 +110,15 @@ export const takeElectronConfBackupFileName = (): string | null => {
 };
 
 // A helper function to create our Electron store.
-// Note: electron-conf throws if our configuration file cannot be read or parsed (e.g., if it is empty or truncated
-//       because it couldn't be fully written, or if it was edited by hand), in which case OpenCOR would never be able
-//       to start again. So, we back it up (so that it can be inspected or recovered), use our default configuration
-//       instead, and let the user know about it once OpenCOR is ready. If that fails too, then there is nothing more
-//       that we can do, so we let the error through.
+// Note #1: electron-conf throws if our configuration file cannot be parsed (e.g., if it is empty or truncated because
+//          it couldn't be fully written, or if it was edited by hand), in which case OpenCOR would never be able to
+//          start again. So, we back it up (so that it can be inspected or recovered), use our default configuration
+//          instead, and let the user know about it once OpenCOR is ready. If that fails too, then there is nothing more
+//          that we can do, so we let the error through.
+// Note #2: electron-conf also throws if our configuration file cannot be read (e.g., because it is temporarily locked
+//          by an antivirus or a file synchronisation service on Windows, or because of its permissions), in which case
+//          our configuration file is most likely fine, so we must not reset it. Instead, we let the error through (so
+//          that OpenCOR reports it and quits), leaving our configuration file as is.
 
 const createElectronConf = (defaults: IElectronConf): ElectronConf<IElectronConf> => {
   const options = {
@@ -129,7 +133,7 @@ const createElectronConf = (defaults: IElectronConf): ElectronConf<IElectronConf
   } catch (error: unknown) {
     const fileName = path.join(options.dir, `${options.name}.json`);
 
-    if (!fs.existsSync(fileName)) {
+    if (!(error instanceof SyntaxError) || !fs.existsSync(fileName)) {
       throw error;
     }
 
