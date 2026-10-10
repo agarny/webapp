@@ -11,6 +11,7 @@ extern std::map<std::string, libOpenCOR::FilePtr> &files;
 extern std::map<size_t, libOpenCOR::SedDocumentPtr> &sedDocuments;
 extern std::map<size_t, libOpenCOR::SedInstancePtr> &sedInstances;
 
+libOpenCOR::FilePtr managedFile(const std::string &pPath);
 libOpenCOR::FilePtr toFile(const Napi::Value &pValue);
 libOpenCOR::SedDocumentPtr toSedDocument(const Napi::Value &pValue);
 libOpenCOR::SedInstancePtr toSedInstance(const Napi::Value &pValue);

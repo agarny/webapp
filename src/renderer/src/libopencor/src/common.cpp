@@ -35,10 +35,30 @@ void releaseAll()
 //       or SED-ML instance is unknown (e.g., it has been released). This way, an invalid call results in a JavaScript
 //       error rather than in a crash of the renderer process.
 
+// Retrieve the managed file, if any, that has the given path.
+// Note: libOpenCOR's file manager doesn't decode the given path while File::create() does (e.g., "my%20model.cellml"
+//       becomes "my model.cellml"), so a file whose path got decoded when it was created wouldn't be found using the
+//       path with which it was created. So, if needed, we also look for the file using the path that File::create()
+//       would give it. File::create() returns the managed file, if any, that has that path or, if there is none, a new
+//       file that gets unmanaged as soon as it goes out of scope.
+
+libOpenCOR::FilePtr managedFile(const std::string &pPath)
+{
+    auto res = fileManager.file(pPath);
+
+    if (res != nullptr) {
+        return res;
+    }
+
+    auto filePath = libOpenCOR::File::create(pPath, false)->path();
+
+    return (filePath != pPath) ? fileManager.file(filePath) : nullptr;
+}
+
 libOpenCOR::FilePtr toFile(const Napi::Value &pValue)
 {
     auto filePath = pValue.ToString().Utf8Value();
-    auto file = fileManager.file(filePath);
+    auto file = managedFile(filePath);
 
     if (file == nullptr) {
         throw Napi::Error::New(pValue.Env(), "Unknown file: " + filePath + ".");
