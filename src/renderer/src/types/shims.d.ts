@@ -9,6 +9,8 @@ declare module '*.vue' {
   export default component;
 }
 
+declare module '*.css';
+
 declare module '*?asset' {
   const source: string;
 
