@@ -181,13 +181,10 @@ export let mainWindow: MainWindow | null = null;
 
 const pendingArguments: string[][] = [];
 
-electron.app.on('second-instance', (_event, argv, workingDirectory, additionalData) => {
-  // Use the command line and working directory that the other instance passed to us, if available, since, according to
-  // Electron's documentation, argv may have been reordered and have additional switches.
+// A helper function to handle the given (normalised) command line arguments, i.e. let our main window handle them (and
+// bring it to the front) or, if it hasn't been created yet, keep track of them so that they can be handled once it has.
 
-  const otherInstanceData = additionalData as { argv?: string[]; cwd?: string } | undefined;
-  const commandLine = normaliseCommandLine(otherInstanceData?.argv ?? argv, otherInstanceData?.cwd ?? workingDirectory);
-
+const handleArguments = (commandLine: string[]): void => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) {
       mainWindow.restore();
@@ -199,6 +196,27 @@ electron.app.on('second-instance', (_event, argv, workingDirectory, additionalDa
   } else {
     pendingArguments.push(commandLine);
   }
+};
+
+electron.app.on('second-instance', (_event, argv, workingDirectory, additionalData) => {
+  // Use the command line and working directory that the other instance passed to us, if available, since, according to
+  // Electron's documentation, argv may have been reordered and have additional switches.
+
+  const otherInstanceData = additionalData as { argv?: string[]; cwd?: string } | undefined;
+
+  handleArguments(normaliseCommandLine(otherInstanceData?.argv ?? argv, otherInstanceData?.cwd ?? workingDirectory));
+});
+
+// Handle a file being opened with OpenCOR on macOS (e.g., by dropping it on OpenCOR's Dock icon or by using
+// `open -a OpenCOR <file>`).
+// Note #1: on macOS, the file is not passed on the command line, not even when OpenCOR gets started by opening it, in
+//          which case this event is emitted before OpenCOR is ready, hence we register our handler straight away.
+// Note #2: we must prevent the default behaviour to let macOS know that we handle the file.
+
+electron.app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+
+  handleArguments([filePath]);
 });
 
 // Register our URI scheme.
@@ -229,11 +247,25 @@ const setupLinuxDesktopIntegration = async (): Promise<void> => {
 
     await fs.promises.mkdir(localApplicationsFolder, { recursive: true });
 
+    // Note #1: when running as an AppImage, process.execPath is the path of OpenCOR within the AppImage's temporary
+    //          mount point (e.g., /tmp/.mount_OpenCOxxxxxx/OpenCOR), which disappears once OpenCOR exits, so we must
+    //          use the path of the AppImage itself (which the AppImage runtime provides through the APPIMAGE
+    //          environment variable).
+    // Note #2: the path of OpenCOR may contain spaces or other special characters, so we quote it as required by the
+    //          Desktop Entry specification (see
+    //          https://specifications.freedesktop.org/desktop-entry-spec/latest/exec-variables.html), i.e. we escape
+    //          '"', '`', '$', and '\' with a backslash, double that backslash (since the general escape rule for string
+    //          values is applied before the quoting rule), and double `%` (since it introduces a field code).
+
+    const executablePath = process.env.APPIMAGE || process.execPath;
+    const quotedExecutablePath = `"${executablePath
+      .replace(/["`$\\]/g, (character) => (character === '\\' ? '\\\\\\\\' : `\\\\${character}`))
+      .replace(/%/g, '%%')}"`;
     const desktopFilePath = path.join(localApplicationsFolder, `${URI_SCHEME}.desktop`);
     const desktopFileContents = `[Desktop Entry]
 Type=Application
 Name=OpenCOR
-Exec=${process.execPath} %u
+Exec=${quotedExecutablePath} %u
 Icon=${iconTargetPath}
 Terminal=false
 MimeType=x-scheme-handler/${URI_SCHEME}`;
