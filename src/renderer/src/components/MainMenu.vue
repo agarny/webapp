@@ -152,7 +152,7 @@ const items = vue.computed(() => [
 
 // A few things that can only be done when the component is mounted.
 
-const menuBarRef = vue.ref<(InstanceType<typeof Menubar> & { hide: () => void; $el: HTMLElement }) | null>(null);
+const menuBarRef = vue.shallowRef<(InstanceType<typeof Menubar> & { hide: () => void; $el: HTMLElement }) | null>(null);
 
 vue.onMounted(() => {
   if (menuBarRef.value) {

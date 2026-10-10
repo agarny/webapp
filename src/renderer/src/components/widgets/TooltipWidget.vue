@@ -17,7 +17,7 @@ const props = defineProps<{
   content: string;
 }>();
 
-const rootRef = vue.ref<HTMLElement | null>(null);
+const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const popoverRef = vue.ref<InstanceType<typeof Popover> | undefined>();
 const appendTarget = vueCommon.useAppendTarget(rootRef);
 

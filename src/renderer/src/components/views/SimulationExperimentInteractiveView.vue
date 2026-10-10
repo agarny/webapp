@@ -233,7 +233,7 @@ const emit = defineEmits<{
   simulationData: [];
 }>();
 
-const rootRef = vue.ref<HTMLElement | null>(null);
+const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const settingsVisible = vue.ref<boolean>(false);
 const document = props.file.document();
 const documentIssues = document.issues();

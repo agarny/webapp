@@ -98,7 +98,9 @@ const viewRegistry = useViewRegistry();
 const simulationExperimentInteractiveViewRef = vue.ref<InstanceType<typeof SimulationExperimentInteractiveView> | null>(
   null
 );
-const fileTabs = vue.ref<IFileTab[]>([]);
+const fileTabs = vue.ref<IFileTab[]>([]) as vue.Ref<IFileTab[]>;
+// Note: we cast our ref since Vue's ref type would otherwise unwrap our file tabs' locApi.File instances, which would
+//       lose their private members and therefore not be considered locApi.File instances anymore.
 const fileTabRefs: Record<string, HTMLElement | null> = {};
 const activeFile = vue.ref<string>('');
 
@@ -119,7 +121,7 @@ interface IDragState {
 }
 
 const dragState = vue.ref<IDragState | null>(null);
-const fileTabBarRef = vue.ref<HTMLElement | null>(null);
+const fileTabBarRef = vue.shallowRef<HTMLElement | null>(null);
 const dropIndicatorLeft = vue.ref<number | null>(null);
 
 const captureSimulationExperimentInteractiveViewRef = (element: unknown): void => {

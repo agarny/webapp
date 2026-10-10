@@ -114,8 +114,8 @@ const emit = defineEmits<{
   simulationData: [];
 }>();
 
-const rootRef = vue.ref<HTMLElement | null>(null);
-const editorRef = vue.ref<HTMLElement | null>(null);
+const rootRef = vue.shallowRef<HTMLElement | null>(null);
+const editorRef = vue.shallowRef<HTMLElement | null>(null);
 const document = props.file.document();
 const documentIssues = document.issues();
 const isDocumentValid = documentIssues.length === 0;

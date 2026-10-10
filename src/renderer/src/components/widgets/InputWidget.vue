@@ -56,7 +56,7 @@ let oldValue = value.value;
 const discreteValue = vue.ref<locApi.IUiJsonDiscreteInputPossibleValue | undefined>(
   props.possibleValues?.find((possibleValue) => possibleValue.value === value.value)
 );
-const rootRef = vue.ref<HTMLElement | null>(null);
+const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const appendTarget = vueCommon.useAppendTarget(rootRef);
 
 const compStepValue = vue.computed<number>(() => {

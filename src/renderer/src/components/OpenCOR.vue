@@ -279,7 +279,7 @@ const { isDialogActive } = provideDialogState();
 
 const safeBlockUiRef = vue.ref<InstanceType<typeof SafeBlockUIWidget> | null>(null);
 const mainMenuRef = vue.ref<InstanceType<typeof MainMenu> | null>(null);
-const filesRef = vue.ref<HTMLElement | null>(null);
+const filesRef = vue.shallowRef<HTMLElement | null>(null);
 const issues = vue.ref<locApi.IIssue[]>([]);
 const compIssues = vue.computed<locApi.IIssue[]>(() => {
   return [...initialisation.issues.value, ...issues.value];
