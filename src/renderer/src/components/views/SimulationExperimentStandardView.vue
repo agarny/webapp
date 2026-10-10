@@ -312,10 +312,46 @@ const releaseResources = async (): Promise<void> => {
   }
 };
 
+// A helper function to scroll our console to the bottom.
+
+const scrollConsoleToBottom = (): void => {
+  vue.nextTick(() => {
+    editorRef.value?.scrollTo({ top: editorRef.value.scrollHeight });
+  });
+};
+
+// A helper function to report an error in our console.
+
+const addConsoleError = (error: unknown): void => {
+  consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${colors.REVERTED_PALETTE.Red};"><strong>Error:</strong> ${common.formatMessage(common.formatError(error))}</span>`;
+
+  scrollConsoleToBottom();
+};
+
 // Event handlers.
 
 const onRunPause = async (): Promise<void> => {
-  switch (instance?.status()) {
+  // Make sure that we have an instance (we don't if our document has issues).
+
+  if (!instance) {
+    return;
+  }
+
+  // Retrieve the status of our simulation.
+  // Note: this may fail (e.g., if libOpenCOR throws an exception, see the handling of a run error below), in which case
+  //       we report the error rather than let it go unnoticed.
+
+  let status: locSedApi.ESedInstanceStatus;
+
+  try {
+    status = instance.status();
+  } catch (error: unknown) {
+    addConsoleError(error);
+
+    return;
+  }
+
+  switch (status) {
     case locSedApi.ESedInstanceStatus.RUNNING:
       // Pause the simulation.
 
@@ -411,13 +447,39 @@ const onRunPause = async (): Promise<void> => {
         return;
       }
 
-      // Report any error that occurred while waiting for the simulation to finish (e.g., if libOpenCOR threw an
+      // Handle any error that occurred while waiting for the simulation to finish (e.g., if libOpenCOR threw an
       // exception), in which case we cannot rely on our instance anymore.
+      // Note #1: we only know that we couldn't retrieve the status (or progress) of the simulation, which may therefore
+      //          still be running (or be paused). So, we try to stop it and wait for it to be idle. Otherwise, our next
+      //          run would, for instance, end up pausing the simulation rather than starting a new one (see the
+      //          RUNNING case above). If this fails too, then there is nothing more that we can do.
+      // Note #2: the run is over either way, so we reset our progress bar and live data, but we keep our plot as is (as
+      //          when a run is aborted) so that the user can see how far the simulation went.
 
       if (runError) {
-        simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
+        isWaitingOnRun = true;
 
-        consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${colors.REVERTED_PALETTE.Red};"><strong>Error:</strong> ${common.formatMessage(common.formatError(runError))}</span>`;
+        try {
+          instance.stopRun();
+
+          await vueCommon.waitWhileRunning(instance).promise;
+        } catch {
+          // Our instance cannot be relied upon anymore, so there is nothing more that we can do.
+        } finally {
+          isWaitingOnRun = false;
+        }
+
+        if (isUnmounted) {
+          await releaseResources();
+
+          return;
+        }
+
+        simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
+        progress.value = 0;
+        liveData = null;
+
+        addConsoleError(runError);
 
         return;
       }
@@ -463,13 +525,7 @@ const onRunPause = async (): Promise<void> => {
         updatePlot();
       }
 
-      vue.nextTick(() => {
-        const consoleElement = editorRef.value;
-
-        if (consoleElement) {
-          consoleElement.scrollTop = consoleElement.scrollHeight;
-        }
-      });
+      scrollConsoleToBottom();
     }
   }
 };
