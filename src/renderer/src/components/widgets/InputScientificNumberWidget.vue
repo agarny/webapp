@@ -15,6 +15,16 @@
         @keydown.enter="onKeydownEnter"
         @paste="onPaste"
       />
+      <button v-if="defaultValue !== undefined" :class="resetButtonClass"
+        type="button"
+        :disabled="disabled || readonly || atDefaultValue"
+        :tabindex="-1"
+        :title="`Reset to ${defaultValue}`"
+        @mousedown.prevent
+        @click="onResetButtonClick"
+      >
+        <i class="pi pi-undo" aria-hidden="true"></i>
+      </button>
       <span class="p-inputnumber-button-group">
         <button :class="incrementButtonClass"
           type="button"
@@ -65,6 +75,7 @@ const props = defineProps<{
   modelValue: number | undefined;
   label: string;
   allowEmpty?: boolean;
+  defaultValue?: number;
   min?: number;
   max?: number;
   step?: number;
@@ -131,6 +142,7 @@ const rootClass = vue.computed<Array<string | Record<string, boolean>>>(() => {
     'p-inputnumber-fluid',
     'w-full',
     {
+      'p-inputnumber-resettable': props.defaultValue !== undefined,
       'p-invalid': invalid.value,
       'p-inputwrapper-filled': hasValue.value,
       'p-inputwrapper-focus': isFocused.value
@@ -157,6 +169,21 @@ const minBoundary = vue.computed<boolean>(() => {
 });
 const maxBoundary = vue.computed<boolean>(() => {
   return props.max !== undefined && inferredNumericValue.value >= props.max;
+});
+const atDefaultValue = vue.computed<boolean>(() => {
+  return inferredNumericValue.value === props.defaultValue;
+});
+const resetButtonClass = vue.computed<Array<string | Record<string, boolean>>>(() => {
+  const isDisabled = disabled.value || readonly.value || atDefaultValue.value;
+
+  return [
+    isDisabled ? 'cursor-default' : 'cursor-pointer',
+    'p-inputnumber-button',
+    'p-inputnumber-reset-button',
+    {
+      'p-disabled': isDisabled
+    }
+  ];
 });
 const incrementButtonClass = vue.computed<Array<string | Record<string, boolean>>>(() => {
   const isDisabled = disabled.value || readonly.value || maxBoundary.value;
@@ -342,6 +369,18 @@ const onInputKeydown = (event: KeyboardEvent) => {
   }
 };
 
+const onResetButtonClick = () => {
+  if (disabled.value || readonly.value || props.defaultValue === undefined) {
+    return;
+  }
+
+  isEditing.value = false;
+
+  updateInternalValue(props.defaultValue);
+
+  emit('update:modelValue', props.defaultValue);
+};
+
 const validateValue = (value: number) => {
   if (props.min !== undefined && value < props.min) {
     return props.min;
@@ -509,6 +548,25 @@ vue.onBeforeUnmount(() => {
   padding-right: 1.5rem;
 }
 
+.p-inputnumber-resettable .p-inputnumber-input {
+  padding-right: 3rem;
+  margin-right: -1.5rem;
+}
+
+.p-inputnumber-reset-button {
+  position: absolute;
+  inset-inline-end: calc(1.5rem + 1px);
+  top: 0;
+  bottom: 0;
+  align-items: center;
+  margin-right: 0;
+  font-size: 0.75rem;
+}
+
+.p-inputnumber-reset-button .pi {
+  font-size: inherit;
+}
+
 .p-inputnumber-stacked .p-inputnumber-button-group {
   position: absolute;
   inset-inline-end: 0;
@@ -520,5 +578,6 @@ vue.onBeforeUnmount(() => {
 
 .p-inputnumber-button-group > button {
   min-height: 0;
+  margin-left: 0;
 }
 </style>

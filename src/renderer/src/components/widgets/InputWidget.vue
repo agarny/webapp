@@ -8,14 +8,27 @@
         @change="selectChange"
         :appendTo="appendTarget"
         class="w-full"
+        :class="{ 'resettable-select': defaultPossibleValue }"
         size="small"
       />
       <label>{{ name }}</label>
+      <button v-if="defaultPossibleValue" class="select-reset-button"
+        :class="atDefaultValue ? 'cursor-default p-disabled' : 'cursor-pointer'"
+        type="button"
+        :disabled="atDefaultValue"
+        :tabindex="-1"
+        :title="`Reset to ${defaultPossibleValue.name}`"
+        @mousedown.prevent
+        @click="selectReset"
+      >
+        <i class="pi pi-undo" aria-hidden="true"></i>
+      </button>
     </FloatLabel>
   </div>
   <div ref="rootRef" v-else @pointerdown.capture="onInteractionStart" @keydown.capture="onInteractionStart">
     <InputScientificNumberWidget v-model="value"
       :label="name"
+      :defaultValue="defaultValue"
       :min="minimumValue"
       :max="maximumValue"
       :step="compStepValue"
@@ -39,6 +52,7 @@ import type * as locApi from '../../libopencor/locApi';
 const value = defineModel<number>({ required: true });
 
 const props = defineProps<{
+  defaultValue?: number;
   maximumValue?: number;
   minimumValue?: number;
   name: string;
@@ -57,6 +71,12 @@ const discreteValue = vue.ref<locApi.IUiJsonDiscreteInputPossibleValue | undefin
 );
 const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const appendTarget = vueCommon.useAppendTarget(rootRef);
+const defaultPossibleValue = vue.computed<locApi.IUiJsonDiscreteInputPossibleValue | undefined>(() => {
+  return props.possibleValues?.find((possibleValue) => possibleValue.value === props.defaultValue);
+});
+const atDefaultValue = vue.computed<boolean>(() => {
+  return discreteValue.value?.value === props.defaultValue;
+});
 
 const compStepValue = vue.computed<number>(() => {
   if (props.stepValue !== undefined) {
@@ -197,6 +217,14 @@ const selectChange = (event: ISelectChangeEvent) => {
   }
 };
 
+const selectReset = () => {
+  if (defaultPossibleValue.value && defaultPossibleValue.value.value !== oldValue) {
+    discreteValue.value = defaultPossibleValue.value;
+
+    emitChange(defaultPossibleValue.value.value);
+  }
+};
+
 const inputTextValueUpdated = (newValue: number | undefined) => {
   if (newValue !== undefined && newValue !== oldValue) {
     emitChange(newValue);
@@ -211,3 +239,34 @@ const sliderChange = (newValue: number | number[]) => {
   }
 };
 </script>
+
+<style scoped>
+.resettable-select :deep(.p-select-dropdown) {
+  width: 1.5rem;
+}
+
+.resettable-select :deep(.p-select-label) {
+  padding-inline-end: 1.5rem;
+}
+
+.select-reset-button {
+  position: absolute;
+  inset-inline-end: calc(1.5rem + 1px);
+  top: 1px;
+  bottom: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  color: var(--p-button-text-secondary-color);
+  font-size: 0.75rem;
+}
+
+.select-reset-button:not(.p-disabled):hover {
+  background-color: var(--p-button-text-secondary-hover-background);
+}
+
+.select-reset-button .pi {
+  font-size: inherit;
+}
+</style>

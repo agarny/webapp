@@ -46,13 +46,28 @@
           <div v-else class="flex grow min-h-0">
             <div class="ml-4 mr-4 mb-4">
               <ScrollPanel class="h-full">
-                <Fieldset legend="Simulation inputs">
+                <Fieldset :id="inputsFieldsetId" class="inputs-fieldset">
+                  <template #legend>
+                    <div class="flex items-center">
+                      <span :id="`${inputsFieldsetId}_header`" class="p-fieldset-legend-label">Simulation inputs</span>
+                      <span class="inputs-fieldset-line grow mx-3"></span>
+                      <Button class="p-0! w-5! h-5! reset-inputs-button"
+                        icon="pi pi-undo"
+                        text severity="secondary"
+                        size="small"
+                        title="Reset all simulation inputs to their default values"
+                        :disabled="allSimulationInputsAtDefaultValues"
+                        @click="onResetInputs"
+                      />
+                    </div>
+                  </template>
                   <InputWidget
                     v-for="(input, index) in actualUiJson.input"
                     v-model="inputValues[index]!"
                     v-show="showInput[index]"
                     :key="`input_${index}`"
                     :name="input.name"
+                    :defaultValue="input.defaultValue"
                     :maximumValue="locApi.isScalarInput(input) ? input.maximumValue : undefined"
                     :minimumValue="locApi.isScalarInput(input) ? input.minimumValue : undefined"
                     :possibleValues="locApi.isDiscreteInput(input) ? input.possibleValues : undefined"
@@ -256,6 +271,12 @@ const uniformTimeCourse = isDocumentValid ? (document.simulation(0) as locApi.Se
 const cvode = uniformTimeCourse?.cvode() ?? null;
 const mathEval = new math.Float64ArrayMath();
 const model = isDocumentValid ? document.model(0) : null;
+
+// The ID of our simulation inputs' fieldset.
+// Note: we customise the legend of our simulation inputs' fieldset, so we need to give its label the ID that the
+//       fieldset expects (i.e. `<fieldset id>_header`) for its contents to still be labelled by it.
+
+const inputsFieldsetId = `simulationInputs${vue.getCurrentInstance()?.uid}`;
 
 // Some helper functions to evaluate and apply the model changes resulting from the given parameters and scope.
 
@@ -2237,6 +2258,23 @@ const onInputChangeEnd = (): void => {
   }
 };
 
+// Reset all our simulation inputs to their default values.
+
+const allSimulationInputsAtDefaultValues = vue.computed<boolean>(() => {
+  return actualUiJson.value.input.every((input: locApi.IUiJsonInput, index: number) => {
+    return inputValues.value[index] === input.defaultValue;
+  });
+});
+
+const onResetInputs = (): void => {
+  inputValues.value = actualUiJson.value.input.map((input: locApi.IUiJsonInput) => {
+    return input.defaultValue;
+  });
+
+  onInputChange();
+  onInputChangeEnd();
+};
+
 // Make sure that any pending simulation updates are discarded once we get unmounted.
 
 vue.onBeforeUnmount(() => {
@@ -2313,6 +2351,14 @@ vue.onMounted(() => {
   font-size: 1.25rem;
 }
 
+.inputs-fieldset :deep(.p-fieldset-legend) {
+  width: 100%;
+}
+
+.inputs-fieldset-line {
+  border-top: 1px solid var(--p-fieldset-border-color);
+}
+
 .note {
   color: var(--p-text-muted-color);
   margin-top: 0.5rem;
@@ -2326,6 +2372,15 @@ vue.onMounted(() => {
   font-size: 0.875rem;
   padding-top: 0;
   padding-bottom: 0;
+}
+
+.reset-inputs-button:not(:disabled) {
+  opacity: 0.75;
+}
+
+.reset-inputs-button:not(:disabled):hover {
+  opacity: 1;
+  transform: scale(1.15);
 }
 
 .run-action-button {
