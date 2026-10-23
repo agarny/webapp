@@ -57,11 +57,12 @@
                         size="small"
                         title="Reset all simulation inputs to their default values"
                         :disabled="allSimulationInputsAtDefaultValues"
+                        @mousedown.prevent
                         @click="onResetInputs"
                       />
                     </div>
                   </template>
-                  <InputWidget
+                  <InputWidget ref="inputWidgetsRef"
                     v-for="(input, index) in actualUiJson.input"
                     v-model="inputValues[index]!"
                     v-show="showInput[index]"
@@ -75,6 +76,7 @@
                     :class="index !== 0 ? 'mt-6' : ''"
                     @change="onInputChange()"
                     @changeEnd="onInputChangeEnd()"
+                    @atDefaultValueChange="(_name: string, atDefaultValue: boolean) => onInputAtDefaultValueChange(index, atDefaultValue)"
                   />
                 </Fieldset>
                 <Fieldset legend="Runs">
@@ -225,6 +227,7 @@ import * as locUiJsonApi from '../../libopencor/locUiJsonApi';
 import type { ISimulationExperimentInteractiveViewSettingsDialog } from '../dialogs/SimulationExperimentInteractiveViewSettingsDialog.vue';
 import { useOpenCORContext } from '../OpenCORContext';
 import GraphPanelWidget from '../widgets/GraphPanelWidget.vue';
+import InputWidget from '../widgets/InputWidget.vue';
 import type { IGraphPanelData, IGraphPanelMargins, IGraphPanelPlotTrace } from '../widgets/GraphPanelWidget.vue';
 
 import './simulation-experiment-view.css';
@@ -485,6 +488,8 @@ if (uiJsonIssues.value.length && instanceModelChangesKey !== NO_MODEL_CHANGES_KE
 const simulationIssues = vue.ref<locApi.IIssue[]>([]);
 const inputValues = vue.ref<number[]>([]);
 const showInput = vue.ref<boolean[]>([]);
+const inputsShownAtDefaultValues = vue.ref<(boolean | undefined)[]>([]);
+const inputWidgetsRef = vue.ref<InstanceType<typeof InputWidget>[]>([]);
 const idToInfo = new Map<string, locCommon.ISimulationDataInfo>();
 
 // A helper function to retrieve the simulation data information for the given name.
@@ -678,6 +683,7 @@ const updateUi = (): void => {
   showInput.value = actualUiJson.value.input.map((input: locApi.IUiJsonInput) => {
     return (input.visible ?? 'true') !== 'false';
   });
+  inputsShownAtDefaultValues.value = [];
 };
 
 // A helper function to generate a unique external data ID based on a candidate name and a set of already used IDs.
@@ -2259,17 +2265,47 @@ const onInputChangeEnd = (): void => {
 };
 
 // Reset all our simulation inputs to their default values.
+// Note: a scalar input may show a value that has yet to be committed (i.e. while it is being edited), so we also keep
+//       track of whether the value shown by an input is its default value, so that our inputs can be reset even if
+//       their committed values are their default values. An input that doesn't tell us whether the value it shows is
+//       its default value (e.g., a discrete input) shows its committed value.
+
+const onInputAtDefaultValueChange = (index: number, atDefaultValue: boolean): void => {
+  inputsShownAtDefaultValues.value[index] = atDefaultValue;
+};
 
 const allSimulationInputsAtDefaultValues = vue.computed<boolean>(() => {
   return actualUiJson.value.input.every((input: locApi.IUiJsonInput, index: number) => {
-    return inputValues.value[index] === input.defaultValue;
+    return inputValues.value[index] === input.defaultValue && inputsShownAtDefaultValues.value[index] !== false;
   });
 });
 
 const onResetInputs = (): void => {
-  inputValues.value = actualUiJson.value.input.map((input: locApi.IUiJsonInput) => {
+  // Discard any value that is being edited, so that it doesn't get committed (and simulated) once its input loses the
+  // focus.
+  // Note: our reset button doesn't take the focus when clicked, so that the input that has the focus (if any) doesn't
+  //       commit its value before we get here.
+
+  for (const inputWidget of inputWidgetsRef.value) {
+    inputWidget.discardEdit();
+  }
+
+  // Reset our input values and rerun our simulation, but only if needed (i.e. if there was only a value being edited
+  // then there is nothing else to do).
+
+  const defaultInputValues = actualUiJson.value.input.map((input: locApi.IUiJsonInput) => {
     return input.defaultValue;
   });
+
+  if (
+    defaultInputValues.every((defaultInputValue: number, index: number) => {
+      return inputValues.value[index] === defaultInputValue;
+    })
+  ) {
+    return;
+  }
+
+  inputValues.value = defaultInputValues;
 
   onInputChange();
   onInputChangeEnd();

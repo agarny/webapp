@@ -26,7 +26,7 @@
     </FloatLabel>
   </div>
   <div ref="rootRef" v-else @pointerdown.capture="onInteractionStart" @keydown.capture="onInteractionStart">
-    <InputScientificNumberWidget v-model="value"
+    <InputScientificNumberWidget ref="inputScientificNumberWidgetRef" v-model="value"
       :label="name"
       :defaultValue="defaultValue"
       :min="minimumValue"
@@ -34,6 +34,7 @@
       :step="compStepValue"
       size="small"
       @update:model-value="inputTextValueUpdated"
+      @atDefaultValueChange="(atDefaultValue: boolean) => emit('atDefaultValueChange', name, atDefaultValue)"
     />
     <Slider v-model="value" class="w-full mt-3"
       :min="minimumValue" :max="maximumValue" :step="compStepValue"
@@ -49,6 +50,8 @@ import * as vue from 'vue';
 import * as vueCommon from '../../common/vueCommon';
 import type * as locApi from '../../libopencor/locApi';
 
+import InputScientificNumberWidget from './InputScientificNumberWidget.vue';
+
 const value = defineModel<number>({ required: true });
 
 const props = defineProps<{
@@ -60,7 +63,8 @@ const props = defineProps<{
   stepValue?: number;
 }>();
 
-const emits = defineEmits<{
+const emit = defineEmits<{
+  atDefaultValueChange: [name: string, atDefaultValue: boolean];
   change: [name: string, newValue: number];
   changeEnd: [name: string];
 }>();
@@ -70,6 +74,7 @@ const discreteValue = vue.ref<locApi.IUiJsonDiscreteInputPossibleValue | undefin
   props.possibleValues?.find((possibleValue) => possibleValue.value === value.value)
 );
 const rootRef = vue.shallowRef<HTMLElement | null>(null);
+const inputScientificNumberWidgetRef = vue.ref<InstanceType<typeof InputScientificNumberWidget> | null>(null);
 const appendTarget = vueCommon.useAppendTarget(rootRef);
 const defaultPossibleValue = vue.computed<locApi.IUiJsonDiscreteInputPossibleValue | undefined>(() => {
   return props.possibleValues?.find((possibleValue) => possibleValue.value === props.defaultValue);
@@ -173,7 +178,7 @@ const onInteractionEnd = (): void => {
     //       emitChange()).
 
     void vue.nextTick().then(() => {
-      emits('changeEnd', props.name);
+      emit('changeEnd', props.name);
     });
   }
 };
@@ -196,10 +201,10 @@ const emitChange = (newValue: number) => {
 
     oldValue = newValue;
 
-    emits('change', props.name, newValue);
+    emit('change', props.name, newValue);
 
     if (changeIsFinal) {
-      emits('changeEnd', props.name);
+      emit('changeEnd', props.name);
     }
   });
 };
@@ -224,6 +229,14 @@ const selectReset = () => {
     emitChange(defaultPossibleValue.value.value);
   }
 };
+
+const discardEdit = () => {
+  inputScientificNumberWidgetRef.value?.discardEdit();
+};
+
+defineExpose({
+  discardEdit
+});
 
 const inputTextValueUpdated = (newValue: number | undefined) => {
   if (newValue !== undefined && newValue !== oldValue) {

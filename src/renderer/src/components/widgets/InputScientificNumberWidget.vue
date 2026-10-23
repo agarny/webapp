@@ -83,6 +83,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: number | undefined];
+  atDefaultValueChange: [atDefaultValue: boolean];
 }>();
 
 const attrs = vue.useAttrs();
@@ -222,6 +223,17 @@ vue.watch(
     if (!isEditing.value) {
       updateInternalValue(newValue);
     }
+  },
+  { immediate: true }
+);
+
+// Let our owner know whether the value we show is our default value, including while it is being edited, i.e. before it
+// is committed.
+
+vue.watch(
+  atDefaultValue,
+  (newAtDefaultValue) => {
+    emit('atDefaultValueChange', newAtDefaultValue);
   },
   { immediate: true }
 );
@@ -380,6 +392,18 @@ const onResetButtonClick = () => {
 
   emit('update:modelValue', props.defaultValue);
 };
+
+// Discard the value that is being edited, if any, i.e. show our current value again.
+
+const discardEdit = () => {
+  isEditing.value = false;
+
+  updateInternalValue(props.modelValue);
+};
+
+defineExpose({
+  discardEdit
+});
 
 const validateValue = (value: number) => {
   if (props.min !== undefined && value < props.min) {
