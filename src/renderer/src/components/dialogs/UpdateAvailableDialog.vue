@@ -8,9 +8,14 @@
       <div class="text-center">
         <div class="text-3xl font-bold">OpenCOR <span class="highlight highlight-version">{{ version }}</span> is available!</div>
       </div>
-      <div v-if="entries.length" class="space-y-2">
+      <div v-if="fetching || entries === null || entries.length" class="space-y-2">
         <div class="text-lg font-bold">What's new:</div>
-        <ChangelogComponent class="max-h-64 overflow-y-auto" :entries="entries" />
+        <div v-if="fetching" class="flex items-center gap-2 text-muted-color">
+          <i class="pi pi-cog pi-spin" />
+          <span>Retrieving the changes...</span>
+        </div>
+        <div v-else-if="entries === null" class="text-muted-color">The changes could not be retrieved.</div>
+        <ChangelogComponent v-else class="max-h-64 overflow-y-auto" :entries="entries" />
       </div>
       <div class="space-y-2">
         <div v-if="electronApi" class="text-center">
@@ -54,11 +59,16 @@ defineEmits<{
 }>();
 
 // Retrieve what is new between our current version (excluded) and the available version (included).
-// Note: our dialog may get closed and shown again (possibly for another version) before the changes that we were
-//       fetching have been retrieved, in which case we ignore those changes since they may not be for the version that
-//       is now available.
+// Note #1: OpenCOR shows our dialog as soon as it knows about a newer version, so we list the changes as soon as they
+//          have been fetched. OpenCOR's Web app, on the other hand, fetches them as soon as it knows about a newer
+//          version (see OpenCOR.vue), so they are normally already fetched by the time our dialog is shown, in which
+//          case we list them straightaway.
+// Note #2: our dialog may get closed and shown again (possibly for another version) before the changes that we were
+//          fetching have been retrieved, in which case we ignore those changes since they may not be for the version
+//          that is now available.
 
-const entries = vue.ref<IOpenCORChangelogEntry[]>([]);
+const entries = vue.ref<IOpenCORChangelogEntry[] | null>([]);
+const fetching = vue.ref(false);
 
 let fetchId = 0;
 
@@ -66,10 +76,12 @@ const onShow = (): void => {
   const crtFetchId = ++fetchId;
 
   entries.value = [];
+  fetching.value = true;
 
-  void fetchChangelog(props.version).then((changelogEntries: IOpenCORChangelogEntry[]) => {
+  void fetchChangelog(props.version).then((changelogEntries: IOpenCORChangelogEntry[] | null) => {
     if (crtFetchId === fetchId) {
       entries.value = changelogEntries;
+      fetching.value = false;
     }
   });
 };

@@ -845,6 +845,17 @@ const onSettingsMenu = (): void => {
 };
 
 // Update available dialog (for OpenCOR's Web app).
+// Note: we fetch the changes for a newer version as soon as we know about it, so that our update available dialog can
+//       list them straightaway (see fetchChangelog() in changelog.ts).
+
+vue.watch(
+  [version.updateAvailable, version.latestVersion],
+  ([newUpdateAvailable, newLatestVersion]: [boolean, string]) => {
+    if (newUpdateAvailable) {
+      void changelog.fetchChangelog(newLatestVersion);
+    }
+  }
+);
 
 const onUpdateAvailable = () => {
   updateVersion.value = version.latestVersion.value;
