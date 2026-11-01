@@ -127,29 +127,55 @@ const changelog = (): IOpenCORChangelogEntry[] => {
 //          scripts/generate.version.ts), i.e. the changelog of the latest deployed version (which may be even newer
 //          than the given version) with cache busting (i.e. by adding a timestamp query parameter to the URL so that
 //          the browser doesn't serve a cached version).
-// Note #2: we don't want to bother the user if we cannot fetch the changes, so we just return an empty list in that
-//          case.
+// Note #2: we return null if we cannot fetch the changes (within a given amount of time), so that our update available
+//          dialog can let the user know about it.
+// Note #3: we keep track of the changes that we have fetched (or are fetching) for a given version, so that OpenCOR's
+//          Web app can fetch them as soon as it knows about a newer version (see OpenCOR.vue) and our update available
+//          dialog can then list them straightaway. We don't keep track of the changes that we failed to fetch, so that
+//          we can try again later.
 
-const fetchChangelog = async (toVersion: string): Promise<IOpenCORChangelogEntry[]> => {
+const CHANGELOG_FETCH_TIMEOUT = 3 * 1000; // 3 seconds.
+
+const fetchedChangelogs = new Map<string, Promise<IOpenCORChangelogEntry[] | null>>();
+
+const doFetchChangelog = async (toVersion: string): Promise<IOpenCORChangelogEntry[] | null> => {
   const url = electronApi
     ? `https://raw.githubusercontent.com/opencor/webapp/v${toVersion}/src/renderer/changelog.json`
     : `./assets/changelog.json?t=${Date.now()}`;
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(CHANGELOG_FETCH_TIMEOUT) });
 
     if (!response.ok) {
       console.warn(`OpenCOR: failed to fetch the changelog (${response.status}: ${response.statusText}).`);
 
-      return [];
+      return null;
     }
 
     return changelogEntries(sanitisedChangelog(await response.json()), currentVersion, toVersion);
   } catch (error: unknown) {
     console.warn('OpenCOR: failed to fetch the changelog:', formatError(error));
 
-    return [];
+    return null;
   }
+};
+
+const fetchChangelog = (toVersion: string): Promise<IOpenCORChangelogEntry[] | null> => {
+  let res = fetchedChangelogs.get(toVersion);
+
+  if (!res) {
+    res = doFetchChangelog(toVersion).then((entries: IOpenCORChangelogEntry[] | null) => {
+      if (entries === null) {
+        fetchedChangelogs.delete(toVersion);
+      }
+
+      return entries;
+    });
+
+    fetchedChangelogs.set(toVersion, res);
+  }
+
+  return res;
 };
 
 // Export our changelog functions.

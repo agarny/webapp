@@ -23,7 +23,7 @@
     "url": "git+https://github.com/opencor/webapp.git"
   },
   "type": "module",
-  "version": "1.20261031.0",
+  "version": "1.20261102.0",
   "engines": {
     "bun": ">=1.2.0"
   },
