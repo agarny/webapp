@@ -23,7 +23,7 @@
         </div>
         <div v-else class="text-center">
           <span class="text-lg">Feel free to reload OpenCOR whenever you are ready.</span><br />
-          <em >(Please note that any unsaved work will be lost.)</em>
+          <em >(You will be asked whether to save the files that have been modified, if any.)</em>
         </div>
       </div>
     </div>
@@ -33,7 +33,7 @@
         <Button label="No" severity="secondary" @click="$emit('close')" />
       </template>
       <template v-else>
-        <Button :label="reloading?'Reloading...':'Reload'" autofocus :loading="reloading" @click="onReloadNow" />
+        <Button :label="reloading?'Reloading...':'Reload'" autofocus :loading="reloading" @click="$emit('reload')" />
         <Button label="Cancel" severity="secondary" :disabled="reloading" @click="$emit('close')" />
       </template>
     </template>
@@ -47,15 +47,19 @@ import type { IOpenCORChangelogEntry } from '../../../index';
 
 import { fetchChangelog } from '../../common/changelog';
 import { electronApi } from '../../common/electronApi';
-import { forceReload } from '../../common/version';
+
+// Note: in OpenCOR's Web app, we let OpenCOR know that the user wants to reload it, and OpenCOR lets us know whether it
+//       is reloading (e.g., it isn't if the user cancels saving the files that have been modified).
 
 const props = defineProps<{
   version: string;
+  reloading?: boolean;
 }>();
 
 defineEmits<{
   close: [];
   downloadAndInstall: [];
+  reload: [];
 }>();
 
 // Retrieve what is new between our current version (excluded) and the available version (included).
@@ -84,16 +88,6 @@ const onShow = (): void => {
       fetching.value = false;
     }
   });
-};
-
-// Reload OpenCOR's Web app.
-
-const reloading = vue.ref(false);
-
-const onReloadNow = (): void => {
-  reloading.value = true;
-
-  void forceReload();
 };
 </script>
 

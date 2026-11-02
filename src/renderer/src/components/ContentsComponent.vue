@@ -35,6 +35,7 @@
         @dragend="onDragEnd"
       >
         <span class="file-tab-label">{{ common.fileName(fileTab.file.canonicalPath()) }}</span>
+        <div v-if="isModified(fileTab)" class="pi pi-circle-fill modified-indicator" title="Modified" />
         <div class="pi pi-times remove-button" @mousedown.prevent @click.stop="closeFile(fileTab.file.path())" />
       </div>
     </div>
@@ -58,6 +59,21 @@
         </div>
       </template>
     </div>
+    <YesNoQuestionDialog :visible="questionVisible && !questionCancellable"
+      :title="questionTitle"
+      :question="questionText"
+      @update:visible="onQuestionVisibilityUpdated"
+      @yes="onQuestionAnswered('yes')"
+      @no="onQuestionAnswered('no')"
+    />
+    <YesNoCancelQuestionDialog :visible="questionVisible && questionCancellable"
+      :title="questionTitle"
+      :question="questionText"
+      @update:visible="onQuestionVisibilityUpdated"
+      @yes="onQuestionAnswered('yes')"
+      @no="onQuestionAnswered('no')"
+      @cancel="onQuestionAnswered('cancel')"
+    />
   </div>
 </template>
 
@@ -69,7 +85,7 @@ import type { IOpenCORExternalDataEvent, IOpenCORSimulationDataEvent } from '../
 import * as common from '../common/common';
 import { electronApi } from '../common/electronApi';
 import * as locCommon from '../common/locCommon';
-import { useViewRegistry } from '../common/viewRegistry';
+import { type IFileEditor, useViewRegistry } from '../common/viewRegistry';
 import * as locApi from '../libopencor/locApi';
 
 import SimulationExperimentInteractiveView from './views/SimulationExperimentInteractiveView.vue';
@@ -80,11 +96,12 @@ interface IFileTab {
   file: locApi.File;
   uiJson?: locApi.IUiJson;
   activeViewId: string;
+  fileHandle?: FileSystemFileHandle; // Only used in OpenCOR's Web app, to save a file where it is (see saveFile()).
 }
 
 const emit = defineEmits<{
   error: [message: string];
-  fileClosed: [filePath: string];
+  fileClosed: [filePath: string, fileHandle?: FileSystemFileHandle];
   fileOpened: [filePath: string];
   openFile: [fileFilePathOrFileContents: string];
   simulationData: [];
@@ -275,7 +292,7 @@ const selectPreviousFile = async (): Promise<void> => {
   }
 };
 
-const openFile = async (file: locApi.File, wait: boolean = false): Promise<void> => {
+const openFile = async (file: locApi.File, wait: boolean = false, fileHandle?: FileSystemFileHandle): Promise<void> => {
   const filePath = file.path();
   const prevActiveFile = activeFile.value;
   const uiJson = file.uiJson();
@@ -287,7 +304,8 @@ const openFile = async (file: locApi.File, wait: boolean = false): Promise<void>
       ? 'celldl-editor'
       : uiJson
         ? 'simulation-experiment-interactive'
-        : 'simulation-experiment-standard'
+        : 'simulation-experiment-standard',
+    fileHandle: fileHandle ? vue.markRaw(fileHandle) : undefined
   });
 
   // Select the file and let people know that it has been opened.
@@ -305,16 +323,33 @@ const openFile = async (file: locApi.File, wait: boolean = false): Promise<void>
   await fileSelected;
 };
 
-const closeFile = async (filePath: string): Promise<void> => {
-  // Note: there is nothing to close if the file has no file tab, so we don't want to let people know that it has been
-  //       closed (and, in the case of Electron, have it added to our list of recent files).
+const closeFile = async (filePath: string, force: boolean = false): Promise<boolean> => {
+  // Close the given file and return whether it was closed (or had no file tab), i.e. whether the user didn't cancel its
+  // closing.
+  // Note #1: there is nothing to close if the file has no file tab, so we don't want to let people know that it has
+  //          been closed (and, in the case of Electron, have it added to our list of recent files).
+  // Note #2: if the file has been modified, then we ask the user whether to save it first, unless we are forced to
+  //          close it (see saveFileAs()). Saving the file may result in it being saved under another name (see
+  //          saveFileAs()), so we retrieve the index and file path of its file tab once we are done. Its file tab may
+  //          also have been closed in the meantime, in which case there is nothing left to close.
 
-  const fileTabIndex = fileTabs.value.findIndex((fileTab) => fileTab.file.path() === filePath);
-  const fileTab = fileTabs.value[fileTabIndex];
+  const fileTab = fileTabs.value.find((fileTab) => fileTab.file.path() === filePath);
 
   if (!fileTab) {
-    return;
+    return true;
   }
+
+  if (!force && isModified(fileTab) && !(await askToSaveFile(fileTab, 'Close'))) {
+    return false;
+  }
+
+  const fileTabIndex = fileTabs.value.indexOf(fileTab);
+
+  if (fileTabIndex === -1) {
+    return true;
+  }
+
+  filePath = fileTab.file.path();
 
   const canonicalFilePath = fileTab.file.canonicalPath();
 
@@ -338,7 +373,9 @@ const closeFile = async (filePath: string): Promise<void> => {
 
   electronApi?.fileClosed(canonicalFilePath);
 
-  emit('fileClosed', filePath);
+  emit('fileClosed', filePath, fileTab.fileHandle);
+
+  return true;
 };
 
 const closeCurrentFile = async (): Promise<void> => {
@@ -356,13 +393,504 @@ const closeAllFiles = async (): Promise<void> => {
 
   // Close the files from a snapshot of our file tabs, so that we are guaranteed to terminate, and close the current
   // file last, so that closing the other files doesn't result in a new file being selected each time.
+  // Note: we stop as soon as the user cancels the closing of a (modified) file.
 
   const currentFilePath = activeFile.value;
   const otherFilePaths = filePaths.value.filter((filePath) => filePath !== currentFilePath);
 
   for (const filePath of [...otherFilePaths, currentFilePath]) {
-    await closeFile(filePath);
+    if (!(await closeFile(filePath))) {
+      return;
+    }
   }
+};
+
+// Ask the user a (yes/no or yes/no/cancel) question and return their answer.
+// Note: BaseDialog emits a cancel event whenever it gets hidden, including after the user has answered our question, so
+//       rather than relying on such an event, we rely on our dialogs' visibility being updated to know when the user
+//       has dismissed our question (e.g., using the Escape key), in which case we consider that they have cancelled it.
+
+type QuestionAnswer = 'yes' | 'no' | 'cancel';
+
+const questionVisible = vue.ref<boolean>(false);
+const questionTitle = vue.ref<string>('');
+const questionText = vue.ref<string>('');
+const questionCancellable = vue.ref<boolean>(false);
+let questionAnswered: ((answer: QuestionAnswer) => void) | null = null;
+
+const askQuestion = (title: string, question: string, cancellable: boolean = false): Promise<QuestionAnswer> => {
+  // Cancel the question that we are already asking, if any (e.g., if the user tries to quit OpenCOR while we are asking
+  // them whether to save a file that they are closing), since we can only ask one question at a time.
+
+  questionAnswered?.('cancel');
+
+  return new Promise((resolve) => {
+    questionAnswered = resolve;
+    questionTitle.value = title;
+    questionText.value = question;
+    questionCancellable.value = cancellable;
+    questionVisible.value = true;
+  });
+};
+
+const onQuestionAnswered = (answer: QuestionAnswer): void => {
+  const resolve = questionAnswered;
+
+  questionAnswered = null;
+  questionVisible.value = false;
+
+  resolve?.(answer);
+};
+
+const onQuestionVisibilityUpdated = (visible: boolean): void => {
+  if (!visible) {
+    onQuestionAnswered('cancel');
+  }
+};
+
+// Save a file.
+// Note #1: only a file that has an editor (i.e. that is open in a view that can edit it) can be modified and therefore
+//          saved, but any file can be saved under another name (e.g., a remote file can be saved as a local file).
+// Note #2: in OpenCOR, a local file is saved where it is, while in OpenCOR's Web app, a file can only be saved where it
+//          is if we have a handle to it (i.e. if it was dropped onto OpenCOR's Web app or saved using File|Save As,
+//          and only in Chromium-based Web browsers). Any other file (e.g., a remote file or a file opened using a data
+//          URL) gets saved using File|Save As instead.
+
+interface IFileSystemFileHandleWithPermission {
+  queryPermission?: (descriptor: { mode: 'readwrite' }) => Promise<PermissionState>;
+  requestPermission?: (descriptor: { mode: 'readwrite' }) => Promise<PermissionState>;
+}
+
+const fileEditor = (fileTab: IFileTab): IFileEditor | undefined => {
+  return viewRegistry.fileEditor(fileTab.file);
+};
+
+const isModified = (fileTab: IFileTab): boolean => {
+  return fileEditor(fileTab)?.modified() ?? false;
+};
+
+// Retrieve the contents of the given file, i.e. the contents of its file editor, if any, or the contents that it was
+// opened with (e.g., a remote file cannot be edited, but it can still be saved as a local file).
+
+const fileContents = async (fileTab: IFileTab): Promise<Uint8Array> => {
+  const editor = fileEditor(fileTab);
+
+  return editor ? editor.contents() : fileTab.file.contents();
+};
+
+// Determine the name under which to suggest saving the given file.
+// Note: a remote file is named after the last part of its URL, which may include a query and/or a fragment, while a
+//       COMBINE archive opened using a data URL is named "OMEX #<n>" (see common.OMEX_PREFIX), i.e. without extension.
+
+const suggestedFileName = (fileTab: IFileTab): string => {
+  const filePath = fileTab.file.canonicalPath();
+
+  if (common.isUrl(filePath)) {
+    return common.fileName(filePath.replace(/[?#].*$/, '')) || common.fileName(filePath);
+  }
+
+  if (filePath.startsWith(common.OMEX_PREFIX)) {
+    return `${filePath}.omex`;
+  }
+
+  return common.fileName(filePath);
+};
+
+const isLocalFilePath = (filePath: string): boolean => {
+  return (
+    !!electronApi &&
+    !common.isUrl(filePath) &&
+    !common.isDataUrlFileName(filePath) &&
+    (filePath.startsWith('/') || filePath.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(filePath))
+  );
+};
+
+const canBeSavedInPlace = (fileTab: IFileTab): boolean => {
+  return electronApi ? isLocalFilePath(fileTab.file.path()) : !!fileTab.fileHandle;
+};
+
+// Determine whether the given file tab is for the given file, knowing that its file has the same path (see
+// findFileTab()).
+// Note: in OpenCOR, a file is known by its (canonical) path, so it is the same file. In OpenCOR's Web app, however, a
+//       local file is only known by its name, so it is only the same file if we have a handle to both files and they
+//       are the same entry (e.g., two files with the same name may be in different folders).
+
+const isSameFile = async (fileTab: IFileTab, fileHandle: FileSystemFileHandle | undefined): Promise<boolean> => {
+  if (electronApi) {
+    return true;
+  }
+
+  if (!fileTab.fileHandle || !fileHandle) {
+    return false;
+  }
+
+  try {
+    return await fileTab.fileHandle.isSameEntry(fileHandle);
+  } catch (_error: unknown) {
+    return false;
+  }
+};
+
+// Determine whether we can write to the given file, asking the user for permission to do so, if needed.
+// Note #1: we may only be able to read a file (e.g., if it was dropped onto OpenCOR's Web app, see OpenCOR.vue), in
+//          which case the Web browser asks the user whether we can modify it (or, rather, save changes to it).
+// Note #2: the Web browser may not support (asking for) permissions (they are only part of the File System Access API),
+//          in which case we assume that we can write to the file and let writeFile() fail if we cannot.
+
+const canWriteFile = async (fileHandle: FileSystemFileHandle): Promise<boolean> => {
+  const fileHandleWithPermission = fileHandle as unknown as IFileSystemFileHandleWithPermission;
+
+  if (!fileHandleWithPermission.queryPermission || !fileHandleWithPermission.requestPermission) {
+    return true;
+  }
+
+  return (
+    (await fileHandleWithPermission.queryPermission({ mode: 'readwrite' })) === 'granted' ||
+    (await fileHandleWithPermission.requestPermission({ mode: 'readwrite' })) === 'granted'
+  );
+};
+
+const writeFile = async (
+  filePath: string,
+  fileHandle: FileSystemFileHandle | undefined,
+  contents: Uint8Array
+): Promise<void> => {
+  if (electronApi) {
+    await electronApi.saveFile(filePath, contents);
+  } else if (fileHandle) {
+    const writable = await fileHandle.createWritable();
+
+    try {
+      await writable.write(contents as Uint8Array<ArrayBuffer>);
+      await writable.close();
+    } catch (error: unknown) {
+      await writable.abort().catch(() => {});
+
+      throw error;
+    }
+  }
+};
+
+const reportSaveIssue = (fileTab: IFileTab, error: unknown): void => {
+  emit(
+    'error',
+    `${common.fileName(fileTab.file.canonicalPath())} could not be saved (${common.formatMessage(common.formatError(error), false)}).`
+  );
+};
+
+const saveFile = async (fileTab: IFileTab): Promise<boolean> => {
+  // Save the given file, if possible, and return whether it was saved.
+
+  const editor = fileEditor(fileTab);
+
+  if (!editor) {
+    return false;
+  }
+
+  if (!canBeSavedInPlace(fileTab)) {
+    return saveFileAs(fileTab);
+  }
+
+  // Note: we make sure that we can write to the file before retrieving its contents since a Web browser only lets us ask
+  //       the user for permission to write to it while handling one of their actions (e.g., a menu item being clicked),
+  //       i.e. not too long after it.
+
+  let contents: Uint8Array;
+
+  try {
+    if (fileTab.fileHandle && !(await canWriteFile(fileTab.fileHandle))) {
+      throw new Error('permission to save changes to the file was not granted');
+    }
+
+    contents = await editor.contents();
+
+    await writeFile(fileTab.file.path(), fileTab.fileHandle, contents);
+  } catch (error: unknown) {
+    reportSaveIssue(fileTab, error);
+
+    return false;
+  }
+
+  editor.markSaved(contents);
+
+  return true;
+};
+
+const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
+  // Save the given file under a name of the user's choosing and return whether it was saved.
+
+  const editor = fileEditor(fileTab);
+
+  // Let the user choose where to save the file.
+  // Note: in OpenCOR's Web app, we can only let the user choose where to save the file if the File System Access API
+  //       is available (and allowed, e.g., it isn't in a cross-origin iframe). If it isn't, then we download the file
+  //       instead, using its suggested name (see suggestedFileName()), since we cannot know where (and under which
+  //       name) it will be downloaded. For the same reason, and since the download may not even happen (e.g., the Web
+  //       browser may block it or the user may decline it), we don't consider the file saved, i.e. it remains modified
+  //       if it was (but we let the user proceed, e.g., with closing it).
+
+  const oldFilePath = fileTab.file.path();
+  const oldFileName = suggestedFileName(fileTab);
+  let newFilePath: string | null = null;
+  let newFileHandle: FileSystemFileHandle | undefined;
+
+  if (electronApi) {
+    try {
+      newFilePath = await electronApi.saveFileAs(isLocalFilePath(oldFilePath) ? oldFilePath : oldFileName);
+    } catch (error: unknown) {
+      reportSaveIssue(fileTab, error);
+
+      return false;
+    }
+  } else {
+    const showSaveFilePicker = (window as unknown as common.IWindowWithSaveFilePicker).showSaveFilePicker;
+
+    if (showSaveFilePicker) {
+      try {
+        newFileHandle = await showSaveFilePicker.call(window, { suggestedName: oldFileName });
+        newFilePath = newFileHandle.name;
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return false;
+        }
+
+        console.warn('OpenCOR: failed to show the save file picker:', common.formatError(error));
+      }
+    }
+
+    if (!newFileHandle) {
+      try {
+        common.downloadFile(oldFileName, new Blob([(await fileContents(fileTab)) as Uint8Array<ArrayBuffer>]), '');
+      } catch (error: unknown) {
+        reportSaveIssue(fileTab, error);
+
+        return false;
+      }
+
+      return true;
+    }
+  }
+
+  if (!newFilePath) {
+    return false;
+  }
+
+  // Check whether the file is to be saved where it is or whether another file tab is for the file to which it is to be
+  // saved, in which case we ask the user whether to replace it.
+
+  const otherFileTab = findFileTab(newFilePath);
+
+  if (fileTab === otherFileTab) {
+    let contents: Uint8Array;
+
+    try {
+      contents = await fileContents(fileTab);
+
+      await writeFile(newFilePath, newFileHandle, contents);
+    } catch (error: unknown) {
+      reportSaveIssue(fileTab, error);
+
+      return false;
+    }
+
+    if (newFileHandle) {
+      fileTab.fileHandle = vue.markRaw(newFileHandle);
+    }
+
+    editor?.markSaved(contents);
+
+    return true;
+  }
+
+  // Ask the user whether to replace the other file tab, if any.
+  // Note: if the other file tab may not be for the file to which we are about to save (see isSameFile()), then we close
+  //       it now, asking the user whether to save it if it has been modified, and we stop if the user cancels.
+  //       Otherwise, we close it once our file has been saved (see below).
+
+  if (otherFileTab) {
+    if (
+      (await askQuestion(
+        'Save As',
+        `${common.escapeHtml(common.fileName(otherFileTab.file.canonicalPath()))} is already open. Do you want to replace it?`
+      )) !== 'yes'
+    ) {
+      return false;
+    }
+
+    if (!(await isSameFile(otherFileTab, newFileHandle))) {
+      if (!(await closeFile(otherFileTab.file.path()))) {
+        return false;
+      }
+
+      await vue.nextTick();
+    }
+  }
+
+  // Save the file.
+
+  const contents = await fileContents(fileTab).catch((error: unknown) => {
+    reportSaveIssue(fileTab, error);
+
+    return null;
+  });
+
+  if (!contents) {
+    return false;
+  }
+
+  try {
+    await writeFile(newFilePath, newFileHandle, contents);
+  } catch (error: unknown) {
+    reportSaveIssue(fileTab, error);
+
+    return false;
+  }
+
+  // Our file tab may have been closed while the file was being saved (e.g., using File|Close), in which case there is
+  // nothing left to rename.
+
+  if (!fileTabs.value.includes(fileTab)) {
+    return true;
+  }
+
+  // Close the other file tab, if it is still open (see above), without asking the user whether to save it since it is
+  // for the file that we have just saved and the user wants it replaced.
+  // Note: closing a file tab releases its file on the next tick (see closeFile()), so we wait for it to be released
+  //       since it has the same path as the file that we are about to create (and, with the C++ version of libOpenCOR,
+  //       releasing it would otherwise unmanage our new file).
+
+  if (otherFileTab && fileTabs.value.includes(otherFileTab)) {
+    await closeFile(otherFileTab.file.path(), true);
+    await vue.nextTick();
+  }
+
+  // Replace the file of our file tab with the saved file, which renames our file tab.
+  // Note #1: in OpenCOR, a local file is retrieved by libOpenCOR (see locCommon.file()), so we don't provide its
+  //          contents.
+  // Note #2: our file tab's views are keyed by the path of its file, so they get recreated for the saved file (and get
+  //          unmounted before we release the old file, see closeFile()). This means that we don't need to mark the
+  //          file as saved and that, should we fail to replace it, our file tab, which is still for the old file,
+  //          remains modified if it was.
+  // Note #3: the old file gets closed and the new file gets opened, as far as people are concerned (and, in the case of
+  //          Electron, the old file gets added to our list of recent files).
+  // Note #4: the reference to our file tab's element is keyed by the path of its file (see setFileTabRef()), which is
+  //          only retrieved when Vue lets us know that the element has been unmounted, i.e. once our file tab has been
+  //          renamed. So, the reference for the old path would never be removed, hence we remove it ourselves.
+
+  let newFile: locApi.File;
+
+  try {
+    newFile = electronApi ? new locApi.File(newFilePath) : new locApi.File(newFilePath, contents);
+  } catch (error: unknown) {
+    reportSaveIssue(fileTab, error);
+
+    return false;
+  }
+
+  const oldFile = fileTab.file;
+  const oldCanonicalFilePath = oldFile.canonicalPath();
+  const oldFileHandle = fileTab.fileHandle;
+
+  locApi.fileManager.unmanage(oldFilePath);
+
+  delete fileTabRefs[oldFilePath];
+
+  fileTab.file = newFile;
+  fileTab.uiJson = newFile.uiJson();
+  fileTab.fileHandle = newFileHandle ? vue.markRaw(newFileHandle) : undefined;
+
+  if (activeFile.value === oldFilePath) {
+    activeFile.value = newFilePath;
+  }
+
+  void vue.nextTick().then(() => {
+    oldFile.release();
+  });
+
+  electronApi?.fileClosed(oldCanonicalFilePath);
+
+  emit('fileClosed', oldFilePath, oldFileHandle);
+
+  electronApi?.fileOpened(newFilePath, newFile.canonicalPath());
+
+  emit('fileOpened', newFilePath);
+
+  return true;
+};
+
+const activeFileTab = (): IFileTab | undefined => {
+  return fileTabs.value.find((fileTab) => fileTab.file.path() === activeFile.value);
+};
+
+const saveCurrentFile = async (): Promise<void> => {
+  const fileTab = activeFileTab();
+
+  if (fileTab && isModified(fileTab)) {
+    await saveFile(fileTab);
+  }
+};
+
+const saveCurrentFileAs = async (): Promise<void> => {
+  const fileTab = activeFileTab();
+
+  if (fileTab) {
+    await saveFileAs(fileTab);
+  }
+};
+
+// Ask the user whether to save the given (modified) file and return false if they cancelled or if the file couldn't be
+// saved.
+
+const askToSaveFile = async (fileTab: IFileTab, title: string): Promise<boolean> => {
+  const answer = await askQuestion(
+    title,
+    `${common.escapeHtml(common.fileName(fileTab.file.canonicalPath()))} has been modified. Do you want to save it?`,
+    true
+  );
+
+  if (answer === 'cancel') {
+    return false;
+  }
+
+  return answer === 'no' || saveFile(fileTab);
+};
+
+// Return the path of the files that have been modified.
+
+const modifiedFilePaths = (): string[] => {
+  return fileTabs.value.filter((fileTab) => isModified(fileTab)).map((fileTab) => fileTab.file.path());
+};
+
+// Ask the user whether to save the files that have been modified, one after the other, and return false as soon as the
+// user cancels or a file couldn't be saved (e.g., so that OpenCOR doesn't get quit).
+// Note #1: we select a file before asking about it, so that the user can see which file we are asking about.
+// Note #2: we go through a snapshot of our file tabs since saving a file under another name may replace (i.e. close)
+//          another file tab (see saveFileAs()), in which case we skip it.
+
+const saveModifiedFiles = async (title: string): Promise<boolean> => {
+  for (const fileTab of [...fileTabs.value]) {
+    if (!fileTabs.value.includes(fileTab) || !isModified(fileTab)) {
+      continue;
+    }
+
+    await selectFile(fileTab.file.path());
+
+    if (!(await askToSaveFile(fileTab, title))) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const canSaveCurrentFile = (): boolean => {
+  const fileTab = activeFileTab();
+
+  return !!fileTab && isModified(fileTab);
+};
+
+const canSaveCurrentFileAs = (): boolean => {
+  return !!activeFileTab();
 };
 
 const setFileTabRef = (filePath: string, element: HTMLElement | null): void => {
@@ -598,10 +1126,16 @@ defineExpose({
 
   // Full OpenCOR methods.
 
+  canSaveCurrentFile,
+  canSaveCurrentFileAs,
   closeAllFiles,
   closeCurrentFile,
   hasFile,
   hasFiles,
+  modifiedFilePaths,
+  saveCurrentFile,
+  saveCurrentFileAs,
+  saveModifiedFiles,
   selectFile,
 
   // Simulation-only methods.
@@ -733,6 +1267,10 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
   background-color: var(--p-primary-color);
   pointer-events: none;
   z-index: 10;
+}
+
+.modified-indicator {
+  font-size: 0.5rem;
 }
 
 .remove-button {

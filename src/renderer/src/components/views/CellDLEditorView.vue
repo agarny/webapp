@@ -61,6 +61,7 @@ import { type ICellDLEditorClient, useCellDLEditorHost } from '../../common/cell
 import { loadCellDLRuntime } from '../../common/celldlRuntime';
 import * as common from '../../common/common';
 import { LONG_DELAY } from '../../common/constants';
+import { type IFileEditor, useViewRegistry } from '../../common/viewRegistry';
 import * as locApi from '../../libopencor/locApi';
 
 import { useOpenCORContext } from '../OpenCORContext';
@@ -85,7 +86,7 @@ const emit = defineEmits<{
 
 const LIMITATIONS = [
   'Only adding, deleting, and moving can be undone.',
-  'Undoing all changes doesn\'t make a file unmodified.',
+  "Undoing all changes doesn't make a file unmodified.",
   'Switching files loses the selection, zoom, scroll position, undo history, etc.',
   'Safari and Firefox draw diagrams differently.'
 ];
@@ -119,8 +120,41 @@ const client = vue.reactive({
   active: vue.computed<boolean>(() => props.isActiveFile && isActiveView.value),
   activation: 0,
   loaded: false,
+  editCount: 0,
   issues: []
 }) as ICellDLEditorClient;
+
+// Let people know that we can edit our file, so that it can be saved (see ContentsComponent.vue).
+// Note: our diagram may get edited while it is being saved (e.g., while our file is being written), in which case it
+//       must still be considered modified once saved, hence we keep track of the number of edits that had been made
+//       when we asked for some contents, for each contents that we provide (since several of them may be being saved at
+//       once, see IFileEditor). We do so before asking for them since an edit made while they are being retrieved may
+//       or may not be part of them, in which case we would rather consider our diagram modified when it isn't than the
+//       other way round.
+
+const viewRegistry = useViewRegistry();
+const savedEditCount = vue.ref<number>(0);
+const contentsEditCounts = new WeakMap<Uint8Array, number>();
+const fileEditor: IFileEditor = {
+  modified: () => client.editCount !== savedEditCount.value,
+  contents: async () => {
+    const editCount = client.editCount;
+    const res = new TextEncoder().encode(await host.clientData(client));
+
+    contentsEditCounts.set(res, editCount);
+
+    return res;
+  },
+  markSaved: (contents: Uint8Array) => {
+    const editCount = contentsEditCounts.get(contents);
+
+    if (editCount !== undefined) {
+      savedEditCount.value = editCount;
+    }
+  }
+};
+
+viewRegistry.registerFileEditor(props.file, fileEditor);
 
 // Let our shared CellDL Editor know whenever we become visible or our OpenCOR instance becomes active while we are
 // visible, so that it shows our diagram if another OpenCOR instance also has a visible CellDL Editor view.
@@ -169,6 +203,7 @@ vue.onBeforeUnmount(() => {
   unmounted = true;
 
   host.unregister(client);
+  viewRegistry.unregisterFileEditor(props.file, fileEditor);
 });
 
 // Export our (possibly edited) diagram to a COMBINE archive, which we can then either simulate or download.

@@ -48,16 +48,24 @@ import { useOpenCORContext, useOpenCORKeyStroke } from './OpenCORContext';
 const props = defineProps<{
   id?: string;
   hasFiles: boolean;
+  canSave: boolean;
+  canSaveAs: boolean;
+  recentFilePaths: string[];
 }>();
 
 const emit = defineEmits<{
   about: [];
   changelog: [];
+  clearRecentFiles: [];
   close: [];
   closeAll: [];
+  download: [];
   open: [];
   openRemote: [];
   openSampleLorenz: [];
+  reopen: [filePath: string];
+  save: [];
+  saveAs: [];
   settings: [];
   updateAvailable: [];
 }>();
@@ -66,11 +74,22 @@ const { themeCanBeChanged } = useOpenCORContext();
 
 const isWindowsOrLinux = common.isWindows() || common.isLinux();
 const isMacOs = common.isMacOs();
+const hasSaveFilePicker = common.hasSaveFilePicker();
 const updateAvailable = version.updateAvailable;
 
 // Theme button, which allows the user to cycle through the system, light, and dark themes.
 
 const theme = vueCommon.useTheme();
+
+// Reopen the most recent file, if any.
+
+const reopenMostRecentFile = (): void => {
+  const filePath = props.recentFilePaths[0];
+
+  if (filePath) {
+    emit('reopen', filePath);
+  }
+};
 
 const onThemeSwitch = (newTheme: OpenCORTheme) => {
   // Switch to the next theme, apply it, and save it in our settings.
@@ -113,6 +132,70 @@ const items = vue.computed(() => [
           }
         ]
       },
+      { separator: true },
+      {
+        label: 'Reopen',
+        items: [
+          {
+            label: 'Most Recent',
+            shortcut: isWindowsOrLinux ? 'Ctrl+Shift+Alt+T' : isMacOs ? '⇧⌘⌥T' : undefined,
+            command: reopenMostRecentFile,
+            disabled: () => !props.recentFilePaths.length
+          },
+          ...(props.recentFilePaths.length
+            ? [
+                { separator: true },
+                ...props.recentFilePaths.map((filePath: string) => {
+                  return {
+                    label: filePath,
+                    command: () => {
+                      emit('reopen', filePath);
+                    }
+                  };
+                })
+              ]
+            : []),
+          { separator: true },
+          {
+            label: 'Clear Menu',
+            command: () => {
+              emit('clearRecentFiles');
+            },
+            disabled: () => !props.recentFilePaths.length
+          }
+        ]
+      },
+      { separator: true },
+      // Note: without a save file picker, saving a file means downloading it, so we only offer to download it.
+      ...(hasSaveFilePicker
+        ? [
+            {
+              label: 'Save',
+              shortcut: isWindowsOrLinux ? 'Ctrl+Alt+S' : isMacOs ? '⌘⌥S' : undefined,
+              command: () => {
+                emit('save');
+              },
+              disabled: () => !props.canSave
+            },
+            {
+              label: 'Save As...',
+              shortcut: isWindowsOrLinux ? 'Ctrl+Shift+Alt+S' : isMacOs ? '⇧⌘⌥S' : undefined,
+              command: () => {
+                emit('saveAs');
+              },
+              disabled: () => !props.canSaveAs
+            }
+          ]
+        : [
+            {
+              label: 'Download',
+              shortcut: isWindowsOrLinux ? 'Ctrl+Alt+S' : isMacOs ? '⌘⌥S' : undefined,
+              command: () => {
+                emit('download');
+              },
+              disabled: () => !props.canSaveAs
+            }
+          ]),
       { separator: true },
       {
         label: 'Close',
@@ -233,6 +316,43 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
     event.preventDefault();
 
     emit('openRemote');
+  } else if (common.isCtrlOrCmd(event) && event.shiftKey && event.altKey && event.code === 'KeyT') {
+    event.preventDefault();
+
+    reopenMostRecentFile();
+  } else if (
+    hasSaveFilePicker &&
+    props.canSave &&
+    common.isCtrlOrCmd(event) &&
+    !event.shiftKey &&
+    event.altKey &&
+    event.code === 'KeyS'
+  ) {
+    event.preventDefault();
+
+    emit('save');
+  } else if (
+    hasSaveFilePicker &&
+    props.canSaveAs &&
+    common.isCtrlOrCmd(event) &&
+    event.shiftKey &&
+    event.altKey &&
+    event.code === 'KeyS'
+  ) {
+    event.preventDefault();
+
+    emit('saveAs');
+  } else if (
+    !hasSaveFilePicker &&
+    props.canSaveAs &&
+    common.isCtrlOrCmd(event) &&
+    !event.shiftKey &&
+    event.altKey &&
+    event.code === 'KeyS'
+  ) {
+    event.preventDefault();
+
+    emit('download');
   } else if (props.hasFiles && common.isCtrlOrCmd(event) && !event.shiftKey && event.altKey && event.code === 'KeyW') {
     event.preventDefault();
 

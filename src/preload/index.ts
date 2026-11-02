@@ -87,12 +87,16 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
 
   applyTheme: (theme: OpenCORTheme) => electron.ipcRenderer.invoke('apply-theme', theme),
   checkForUpdates: (atStartup: boolean) => electron.ipcRenderer.invoke('check-for-updates', atStartup),
+  closeConfirmed: () => electron.ipcRenderer.invoke('close-confirmed'),
+  closeRequestReceived: () => electron.ipcRenderer.invoke('close-request-received'),
   clearGitHubCache: (): Promise<void> => electron.ipcRenderer.invoke('clear-github-cache'),
   deleteGitHubAccessToken: (): Promise<boolean> => electron.ipcRenderer.invoke('delete-github-access-token'),
   downloadAndInstallUpdate: () => electron.ipcRenderer.invoke('download-and-install-update'),
   enableDisableMainMenu: (enable: boolean) => electron.ipcRenderer.invoke('enable-disable-main-menu', enable),
   enableDisableFileCloseAndCloseAllMenuItems: (enable: boolean) =>
     electron.ipcRenderer.invoke('enable-disable-file-close-and-close-all-menu-items', enable),
+  enableDisableFileSaveAndSaveAsMenuItems: (enableSave: boolean, enableSaveAs: boolean) =>
+    electron.ipcRenderer.invoke('enable-disable-file-save-and-save-as-menu-items', enableSave, enableSaveAs),
   fileClosed: (filePath: string) => electron.ipcRenderer.invoke('file-closed', filePath),
   fileIssue: (filePath: string, canonicalFilePath: string) =>
     electron.ipcRenderer.invoke('file-issue', filePath, canonicalFilePath),
@@ -100,6 +104,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
     electron.ipcRenderer.invoke('file-opened', filePath, canonicalFilePath),
   filePath: (file: File) => electron.webUtils.getPathForFile(file),
   fileSelected: (filePath: string) => electron.ipcRenderer.invoke('file-selected', filePath),
+  filesModified: (filePaths: string[]) => electron.ipcRenderer.invoke('files-modified', filePaths),
   filesOpened: (filePaths: string[]) => electron.ipcRenderer.invoke('files-opened', filePaths),
   installUpdateAndRestart: () => electron.ipcRenderer.invoke('install-update-and-restart'),
   loadGitHubAccessToken: (): Promise<string | null> => electron.ipcRenderer.invoke('load-github-access-token'),
@@ -108,6 +113,10 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
     electron.ipcRenderer.invoke('recent-file-path-canonicalised', filePath, canonicalFilePath),
   rendererReady: () => electron.ipcRenderer.invoke('renderer-ready'),
   resetAll: () => electron.ipcRenderer.invoke('reset-all'),
+  saveFile: (filePath: string, contents: Uint8Array): Promise<void> =>
+    electron.ipcRenderer.invoke('save-file', filePath, contents),
+  saveFileAs: (defaultFilePath: string): Promise<string | null> =>
+    electron.ipcRenderer.invoke('save-file-as', defaultFilePath),
   saveGitHubAccessToken: (token: string): Promise<boolean> =>
     electron.ipcRenderer.invoke('save-github-access-token', token),
   saveSettings: (settings: ISettings) => electron.ipcRenderer.invoke('save-settings', settings),
@@ -126,7 +135,10 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   onOpenSampleLorenz: (callback: () => void) => onIpc('open-sample-lorenz', callback),
   onClose: (callback: () => void) => onIpc('close', callback),
   onCloseAll: (callback: () => void) => onIpc('close-all', callback),
+  onConfirmClose: (callback: () => void) => onIpc('confirm-close', callback),
   onResetAll: (callback: () => void) => onIpc('reset-all', callback),
+  onSave: (callback: () => void) => onIpc('save', callback),
+  onSaveAs: (callback: () => void) => onIpc('save-as', callback),
   onSelect: (callback: (filePath: string) => void) => onIpc('select', callback),
   onSettings: (callback: () => void) => onIpc('settings', callback),
   onUpdateAvailable: (callback: (version: string) => void) => onIpc('update-available', callback),

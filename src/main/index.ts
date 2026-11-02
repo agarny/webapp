@@ -21,15 +21,22 @@ import {
  */
 import { startRendererServer, stopRendererServer } from '../renderer/src/common/rendererServer';
 
-import { enableDisableFileCloseAndCloseAllMenuItems, enableDisableMainMenu } from './MainMenu';
+import {
+  enableDisableFileCloseAndCloseAllMenuItems,
+  enableDisableFileSaveAndSaveAsMenuItems,
+  enableDisableMainMenu
+} from './MainMenu';
 import {
   applyTheme,
   checkForUpdates,
+  closeConfirmed,
+  closeRequestReceived,
   downloadAndInstallUpdate,
   fileClosed,
   fileIssue,
   fileOpened,
   fileSelected,
+  filesModified,
   filesOpened,
   installUpdateAndRestart,
   loadSettings,
@@ -38,6 +45,8 @@ import {
   recentFilePathCanonicalised,
   reportFatalErrorAndQuit,
   resetAll,
+  saveFile,
+  saveFileAs,
   saveSettings
 } from './MainWindow';
 import { SplashScreenWindow } from './SplashScreenWindow';
@@ -461,6 +470,12 @@ electron.app
         electron.ipcMain.handle('check-for-updates', (_event, atStartup: boolean) => {
           checkForUpdates(atStartup);
         });
+        electron.ipcMain.handle('close-confirmed', () => {
+          closeConfirmed();
+        });
+        electron.ipcMain.handle('close-request-received', () => {
+          closeRequestReceived();
+        });
         /* TODO: enable once our GitHub integration is fully ready.
         electron.ipcMain.handle('clear-github-cache', async (): Promise<void> => {
           await clearGitHubCache();
@@ -478,6 +493,12 @@ electron.app
         electron.ipcMain.handle('enable-disable-file-close-and-close-all-menu-items', (_event, enable: boolean) => {
           enableDisableFileCloseAndCloseAllMenuItems(enable);
         });
+        electron.ipcMain.handle(
+          'enable-disable-file-save-and-save-as-menu-items',
+          (_event, enableSave: boolean, enableSaveAs: boolean) => {
+            enableDisableFileSaveAndSaveAsMenuItems(enableSave, enableSaveAs);
+          }
+        );
         electron.ipcMain.handle('file-closed', (_event, filePath: string) => {
           fileClosed(filePath);
         });
@@ -489,6 +510,9 @@ electron.app
         });
         electron.ipcMain.handle('file-selected', (_event, filePath: string) => {
           fileSelected(filePath);
+        });
+        electron.ipcMain.handle('files-modified', (_event, filePaths: string[]) => {
+          filesModified(filePaths);
         });
         electron.ipcMain.handle('files-opened', (_event, filePaths: string[]) => {
           filesOpened(filePaths);
@@ -514,6 +538,12 @@ electron.app
           MainWindow.instance?.rendererReady();
         });
         electron.ipcMain.handle('reset-all', resetAll);
+        electron.ipcMain.handle('save-file', (_event, filePath: string, contents: Uint8Array): Promise<void> => {
+          return saveFile(filePath, contents);
+        });
+        electron.ipcMain.handle('save-file-as', (_event, defaultFilePath: string): Promise<string | null> => {
+          return saveFileAs(defaultFilePath);
+        });
         /* TODO: enable once our GitHub integration is fully ready.
         electron.ipcMain.handle('save-github-access-token', async (_event, token: string): Promise<boolean> => {
           return saveGitHubAccessToken(token);

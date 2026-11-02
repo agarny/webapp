@@ -23,6 +23,7 @@ export interface ICellDLEditorClient {
   active: boolean;
   activation: number;
   loaded: boolean;
+  editCount: number;
   issues: locApi.IIssue[];
 }
 
@@ -213,6 +214,42 @@ export const useCellDLEditorHost = vueusecore.createGlobalState(() => {
     });
   };
 
+  // Count the edits made to the diagram of our loaded client, i.e. whenever CellDL Editor lets us know that it has been
+  // edited.
+  // Note: CellDL Editor doesn't tell us which diagram has been edited, but it can only be the one that it holds, i.e.
+  //       the one of our loaded client. This is also the case while we are switching until we have retrieved the
+  //       diagram of our loaded client (see sync()). Indeed, our CellDL Editor is then invisible (see
+  //       CellDLEditorHostComponent.vue), but an edit may still complete (e.g., CellDL Editor updates the properties of
+  //       an object asynchronously) and CellDL Editor still handles keyboard events (e.g., Backspace to delete the
+  //       selected objects).
+
+  let loadedEditCount = 0;
+
+  document.addEventListener('file-edited', () => {
+    if (loadedClient) {
+      ++loadedClient.editCount;
+    }
+  });
+
+  // Also count undoing/redoing something as an edit.
+  // Note #1: CellDL Editor doesn't let us know when something gets undone/redone, so we mirror its handling of the
+  //          keyboard, i.e. Ctrl/Cmd+Z to undo and Ctrl/Cmd+Shift+Z to redo.
+  // Note #2: CellDL Editor clears its undo history whenever it opens a diagram, so there is nothing to undo/redo unless
+  //          the diagram of our loaded client has been edited since it was loaded. Otherwise, we may still count an
+  //          undo/redo that doesn't actually do anything (e.g., if everything has already been undone), but we would
+  //          rather consider a diagram modified when it isn't than the other way round.
+
+  window.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (
+      loadedClient &&
+      loadedClient.editCount !== loadedEditCount &&
+      common.isCtrlOrCmd(event) &&
+      (event.key === 'z' || event.key === 'Z')
+    ) {
+      ++loadedClient.editCount;
+    }
+  });
+
   // Open the diagram of our target client in CellDL Editor, after having saved the diagram of the previously loaded
   // client, if any.
   // Note: we only ever have one sync operation queued or running (i.e. while we are switching) since that operation
@@ -269,6 +306,7 @@ export const useCellDLEditorHost = vueusecore.createGlobalState(() => {
             if (!client.issues.length) {
               client.loaded = true;
               loadedClient = client;
+              loadedEditCount = client.editCount;
 
               continue;
             }

@@ -266,6 +266,17 @@ export const isDivisible = (a: number, b: number): boolean => {
   return Math.abs(quotient - roundedQuotient) <= Number.EPSILON * Math.max(1, Math.abs(roundedQuotient));
 };
 
+// A method to determine whether the Web browser has a save file picker, i.e. whether it supports the File System Access
+// API (only Chromium-based Web browsers do). If it doesn't, then a file can only be saved by downloading it.
+
+export interface IWindowWithSaveFilePicker {
+  showSaveFilePicker?: (options?: { suggestedName?: string }) => Promise<FileSystemFileHandle>;
+}
+
+export const hasSaveFilePicker = (): boolean => {
+  return typeof window !== 'undefined' && !!(window as unknown as IWindowWithSaveFilePicker).showSaveFilePicker;
+};
+
 // A method to trigger a browser download for a file.
 
 const DOWNLOAD_OBJECT_URL_LIFETIME = 60000; // 60 seconds.
@@ -298,6 +309,13 @@ export const downloadFile = (filename: string, content: string | Blob, type: str
 
 export const baseFileName = (fileName: string): string => {
   return fileName.replace(/\.[^/.]+$/, '');
+};
+
+// A method to escape some text, so that it can be used in some HTML (e.g., in the question of a question dialog, which
+// gets rendered as HTML).
+
+export const escapeHtml = (text: string): string => {
+  return text.replace(/[&<>"']/g, (character: string) => `&#${character.charCodeAt(0)};`);
 };
 
 // A method to get the file name from a file path.
