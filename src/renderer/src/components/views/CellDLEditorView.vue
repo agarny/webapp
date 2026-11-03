@@ -1,6 +1,14 @@
 <template>
   <div class="toolbar-based-view relative h-full flex flex-col">
     <Toolbar class="p-1! shrink-0">
+      <template #start>
+        <Button class="p-1! toolbar-button"
+          icon="pi pi-info-circle"
+          text severity="secondary"
+          title="Limitations"
+          @click="limitationsVisible = true"
+        />
+      </template>
       <template #end>
         <div class="flex gap-1">
           <Button class="p-1! toolbar-button"
@@ -29,6 +37,17 @@
       <IssuesView :issues="exportIssues" />
       <template #footer>
         <Button autofocus label="OK" @click="exportIssuesVisible = false" />
+      </template>
+    </BaseDialog>
+    <BaseDialog v-model:visible="limitationsVisible" header="Limitations" style="width: 39rem">
+      <div class="mt-2 mb-4 space-y-2">
+        <div>The <strong>CellDL Editor view</strong> currently has the following limitations inherent to the <a href="https://github.com/CellDL/CellDLEditorComponent" target="_blank" rel="noopener noreferrer">CellDL Editor component</a>:</div>
+        <ul class="list-disc ml-6 space-y-1">
+          <li v-for="(limitation, index) in LIMITATIONS" :key="index">{{ limitation }}</li>
+        </ul>
+      </div>
+      <template #footer>
+        <Button autofocus label="OK" @click="limitationsVisible = false" />
       </template>
     </BaseDialog>
   </div>
@@ -62,11 +81,21 @@ const emit = defineEmits<{
   openFile: [fileFilePathOrFileContents: string];
 }>();
 
+// Current limitations of the CellDL Editor view.
+
+const LIMITATIONS = [
+  'Only adding, deleting, and moving can be undone.',
+  'Undoing all changes doesn\'t make a file unmodified.',
+  'Switching files loses the selection, zoom, scroll position, undo history, etc.',
+  'Safari and Firefox draw diagrams differently.'
+];
+
 const host = useCellDLEditorHost();
 const opencorMessage = useOpenCORMessage();
 const containerRef = vue.shallowRef<HTMLElement | null>(null);
 const exportIssues = vue.ref<locApi.IIssue[]>([]);
 const exportIssuesVisible = vue.ref<boolean>(false);
+const limitationsVisible = vue.ref<boolean>(false);
 const celldlFileName = common.fileName(props.file.canonicalPath());
 
 // Our view is kept alive, so keep track of whether it is active, i.e. whether it is visible in its file tab.
