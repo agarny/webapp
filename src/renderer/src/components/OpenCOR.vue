@@ -742,11 +742,13 @@ vue.watch(
   { immediate: true }
 );
 
-// Ask the user whether to save the files that have been modified, and return whether we can proceed, i.e. whether the
-// user didn't cancel and the files that they wanted to save could be saved (or there were no such files).
+// Ask the user whether to save the files that have been modified, except the given ones, which the user has already
+// chosen not to save, and return the path of the files that are still modified (i.e. that the user chose not to save),
+// or null if the user cancelled or a file that they wanted to save couldn't be saved, i.e. if we cannot proceed (see
+// ContentsComponent.saveModifiedFiles()).
 
-const saveModifiedFiles = async (title: string): Promise<boolean> => {
-  return (await contentsRef.value?.saveModifiedFiles(title)) ?? true;
+const saveModifiedFiles = async (title: string, leftUnsavedFilePaths?: string[]): Promise<string[] | null> => {
+  return contentsRef.value ? contentsRef.value.saveModifiedFiles(title, leftUnsavedFilePaths) : [];
 };
 
 // Ask the user whether to save the files that have been modified before OpenCOR gets quit, and then let our main
@@ -769,7 +771,7 @@ trackCleanup(
     confirmingClose = true;
 
     try {
-      if (await saveModifiedFiles('Quit')) {
+      if ((await saveModifiedFiles('Quit')) !== null) {
         electronApi?.closeConfirmed();
       }
     } finally {
@@ -784,12 +786,13 @@ trackCleanup(
 //          OpenCOR from being quit (without the user being told why).
 // Note #2: unlike our main process, a Web browser doesn't let us ask the user whether to save those files, only whether
 //          to leave the Web page.
-// Note #3: we don't warn the user if they have already been asked whether to save those files (see onReload()).
+// Note #3: we don't warn the user about the files that they have chosen not to save when asked whether to reload
+//          OpenCOR's Web app (see onReload()), but we do about any other file that has been modified.
 
-let unloadConfirmed = false;
+let leftUnsavedFilePathsOnUnload: string[] = [];
 
 const onBeforeUnload = (event: BeforeUnloadEvent): void => {
-  if (!unloadConfirmed && modifiedFilePaths.value.length) {
+  if (modifiedFilePaths.value.some((filePath) => !leftUnsavedFilePathsOnUnload.includes(filePath))) {
     event.preventDefault();
   }
 };
@@ -880,7 +883,7 @@ trackCleanup(
     // If the user cancels, then the update will be installed when OpenCOR gets quit (see autoInstallOnAppQuit in
     // electron-updater) or once the user has checked for updates again (see checkForUpdates() in MainWindow.ts).
 
-    if (await saveModifiedFiles('Install Update')) {
+    if ((await saveModifiedFiles('Install Update')) !== null) {
       electronApi?.installUpdateAndRestart();
     } else {
       updateDownloadProgressVisible.value = false;
@@ -989,20 +992,37 @@ const onUpdateAvailable = () => {
 
 // Reload OpenCOR's Web app, after having asked the user whether to save the files that have been modified, since
 // reloading it would otherwise lose the changes made to them (see onBeforeUnload()).
-// Note: we only let our update available dialog know that we are reloading once we actually are since, otherwise, it
-//       would be stuck in its reloading state, should the user cancel.
+// Note #1: we only let our update available dialog know that we are reloading once we actually are since, otherwise, it
+//          would be stuck in its reloading state, should the user cancel.
+// Note #2: forceReload() first refreshes our Web page in the HTTP cache, which may take a while, during which some
+//          files may get edited. So, right before our Web page gets reloaded, we ask the user whether to save the files
+//          that have been modified since, if any, and we don't reload if the user cancels.
 
 const updateReloading = vue.ref<boolean>(false);
 
 const onReload = async (): Promise<void> => {
-  if (updateReloading.value || !(await saveModifiedFiles('Reload'))) {
+  if (updateReloading.value) {
     return;
   }
 
-  unloadConfirmed = true;
+  let leftUnsavedFilePaths = await saveModifiedFiles('Reload');
+
+  if (leftUnsavedFilePaths === null) {
+    return;
+  }
+
   updateReloading.value = true;
 
-  void version.forceReload();
+  const reloading = await version.forceReload(async () => {
+    leftUnsavedFilePaths = await saveModifiedFiles('Reload', leftUnsavedFilePaths ?? []);
+    leftUnsavedFilePathsOnUnload = leftUnsavedFilePaths ?? [];
+
+    return leftUnsavedFilePaths !== null;
+  });
+
+  if (!reloading) {
+    updateReloading.value = false;
+  }
 };
 
 // Open a file.
@@ -1735,7 +1755,7 @@ trackCleanup(
 const onResetAll = async (): Promise<void> => {
   resetAllVisible.value = false;
 
-  if (await saveModifiedFiles('Reset All')) {
+  if ((await saveModifiedFiles('Reset All')) !== null) {
     electronApi?.resetAll();
   }
 };

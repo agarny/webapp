@@ -339,7 +339,7 @@ const closeFile = async (filePath: string, force: boolean = false): Promise<bool
     return true;
   }
 
-  if (!force && isModified(fileTab) && !(await askToSaveFile(fileTab, 'Close'))) {
+  if (!force && isModified(fileTab) && (await askToSaveFile(fileTab, 'Close')) === null) {
     return false;
   }
 
@@ -585,13 +585,18 @@ const reportRenameIssue = (fileTab: IFileTab, newFilePath: string, error: unknow
   );
 };
 
-const saveFile = async (fileTab: IFileTab): Promise<boolean> => {
-  // Save the given file, if possible, and return whether it was saved.
+// Outcome of saving a file, i.e. whether it was saved, downloaded (in which case we cannot know whether it was actually
+// saved, see saveFileAs()), or not saved (e.g., because the user cancelled or an issue occurred).
+
+type SaveOutcome = 'saved' | 'downloaded' | 'notSaved';
+
+const saveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
+  // Save the given file, if possible, and return the outcome.
 
   const editor = fileEditor(fileTab);
 
   if (!editor) {
-    return false;
+    return 'notSaved';
   }
 
   if (!canBeSavedInPlace(fileTab)) {
@@ -615,16 +620,16 @@ const saveFile = async (fileTab: IFileTab): Promise<boolean> => {
   } catch (error: unknown) {
     reportSaveIssue(fileTab, error);
 
-    return false;
+    return 'notSaved';
   }
 
   editor.markSaved(contents);
 
-  return true;
+  return 'saved';
 };
 
-const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
-  // Save the given file under a name of the user's choosing and return whether it was saved.
+const saveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
+  // Save the given file under a name of the user's choosing and return the outcome.
 
   const editor = fileEditor(fileTab);
 
@@ -647,7 +652,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
     } catch (error: unknown) {
       reportSaveIssue(fileTab, error);
 
-      return false;
+      return 'notSaved';
     }
   } else {
     const showSaveFilePicker = (window as unknown as common.IWindowWithSaveFilePicker).showSaveFilePicker;
@@ -658,7 +663,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
         newFilePath = newFileHandle.name;
       } catch (error: unknown) {
         if (error instanceof DOMException && error.name === 'AbortError') {
-          return false;
+          return 'notSaved';
         }
 
         console.warn('OpenCOR: failed to show the save file picker:', common.formatError(error));
@@ -671,15 +676,15 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
       } catch (error: unknown) {
         reportSaveIssue(fileTab, error);
 
-        return false;
+        return 'notSaved';
       }
 
-      return true;
+      return 'downloaded';
     }
   }
 
   if (!newFilePath) {
-    return false;
+    return 'notSaved';
   }
 
   // Check whether the file is to be saved where it is or whether another file tab is for the file to which it is to be
@@ -697,7 +702,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
     } catch (error: unknown) {
       reportSaveIssue(fileTab, error);
 
-      return false;
+      return 'notSaved';
     }
 
     if (newFileHandle) {
@@ -706,7 +711,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
 
     editor?.markSaved(contents);
 
-    return true;
+    return 'saved';
   }
 
   // Ask the user whether to replace the other file tab, if any.
@@ -721,12 +726,12 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
         `${common.escapeHtml(common.fileName(otherFileTab.file.canonicalPath()))} is already open. Do you want to replace it?`
       )) !== 'yes'
     ) {
-      return false;
+      return 'notSaved';
     }
 
     if (!(await isSameFile(otherFileTab, newFileHandle))) {
       if (!(await closeFile(otherFileTab.file.path()))) {
-        return false;
+        return 'notSaved';
       }
 
       await vue.nextTick();
@@ -742,7 +747,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
   });
 
   if (!contents) {
-    return false;
+    return 'notSaved';
   }
 
   try {
@@ -750,14 +755,14 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
   } catch (error: unknown) {
     reportSaveIssue(fileTab, error);
 
-    return false;
+    return 'notSaved';
   }
 
   // Our file tab may have been closed while the file was being saved (e.g., using File|Close), in which case there is
   // nothing left to rename.
 
   if (!fileTabs.value.includes(fileTab)) {
-    return true;
+    return 'saved';
   }
 
   // Close the other file tab, if it is still open (see above), without asking the user whether to save it since it is
@@ -797,13 +802,13 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
   } catch (error: unknown) {
     reportRenameIssue(fileTab, newFilePath, error);
 
-    return false;
+    return 'notSaved';
   }
 
   // Our file tab may have been closed while we were retrieving the latest contents of our file (see above).
 
   if (!fileTabs.value.includes(fileTab)) {
-    return true;
+    return 'saved';
   }
 
   let newFile: locApi.File;
@@ -813,7 +818,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
   } catch (error: unknown) {
     reportRenameIssue(fileTab, newFilePath, error);
 
-    return false;
+    return 'notSaved';
   }
 
   if (newContents !== contents) {
@@ -848,7 +853,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
 
   emit('fileOpened', newFilePath);
 
-  return true;
+  return 'saved';
 };
 
 const activeFileTab = (): IFileTab | undefined => {
@@ -871,21 +876,50 @@ const saveCurrentFileAs = async (): Promise<void> => {
   }
 };
 
-// Ask the user whether to save the given (modified) file and return false if they cancelled or if the file couldn't be
-// saved.
+// Ask the user whether to save the given (modified) file and return whether it was saved or the user chose not to save
+// it, or null if they cancelled or if the file couldn't be saved.
+// Note #1: the file may get edited while it is being saved (our question dialog is then closed), in which case it is
+//          still modified once saved. So, we ask again, so that those edits don't get lost (e.g., when closing the file
+//          or quitting OpenCOR) without the user having been asked about them.
+// Note #2: in OpenCOR's Web app, a file may get downloaded rather than saved (see saveFileAs()), in which case it
+//          remains modified. There is therefore no point in asking again, so we consider that the user chose not to
+//          save it, i.e. that they accept to lose its changes should they not have downloaded it after all.
+// Note #3: we determine whether the file is still modified straight after it has been saved, i.e. without awaiting
+//          anything, so that it cannot be edited before our caller proceeds (e.g., closes the file).
 
-const askToSaveFile = async (fileTab: IFileTab, title: string): Promise<boolean> => {
-  const answer = await askQuestion(
-    title,
-    `${common.escapeHtml(common.fileName(fileTab.file.canonicalPath()))} has been modified. Do you want to save it?`,
-    true
-  );
+type SaveDecision = 'saved' | 'leftUnsaved';
 
-  if (answer === 'cancel') {
-    return false;
+const askToSaveFile = async (fileTab: IFileTab, title: string): Promise<SaveDecision | null> => {
+  const fileName = common.escapeHtml(common.fileName(fileTab.file.canonicalPath()));
+  let question = `${fileName} has been modified. Do you want to save it?`;
+
+  for (;;) {
+    const answer = await askQuestion(title, question, true);
+
+    if (answer === 'cancel') {
+      return null;
+    }
+
+    if (answer === 'no') {
+      return 'leftUnsaved';
+    }
+
+    const outcome = await saveFile(fileTab);
+
+    if (outcome === 'notSaved') {
+      return null;
+    }
+
+    if (outcome === 'downloaded') {
+      return 'leftUnsaved';
+    }
+
+    if (!fileTabs.value.includes(fileTab) || !isModified(fileTab)) {
+      return 'saved';
+    }
+
+    question = `${common.escapeHtml(common.fileName(fileTab.file.canonicalPath()))} has been modified while it was being saved. Do you want to save it again?`;
   }
-
-  return answer === 'no' || saveFile(fileTab);
 };
 
 // Return the path of the files that have been modified.
@@ -894,26 +928,43 @@ const modifiedFilePaths = (): string[] => {
   return fileTabs.value.filter((fileTab) => isModified(fileTab)).map((fileTab) => fileTab.file.path());
 };
 
-// Ask the user whether to save the files that have been modified, one after the other, and return false as soon as the
-// user cancels or a file couldn't be saved (e.g., so that OpenCOR doesn't get quit).
+// Ask the user whether to save the files that have been modified, one after the other, and return the path of the files
+// that are still modified (i.e. that the user chose not to save, see askToSaveFile()), or null as soon as the user
+// cancels or a file couldn't be saved (e.g., so that OpenCOR doesn't get quit).
 // Note #1: we select a file before asking about it, so that the user can see which file we are asking about.
-// Note #2: we go through a snapshot of our file tabs since saving a file under another name may replace (i.e. close)
-//          another file tab (see saveFileAs()), in which case we skip it.
+// Note #2: we don't ask about the given files, which the user has already chosen not to save (e.g., before a previous
+//          call), even if they have been edited since.
+// Note #3: a file may get edited while we are saving another one, so we keep looking for a file to ask about until all
+//          the files that are still modified are files that the user chose not to save. We look for such a file in our
+//          current file tabs since saving a file under another name may replace (i.e. close) another file tab and
+//          rename its own file tab (see saveFileAs()).
+// Note #4: we return straight after having found that there is no file left to ask about, i.e. without awaiting
+//          anything, so that no file can be edited before our caller proceeds (e.g., quits OpenCOR).
 
-const saveModifiedFiles = async (title: string): Promise<boolean> => {
-  for (const fileTab of [...fileTabs.value]) {
-    if (!fileTabs.value.includes(fileTab) || !isModified(fileTab)) {
-      continue;
+const saveModifiedFiles = async (title: string, leftUnsavedFilePaths: string[] = []): Promise<string[] | null> => {
+  const leftUnsavedFilePathsSet = new Set(leftUnsavedFilePaths);
+
+  for (;;) {
+    const fileTab = fileTabs.value.find(
+      (fileTab) => isModified(fileTab) && !leftUnsavedFilePathsSet.has(fileTab.file.path())
+    );
+
+    if (!fileTab) {
+      return modifiedFilePaths();
     }
 
     await selectFile(fileTab.file.path());
 
-    if (!(await askToSaveFile(fileTab, title))) {
-      return false;
+    const decision = await askToSaveFile(fileTab, title);
+
+    if (decision === null) {
+      return null;
+    }
+
+    if (decision === 'leftUnsaved') {
+      leftUnsavedFilePathsSet.add(fileTab.file.path());
     }
   }
-
-  return true;
 };
 
 const canSaveCurrentFile = (): boolean => {
