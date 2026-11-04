@@ -130,10 +130,12 @@ const client = vue.reactive({
 //       when we asked for some contents, for each contents that we provide (since several of them may be being saved at
 //       once, see IFileEditor). We do so before asking for them since an edit made while they are being retrieved may
 //       or may not be part of them, in which case we would rather consider our diagram modified when it isn't than the
-//       other way round.
+//       other way round. Also, our file may have unsaved contents (see viewRegistry.markUnsavedContents()), in which
+//       case our diagram is modified until it gets saved, i.e. our initial number of saved edits must not match any
+//       number of edits (which starts at zero).
 
 const viewRegistry = useViewRegistry();
-const savedEditCount = vue.ref<number>(0);
+const savedEditCount = vue.ref<number>(viewRegistry.hasUnsavedContents(props.file) ? -1 : 0);
 const contentsEditCounts = new WeakMap<Uint8Array, number>();
 const fileEditor: IFileEditor = {
   modified: () => client.editCount !== savedEditCount.value,
@@ -145,6 +147,7 @@ const fileEditor: IFileEditor = {
 
     return res;
   },
+  editedSince: (contents: Uint8Array) => client.editCount !== contentsEditCounts.get(contents),
   markSaved: (contents: Uint8Array) => {
     const editCount = contentsEditCounts.get(contents);
 

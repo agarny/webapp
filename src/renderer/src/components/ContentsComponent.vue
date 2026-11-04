@@ -578,6 +578,13 @@ const reportSaveIssue = (fileTab: IFileTab, error: unknown): void => {
   );
 };
 
+const reportRenameIssue = (fileTab: IFileTab, newFilePath: string, error: unknown): void => {
+  emit(
+    'error',
+    `${common.fileName(fileTab.file.canonicalPath())} was saved as ${common.fileName(newFilePath)}, but its file tab could not be renamed (${common.formatMessage(common.formatError(error), false)}).`
+  );
+};
+
 const saveFile = async (fileTab: IFileTab): Promise<boolean> => {
   // Save the given file, if possible, and return whether it was saved.
 
@@ -765,26 +772,52 @@ const saveFileAs = async (fileTab: IFileTab): Promise<boolean> => {
   }
 
   // Replace the file of our file tab with the saved file, which renames our file tab.
-  // Note #1: in OpenCOR, a local file is retrieved by libOpenCOR (see locCommon.file()), so we don't provide its
-  //          contents.
-  // Note #2: our file tab's views are keyed by the path of its file, so they get recreated for the saved file (and get
+  // Note #1: our file tab's views are keyed by the path of its file, so they get recreated for the saved file (and get
   //          unmounted before we release the old file, see closeFile()). This means that we don't need to mark the
   //          file as saved and that, should we fail to replace it, our file tab, which is still for the old file,
   //          remains modified if it was.
+  // Note #2: our file may have been edited while it was being saved, in which case those edits would be lost when our
+  //          views get recreated from the saved file. So, we create the saved file using the latest contents of our
+  //          file (rather than have libOpenCOR retrieve them from disk in OpenCOR, see locCommon.file()) and mark it as
+  //          having unsaved contents, so that our file tab remains modified. Our file may also be edited while we
+  //          retrieve its latest contents, hence we keep retrieving them until it hasn't been. From there, we must not
+  //          await anything until our file has been replaced, so that it cannot be edited in the meantime.
   // Note #3: the old file gets closed and the new file gets opened, as far as people are concerned (and, in the case of
   //          Electron, the old file gets added to our list of recent files).
   // Note #4: the reference to our file tab's element is keyed by the path of its file (see setFileTabRef()), which is
   //          only retrieved when Vue lets us know that the element has been unmounted, i.e. once our file tab has been
   //          renamed. So, the reference for the old path would never be removed, hence we remove it ourselves.
 
+  let newContents = contents;
+
+  try {
+    while (editor?.editedSince(newContents)) {
+      newContents = await editor.contents();
+    }
+  } catch (error: unknown) {
+    reportRenameIssue(fileTab, newFilePath, error);
+
+    return false;
+  }
+
+  // Our file tab may have been closed while we were retrieving the latest contents of our file (see above).
+
+  if (!fileTabs.value.includes(fileTab)) {
+    return true;
+  }
+
   let newFile: locApi.File;
 
   try {
-    newFile = electronApi ? new locApi.File(newFilePath) : new locApi.File(newFilePath, contents);
+    newFile = new locApi.File(newFilePath, newContents);
   } catch (error: unknown) {
-    reportSaveIssue(fileTab, error);
+    reportRenameIssue(fileTab, newFilePath, error);
 
     return false;
+  }
+
+  if (newContents !== contents) {
+    viewRegistry.markUnsavedContents(newFile);
   }
 
   const oldFile = fileTab.file;

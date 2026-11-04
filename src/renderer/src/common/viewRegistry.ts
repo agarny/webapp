@@ -43,12 +43,15 @@ export interface IViewDescriptor {
 //          than mark the contents that were last retrieved as saved) since a file may be saved several times at once
 //          (e.g., the user saves it again while it is still being saved), in which case the saves may complete in any
 //          order.
-// Note #2: a view is kept alive for as long as its file is open, even when it is not the active view of its file tab,
+// Note #2: editedSince() returns whether the file has been edited since the given contents (as retrieved using
+//          contents()) were retrieved, i.e. whether those contents may not be the latest ones.
+// Note #3: a view is kept alive for as long as its file is open, even when it is not the active view of its file tab,
 //          so that a file can be saved whichever view is active.
 
 export interface IFileEditor {
   modified: () => boolean;
   contents: () => Promise<Uint8Array>;
+  editedSince: (contents: Uint8Array) => boolean;
   markSaved: (contents: Uint8Array) => void;
 }
 
@@ -58,6 +61,7 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
   const _descriptors: IViewDescriptor[] = [];
   const _descriptorIndices = new Map<string, number>();
   const _fileEditors = vue.shallowReactive(new Map<File, IFileEditor>());
+  const _unsavedContentsFiles = new WeakSet<File>();
 
   // Register a view descriptor.
   // Note: it must be called before any resolution. Registering a descriptor which ID is already registered replaces
@@ -130,5 +134,28 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
     return _fileEditors.get(vue.toRaw(file));
   }
 
-  return { descriptors, fileEditor, isApplicable, register, registerFileEditor, resolve, unregisterFileEditor };
+  // Mark a file as having unsaved contents, i.e. contents that are not those of the file itself (e.g., a file that was
+  // edited while it was being saved under another name, see ContentsComponent.saveFileAs()), so that its editor
+  // considers it modified from the start, and determine whether a file has unsaved contents.
+  // Note: same as for registerFileEditor() when it comes to using the raw file.
+
+  function markUnsavedContents(file: File): void {
+    _unsavedContentsFiles.add(vue.toRaw(file));
+  }
+
+  function hasUnsavedContents(file: File): boolean {
+    return _unsavedContentsFiles.has(vue.toRaw(file));
+  }
+
+  return {
+    descriptors,
+    fileEditor,
+    hasUnsavedContents,
+    isApplicable,
+    markUnsavedContents,
+    register,
+    registerFileEditor,
+    resolve,
+    unregisterFileEditor
+  };
 });
