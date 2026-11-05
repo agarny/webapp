@@ -135,7 +135,7 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
   }
 
   // Mark a file as having unsaved contents, i.e. contents that are not those of the file itself (e.g., a file that was
-  // edited while it was being saved under another name, see ContentsComponent.saveFileAs()), so that its editor
+  // edited while it was being saved under another name, see ContentsComponent.doSaveFileAs()), so that its editor
   // considers it modified from the start (and so that it is considered modified while it has no editor, see
   // ContentsComponent.isModified()), clear that mark once those contents have been saved, and determine whether a file
   // has unsaved contents.

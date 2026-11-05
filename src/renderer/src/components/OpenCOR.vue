@@ -1655,7 +1655,7 @@ const onOpenSampleLorenzMenu = (): void => {
 // Note #1: OpenCOR's main process keeps track of OpenCOR's recent files (see MainWindow.fileClosed()), so we only need
 //          to do it for OpenCOR's Web app, and only for the current session.
 // Note #2: in OpenCOR's Web app, a local file is only known by its name, so we keep track of what is needed to reopen
-//          it, i.e. its file handle, if any (see droppedFileHandle() and ContentsComponent.saveFileAs()), or its File
+//          it, i.e. its file handle, if any (see droppedFileHandle() and ContentsComponent.doSaveFileAs()), or its File
 //          object. A file opened using a data URL or some contents cannot be reopened (see common.isDataUrlFileName()).
 
 interface IRecentFile {

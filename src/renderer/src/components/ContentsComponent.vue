@@ -323,15 +323,21 @@ const openFile = async (file: locApi.File, wait: boolean = false, fileHandle?: F
   await fileSelected;
 };
 
-const closeFile = async (filePath: string, force: boolean = false): Promise<boolean> => {
+const closeFile = async (
+  filePath: string,
+  force: boolean = false,
+  save: (fileTab: IFileTab) => Promise<SaveOutcome> = saveFile
+): Promise<boolean> => {
   // Close the given file and return whether it was closed (or had no file tab), i.e. whether the user didn't cancel its
   // closing.
   // Note #1: there is nothing to close if the file has no file tab, so we don't want to let people know that it has
   //          been closed (and, in the case of Electron, have it added to our list of recent files).
   // Note #2: if the file has been modified, then we ask the user whether to save it first, unless we are forced to
-  //          close it (see saveFileAs()). Saving the file may result in it being saved under another name (see
-  //          saveFileAs()), so we retrieve the index and file path of its file tab once we are done. Its file tab may
+  //          close it (see doSaveFileAs()). Saving the file may result in it being saved under another name (see
+  //          doSaveFileAs()), so we retrieve the index and file path of its file tab once we are done. Its file tab may
   //          also have been closed in the meantime, in which case there is nothing left to close.
+  // Note #3: the file gets saved using the given function, which must be doSaveFile() if we are called while a file is
+  //          being saved (see enqueueSaveOperation()).
 
   const fileTab = fileTabs.value.find((fileTab) => fileTab.file.path() === filePath);
 
@@ -339,7 +345,7 @@ const closeFile = async (filePath: string, force: boolean = false): Promise<bool
     return true;
   }
 
-  if (!force && isModified(fileTab) && (await askToSaveFile(fileTab, 'Close')) === null) {
+  if (!force && isModified(fileTab) && (await askToSaveFile(fileTab, 'Close', save)) === null) {
     return false;
   }
 
@@ -468,8 +474,8 @@ const fileEditor = (fileTab: IFileTab): IFileEditor | undefined => {
 };
 
 // Determine whether the given file has been modified.
-// Note: a file that has unsaved contents (see saveFileAs()) may not have an editor (yet), e.g., its views may not have
-//       been created yet or its active view may not be one that can edit it, in which case it is still modified.
+// Note: a file that has unsaved contents (see doSaveFileAs()) may not have an editor (yet), e.g., its views may not
+//       have been created yet or its active view may not be one that can edit it, in which case it is still modified.
 
 const isModified = (fileTab: IFileTab): boolean => {
   const editor = fileEditor(fileTab);
@@ -479,7 +485,7 @@ const isModified = (fileTab: IFileTab): boolean => {
 
 // Mark the given contents of the given file, as retrieved using fileContents(), as saved.
 // Note: if the file had no editor when its contents were retrieved, then they are the contents of the file itself,
-//       which may be unsaved contents (see saveFileAs()), but no longer are.
+//       which may be unsaved contents (see doSaveFileAs()), but no longer are.
 
 const markSaved = (file: locApi.File, editor: IFileEditor | undefined, contents: Uint8Array): void => {
   if (editor) {
@@ -619,11 +625,47 @@ const reportRenameIssue = (fileTab: IFileTab, newFilePath: string, error: unknow
 };
 
 // Outcome of saving a file, i.e. whether it was saved, downloaded (in which case we cannot know whether it was actually
-// saved, see saveFileAs()), or not saved (e.g., because the user cancelled or an issue occurred).
+// saved, see doSaveFileAs()), or not saved (e.g., because the user cancelled or an issue occurred).
 
 type SaveOutcome = 'saved' | 'downloaded' | 'notSaved';
 
-const saveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
+// Save the given file, either where it is or under a name of the user's choosing, and return the outcome.
+// Note #1: a file may be saved while it is still being saved (e.g., while it is still being written), in which case
+//          both saves would otherwise start from the same file tab and complete in any order. For instance, an older
+//          version of the file could get written after a newer one (and after its file tab has been closed, i.e.
+//          without the user knowing), or its file tab could get renamed using stale information (e.g., the file path of
+//          our active file, see doSaveFileAs()). Similarly, a file may be saved under the name of a file which file tab
+//          is still being saved. So, we save one file at a time, i.e. a file only gets saved once any other file has
+//          been saved, at which point all our file tabs are up to date and no file is being written. A file's file tab
+//          may also have been closed in the meantime, in which case there is nothing to save.
+// Note #2: saving a file under another name may require saving the file which file tab is to be replaced (see
+//          doSaveFileAs()), in which case that file must be saved straight away (using doSaveFile()) since it would
+//          otherwise only get saved once our file has been saved, i.e. never.
+
+let lastSaveOperation: Promise<unknown> = Promise.resolve();
+
+const enqueueSaveOperation = (
+  fileTab: IFileTab,
+  operation: (fileTab: IFileTab) => Promise<SaveOutcome>
+): Promise<SaveOutcome> => {
+  const res = lastSaveOperation.then(() => {
+    return fileTabs.value.includes(fileTab) ? operation(fileTab) : 'notSaved';
+  });
+
+  lastSaveOperation = res.catch(() => undefined);
+
+  return res;
+};
+
+const saveFile = (fileTab: IFileTab): Promise<SaveOutcome> => {
+  return enqueueSaveOperation(fileTab, doSaveFile);
+};
+
+const saveFileAs = (fileTab: IFileTab): Promise<SaveOutcome> => {
+  return enqueueSaveOperation(fileTab, doSaveFileAs);
+};
+
+const doSaveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   // Save the given file, if possible, and return the outcome.
 
   const file = fileTab.file;
@@ -634,7 +676,7 @@ const saveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   }
 
   if (!(await canBeSavedInPlace(fileTab))) {
-    return saveFileAs(fileTab);
+    return doSaveFileAs(fileTab);
   }
 
   // Note: we make sure that we can write to the file before retrieving its contents since a Web browser only lets us ask
@@ -664,30 +706,9 @@ const saveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   return 'saved';
 };
 
-// Save the given file under a name of the user's choosing and return the outcome.
-// Note: a file may be saved under another name while it is still being saved under another name (e.g., while it is
-//       still being written), in which case both would otherwise start from the same file and file path, and whichever
-//       completes last would rename our file tab using stale information (e.g., the file path of our active file). So,
-//       we save a file under another name only once it has been saved under any other name, i.e. our file tab is then
-//       up to date. Our file tab may also have been closed in the meantime, in which case there is nothing to save.
-
-const saveFileAsOperations = new WeakMap<IFileTab, Promise<SaveOutcome>>();
-
-const saveFileAs = (fileTab: IFileTab): Promise<SaveOutcome> => {
-  const rawFileTab = vue.toRaw(fileTab);
-  const res = (saveFileAsOperations.get(rawFileTab) ?? Promise.resolve()).then(() => {
-    return fileTabs.value.includes(fileTab) ? doSaveFileAs(fileTab) : 'notSaved';
-  });
-
-  saveFileAsOperations.set(
-    rawFileTab,
-    res.catch((): SaveOutcome => 'notSaved')
-  );
-
-  return res;
-};
-
 const doSaveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
+  // Save the given file under a name of the user's choosing and return the outcome.
+
   // Let the user choose where to save the file.
   // Note: in OpenCOR's Web app, we can only let the user choose where to save the file if the File System Access API
   //       is available (and allowed, e.g., it isn't in a cross-origin iframe). If it isn't, then we download the file
@@ -773,8 +794,9 @@ const doSaveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
 
   // Ask the user whether to replace the other file tab, if any.
   // Note: if the other file tab may not be for the file to which we are about to save (see isSameFile()), then we close
-  //       it now, asking the user whether to save it if it has been modified, and we stop if the user cancels.
-  //       Otherwise, we close it once our file has been saved (see below).
+  //       it now, asking the user whether to save it if it has been modified (which we do straight away since we are
+  //       already saving a file, see enqueueSaveOperation()), and we stop if the user cancels. Otherwise, we close it
+  //       once our file has been saved (see below).
 
   if (otherFileTab) {
     if (
@@ -787,7 +809,7 @@ const doSaveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
     }
 
     if (!(await isSameFile(otherFileTab, newFileHandle))) {
-      if (!(await closeFile(otherFileTab.file.path()))) {
+      if (!(await closeFile(otherFileTab.file.path(), false, doSaveFile))) {
         return 'notSaved';
       }
 
@@ -954,15 +976,20 @@ const saveCurrentFileAs = async (): Promise<void> => {
 // Note #1: the file may get edited while it is being saved (our question dialog is then closed), in which case it is
 //          still modified once saved. So, we ask again, so that those edits don't get lost (e.g., when closing the file
 //          or quitting OpenCOR) without the user having been asked about them.
-// Note #2: in OpenCOR's Web app, a file may get downloaded rather than saved (see saveFileAs()), in which case it
+// Note #2: in OpenCOR's Web app, a file may get downloaded rather than saved (see doSaveFileAs()), in which case it
 //          remains modified. There is therefore no point in asking again, so we consider that the user chose not to
 //          save it, i.e. that they accept to lose its changes should they not have downloaded it after all.
 // Note #3: we determine whether the file is still modified straight after it has been saved, i.e. without awaiting
 //          anything, so that it cannot be edited before our caller proceeds (e.g., closes the file).
+// Note #4: same as for closeFile() when it comes to the function used to save the file.
 
 type SaveDecision = 'saved' | 'leftUnsaved';
 
-const askToSaveFile = async (fileTab: IFileTab, title: string): Promise<SaveDecision | null> => {
+const askToSaveFile = async (
+  fileTab: IFileTab,
+  title: string,
+  save: (fileTab: IFileTab) => Promise<SaveOutcome> = saveFile
+): Promise<SaveDecision | null> => {
   const fileName = common.escapeHtml(common.fileName(fileTab.file.canonicalPath()));
   let question = `${fileName} has been modified. Do you want to save it?`;
 
@@ -977,7 +1004,7 @@ const askToSaveFile = async (fileTab: IFileTab, title: string): Promise<SaveDeci
       return 'leftUnsaved';
     }
 
-    const outcome = await saveFile(fileTab);
+    const outcome = await save(fileTab);
 
     if (outcome === 'notSaved') {
       return null;
@@ -1010,7 +1037,7 @@ const modifiedFilePaths = (): string[] => {
 // Note #3: a file may get edited while we are saving another one, so we keep looking for a file to ask about until all
 //          the files that are still modified are files that the user chose not to save. We look for such a file in our
 //          current file tabs since saving a file under another name may replace (i.e. close) another file tab and
-//          rename its own file tab (see saveFileAs()).
+//          rename its own file tab (see doSaveFileAs()).
 // Note #4: we return straight after having found that there is no file left to ask about, i.e. without awaiting
 //          anything, so that no file can be edited before our caller proceeds (e.g., quits OpenCOR).
 
