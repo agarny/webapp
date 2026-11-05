@@ -35,7 +35,7 @@
         @dragend="onDragEnd"
       >
         <span class="file-tab-label">{{ common.fileName(fileTab.file.canonicalPath()) }}</span>
-        <div v-if="isModified(fileTab)" class="pi pi-circle-fill modified-indicator" title="Modified" />
+        <div v-if="isModified(fileTab)" class="pi pi-circle-fill modified-indicator" v-hint="'Modified'" />
         <div class="pi pi-times remove-button" @mousedown.prevent @click.stop="closeFile(fileTab.file.path())" />
       </div>
     </div>
@@ -84,6 +84,7 @@ import type { IOpenCORExternalDataEvent, IOpenCORSimulationDataEvent } from '../
 
 import * as common from '../common/common';
 import { electronApi } from '../common/electronApi';
+import { vHint } from '../common/hint';
 import * as locCommon from '../common/locCommon';
 import { type IFileEditor, useViewRegistry } from '../common/viewRegistry';
 import * as locApi from '../libopencor/locApi';

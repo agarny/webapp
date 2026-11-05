@@ -11,6 +11,8 @@ export const TOAST_LIFE: number = 3000;
 
 export const MAX_RECENT_FILES: number = 10;
 
+export const HINT_DELAY: number = 500;
+
 export const SPIN_INITIAL_DELAY: number = 500;
 export const SPIN_REPEAT_DELAY: number = 40;
 export const SPIN_LARGE_STEP_FACTOR: number = 10;
