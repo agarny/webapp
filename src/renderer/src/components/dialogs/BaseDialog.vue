@@ -10,6 +10,7 @@
     :pt:footer="{
       style: 'padding-top: 1.25rem'
     }"
+    :pt:transition="{ css: false }"
     @show="onShow"
     @hide="onHide"
   >

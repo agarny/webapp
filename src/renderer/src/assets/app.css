@@ -29,6 +29,11 @@ body {
   .opencor {
     --border-color: var(--p-content-border-color);
 
+    /* The background of our masks (e.g., behind a dialog or while our UI is blocked), which is lighter than PrimeVue's
+       (Aura theme) one. */
+
+    --px-mask-background: rgb(0 0 0 / 25%);
+
     /**
      * The colour of our thin scrollbars, which are used where a scroll panel can't be (i.e. where the height of the
      * scrollable area isn't fixed).
@@ -102,6 +107,96 @@ body {
     :focus {
       outline: none !important;
     }
+
+    /**
+     * Show a focus ring when a PrimeVue component (or a link) gets the keyboard focus.
+     * Note #1: PrimeVue's focus rings are outlines, which we remove above (so that the browser's focus outline doesn't
+     *          get shown on top of the focus rings that we draw for our own controls), so we draw them using a box
+     *          shadow instead. This is not needed for the components that draw their focus ring on an element that
+     *          doesn't itself get the focus (e.g., a checkbox or a toggle switch).
+     * Note #2: our focus ring is offset from the component (like PrimeVue's), so that it is visible on a filled
+     *          button (e.g., a primary button).
+     * Note #3: our focus ring is shown without any animation (PrimeVue would otherwise transition it in).
+     */
+
+    .p-button:focus-visible,
+    .p-slider-handle:focus-visible,
+    .p-splitter-gutter-handle:focus-visible,
+    a:focus-visible {
+      box-shadow:
+        0 0 0 2px var(--p-content-background),
+        0 0 0 4px var(--opencor-focus-ring-color, var(--p-primary-color));
+      transition: none;
+    }
+
+    .p-button-danger:focus-visible {
+      --opencor-focus-ring-color: var(--opencor-error-color);
+    }
+
+    a:focus-visible {
+      border-radius: 0.125rem;
+    }
+
+    /**
+     * Make the buttons in the footer of our dialogs small (like the rest of our dialogs' contents), but not so small
+     * that a short button (e.g., OK) becomes hard to click.
+     */
+
+    .p-dialog-footer .p-button:not(.p-button-icon-only) {
+      min-width: 4.5rem;
+      padding: var(--p-button-sm-padding-y) var(--p-button-sm-padding-x);
+      font-size: var(--p-button-sm-font-size);
+    }
+
+    /**
+     * Show and hide our masks without any animation (see also BaseDialog.vue).
+     */
+
+    .p-overlay-mask-enter-active,
+    .p-overlay-mask-leave-active {
+      animation: none;
+    }
+
+    /**
+     * Show and hide our anchored overlays (e.g., the options of a select, a popover, or a context menu) without any
+     * animation.
+     */
+
+    .p-anchored-overlay-enter-active,
+    .p-anchored-overlay-leave-active {
+      animation: none;
+      transition: none;
+    }
+
+    /**
+     * Make the options of our selects and our popovers look like the menus of our main menu.
+     */
+
+    .p-select-overlay {
+      --p-select-overlay-border-radius: 0.5rem;
+      --p-select-overlay-shadow: var(--opencor-overlay-shadow);
+      --p-select-list-padding: 0.25rem;
+      --p-select-list-gap: 0;
+      --p-select-option-padding: 0.375rem 0.5rem;
+      --p-select-list-header-padding: 0.25rem 0.25rem 0;
+
+      font-size: 0.875rem;
+
+      .p-select-filter {
+        padding: 0.25rem 2rem 0.25rem 0.5rem;
+        font-size: 0.875rem;
+      }
+
+      .p-select-list-container {
+        scrollbar-width: thin;
+        scrollbar-color: var(--opencor-scrollbar-color) transparent;
+      }
+    }
+
+    .p-popover {
+      --p-popover-border-radius: 0.5rem;
+      --p-popover-shadow: var(--opencor-overlay-shadow);
+    }
   }
 }
 
@@ -110,6 +205,7 @@ body {
  */
 
 .opencor-dark-mode .opencor {
+  --px-mask-background: rgb(0 0 0 / 50%);
   --opencor-scrollbar-color: var(--p-surface-600);
   --opencor-hint-background: var(--p-surface-700);
   --opencor-hint-border-color: var(--p-surface-600);
