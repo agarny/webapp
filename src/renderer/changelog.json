@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.20261105.1",
+    "changes": [
+      {
+        "type": "improved",
+        "description": "Switching between CellDL files no longer loses their selection, zoom, scroll position, undo history, etc."
+      }
+    ]
+  },
+  {
     "version": "1.20261105.0",
     "changes": [
       {

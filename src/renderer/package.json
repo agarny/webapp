@@ -42,7 +42,7 @@
     },
     "./style.css": "./dist/opencor.css"
   },
-  "version": "1.20261105.0",
+  "version": "1.20261105.1",
   "libopencorVersion": "1.20261029.0",
   "scripts": {
     "build": "vite build && bun scripts/generate.version.ts",
@@ -63,7 +63,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
-    "@celldl/editor": "^0.20261029.0",
+    "@celldl/editor": "^0.20261105.0",
     "@celldl/rdf": "^1.20260822.0",
     "@opencor/libopencor-types": "^1.20261029.0",
     "@physiomelinks/bg2cellml": "^0.6.2",

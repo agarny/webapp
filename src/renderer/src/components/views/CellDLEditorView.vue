@@ -29,9 +29,9 @@
       </template>
     </Toolbar>
     <div class="grow min-h-0 relative">
-      <IssuesView v-if="client.issues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="client.issues" />
-      <div v-show="!client.issues.length" ref="containerRef" class="celldl-editor h-full" />
-      <BlockingMessageComponent v-if="!client.loaded && !client.issues.length" message="Loading CellDL Editor..." />
+      <IssuesView v-if="issues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="issues" />
+      <div v-show="!issues.length" ref="containerRef" class="h-full" />
+      <BlockingMessageComponent v-if="!client.loaded && !issues.length" message="Loading CellDL Editor..." />
     </div>
     <BaseDialog v-model:visible="exportIssuesVisible" header="Generating CellML" style="width: 39rem">
       <IssuesView :issues="exportIssues" />
@@ -54,10 +54,12 @@
 </template>
 
 <script setup lang="ts">
+import * as vueusecore from '@vueuse/core';
+
 import * as vue from 'vue';
 
 import * as celldl from '../../common/celldl';
-import { type ICellDLEditorClient, useCellDLEditorHost } from '../../common/celldlEditorHost';
+import { type ICellDLEditor, type ICellDLEditorClient, useCellDLEditorPool } from '../../common/celldlEditorPool';
 import { loadCellDLRuntime } from '../../common/celldlRuntime';
 import * as common from '../../common/common';
 import { LONG_DELAY } from '../../common/constants';
@@ -87,17 +89,18 @@ const emit = defineEmits<{
 const LIMITATIONS = [
   'Only adding, deleting, and moving can be undone.',
   "Undoing all changes doesn't make a file unmodified.",
-  'Switching files loses the selection, zoom, scroll position, undo history, etc.',
   'Safari and Firefox draw diagrams differently.'
 ];
 
-const host = useCellDLEditorHost();
 const opencorMessage = useOpenCORMessage();
 const containerRef = vue.shallowRef<HTMLElement | null>(null);
+const issues = vue.ref<locApi.IIssue[]>([]);
+const editCount = vue.ref<number>(0);
 const exportIssues = vue.ref<locApi.IIssue[]>([]);
 const exportIssuesVisible = vue.ref<boolean>(false);
 const limitationsVisible = vue.ref<boolean>(false);
 const celldlFileName = common.fileName(props.file.canonicalPath());
+const fileData = new TextDecoder().decode(props.file.contents());
 
 // Our view is kept alive, so keep track of whether it is active, i.e. whether it is visible in its file tab.
 
@@ -111,18 +114,65 @@ vue.onDeactivated(() => {
   isActiveView.value = false;
 });
 
-// Use our shared CellDL Editor (see common/celldlEditorHost.ts), which shows our diagram when we are visible.
+// Use a CellDL Editor from our pool of CellDL Editors (see common/celldlEditorPool.ts), which handles keyboard events
+// whenever we are visible, once our diagram has been loaded (see onMounted() below).
+// Note #1: CellDL Editor opens a diagram asynchronously, so it may report an error after we have considered our diagram
+//          to be loaded, in which case we consider it unloaded again, i.e. we stop showing CellDL Editor (and stop it
+//          from handling keyboard events), disable our export buttons, and stop counting edits.
+// Note #2: we only count the edits made once our diagram has been loaded, i.e. not the ones that CellDL Editor might
+//          report while opening our diagram.
 
+const pool = useCellDLEditorPool();
 const client = vue.reactive({
-  name: celldlFileName,
   container: null,
-  data: new TextDecoder().decode(props.file.contents()),
-  active: vue.computed<boolean>(() => props.isActiveFile && isActiveView.value),
+  active: vue.computed<boolean>(() => props.isActiveFile && isActiveView.value && !issues.value.length),
   activation: 0,
   loaded: false,
-  editCount: 0,
-  issues: []
+  onError: (message: string): void => {
+    client.loaded = false;
+
+    issues.value.push({
+      type: locApi.EIssueType.ERROR,
+      description: message
+    });
+  },
+  onFileEdited: (): void => {
+    if (client.loaded) {
+      ++editCount.value;
+    }
+  }
 }) as ICellDLEditorClient;
+let editor: ICellDLEditor | null = null;
+
+// Return our (possibly edited) diagram.
+// Note: if CellDL Editor couldn't open our diagram, then it doesn't (properly) hold it, so we return the contents of
+//       our file instead.
+
+const diagram = async (): Promise<string> => {
+  return editor && client.loaded && !issues.value.length ? editor.data() : fileData;
+};
+
+// Also count undoing/redoing something as an edit.
+// Note #1: CellDL Editor doesn't let us know when something gets undone/redone, so we mirror its handling of the
+//          keyboard, i.e. Ctrl/Cmd+Z to undo and Ctrl/Cmd+Shift+Z to redo, but only if our CellDL Editor is to handle
+//          keyboard events (see common/celldlEditorPool.ts).
+// Note #2: CellDL Editor clears its undo history when it opens a diagram, so there is nothing to undo/redo unless our
+//          diagram has been edited since it was loaded. Otherwise, we may still count an undo/redo that doesn't
+//          actually do anything (e.g., if everything has already been undone), but we would rather consider our diagram
+//          modified when it isn't than the other way round.
+
+let loadedEditCount = 0;
+
+vueusecore.useEventListener(window, 'keydown', (event: KeyboardEvent) => {
+  if (
+    pool.targetClient.value === client &&
+    editCount.value !== loadedEditCount &&
+    common.isCtrlOrCmd(event) &&
+    (event.key === 'z' || event.key === 'Z')
+  ) {
+    ++editCount.value;
+  }
+});
 
 // Let people know that we can edit our file, so that it can be saved (see ContentsComponent.vue).
 // Note: our diagram may get edited while it is being saved (e.g., while our file is being written), in which case it
@@ -138,29 +188,30 @@ const viewRegistry = useViewRegistry();
 const savedEditCount = vue.ref<number>(viewRegistry.hasUnsavedContents(props.file) ? -1 : 0);
 const contentsEditCounts = new WeakMap<Uint8Array, number>();
 const fileEditor: IFileEditor = {
-  modified: () => client.editCount !== savedEditCount.value,
+  modified: () => editCount.value !== savedEditCount.value,
   contents: async () => {
-    const editCount = client.editCount;
-    const res = new TextEncoder().encode(await host.clientData(client));
+    const crtEditCount = editCount.value;
+    const res = new TextEncoder().encode(await diagram());
 
-    contentsEditCounts.set(res, editCount);
+    contentsEditCounts.set(res, crtEditCount);
 
     return res;
   },
-  editedSince: (contents: Uint8Array) => client.editCount !== contentsEditCounts.get(contents),
+  editedSince: (contents: Uint8Array) => editCount.value !== contentsEditCounts.get(contents),
   markSaved: (contents: Uint8Array) => {
-    const editCount = contentsEditCounts.get(contents);
+    const contentsEditCount = contentsEditCounts.get(contents);
 
-    if (editCount !== undefined) {
-      savedEditCount.value = editCount;
+    if (contentsEditCount !== undefined) {
+      savedEditCount.value = contentsEditCount;
     }
   }
 };
 
 viewRegistry.registerFileEditor(props.file, fileEditor);
 
-// Let our shared CellDL Editor know whenever we become visible or our OpenCOR instance becomes active while we are
-// visible, so that it shows our diagram if another OpenCOR instance also has a visible CellDL Editor view.
+// Let our client be the one that was activated last whenever we become visible or our OpenCOR instance becomes active
+// while we are visible, so that our CellDL Editor handles keyboard events if another OpenCOR instance also has a
+// visible CellDL Editor view.
 
 const { isActiveApp } = useOpenCORContext();
 
@@ -168,15 +219,21 @@ vue.watch(
   [() => client.active, isActiveApp],
   ([active, activeApp], [prevActive, prevActiveApp]) => {
     if (active && (!prevActive || (activeApp && !prevActiveApp))) {
-      host.activate(client);
+      pool.activate(client);
     }
   },
   { immediate: true }
 );
 
-// Load our CellDL runtime (see common/celldlRuntime.ts) and then register ourselves with our shared CellDL Editor,
-// unless our CellDL runtime couldn't be loaded, in which case we report the issue.
-// Note: we may get unmounted while our CellDL runtime is being loaded, in which case we must not register ourselves.
+// Load our CellDL runtime (see common/celldlRuntime.ts), acquire a CellDL Editor from our pool, and open our diagram in
+// it, unless our CellDL runtime couldn't be loaded, in which case we report the issue. Release our CellDL Editor when
+// we get unmounted.
+// Note #1: we may get unmounted while our CellDL runtime is being loaded, in which case we must not acquire a CellDL
+//          Editor.
+// Note #2: if CellDL Editor fails to get ready, then our pool reports it to us (see setFailed() in
+//          common/celldlEditorPool.ts), so there is nothing more for us to do.
+// Note #3: Vue doesn't make DOM elements reactive, but we mark our container as raw to be safe since our client is
+//          reactive.
 
 let unmounted = false;
 const appContext = vue.getCurrentInstance()?.appContext ?? null;
@@ -185,7 +242,7 @@ vue.onMounted(async () => {
   try {
     await loadCellDLRuntime();
   } catch (error: unknown) {
-    client.issues.push({
+    issues.value.push({
       type: locApi.EIssueType.ERROR,
       description: common.formatError(error)
     });
@@ -197,15 +254,29 @@ vue.onMounted(async () => {
     return;
   }
 
-  client.container = containerRef.value;
+  client.container = containerRef.value ? vue.markRaw(containerRef.value) : null;
 
-  host.register(client, appContext);
+  editor = pool.acquire(client, appContext);
+
+  try {
+    await editor.open(fileData, celldlFileName);
+  } catch {
+    return;
+  }
+
+  if (!unmounted && !issues.value.length) {
+    client.loaded = true;
+    loadedEditCount = editCount.value;
+  }
 });
 
 vue.onBeforeUnmount(() => {
   unmounted = true;
 
-  host.unregister(client);
+  if (editor) {
+    pool.release(editor);
+  }
+
   viewRegistry.unregisterFileEditor(props.file, fileEditor);
 });
 
@@ -215,7 +286,7 @@ const onExportCombineArchive = async (kind: string): Promise<void> => {
   try {
     // Get the CellDL data from the editor, which may have been edited by the user.
 
-    const celldlData = await host.clientData(client);
+    const celldlData = await diagram();
 
     // Initialise our CellML converter, if needed, and then delay briefly so that the user can see that we reached 100%.
 
