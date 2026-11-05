@@ -380,30 +380,62 @@ export const closeRequestReceived = (): void => {
   MainWindow.instance?.closeRequestReceived();
 };
 
-// Keep track of the local files that our renderer may save and determine whether it may save a given file or whether a
-// given file path that it gives us is to be trusted.
+// Keep track of the local files that our renderer may save, determine whether it may save a given file or whether a
+// given file path that it gives us is to be trusted, and stop letting it save a file once that file has been closed.
 // Note #1: our renderer may be compromised (e.g., through some cross-site scripting), so we cannot let it save any file
 //          that it wants. Instead, it may only save a file that the user (or the operating system on their behalf)
 //          asked us to open (using our File|Open dialog, our File|Reopen menu, our command line, or the command line of
 //          another instance of OpenCOR), that the user dropped onto OpenCOR (see our preload script), that we reopened
 //          when starting OpenCOR, or that the user chose to save to using our File|Save As dialog. Any other local file
 //          (e.g., one that was opened using an OpenCOR action, which a Web page can trigger) can only be saved using
-//          our File|Save As dialog (see ContentsComponent.saveFile()).
+//          our File|Save As dialog (see ContentsComponent.doSaveFile()).
 // Note #2: we reopen the files that our renderer tells us are open (when starting OpenCOR) and that it tells us have
 //          been closed (through our File|Reopen menu), and doing so lets our renderer save them. So, we only trust a
 //          local file path that our renderer gives us if it may save that file, so that a compromised renderer cannot
 //          get to save a file by having it reopened.
+// Note #3: our renderer may only save a file while it is open, so that it cannot save a file that has been closed
+//          should it get compromised afterwards (e.g., by a file opened later). So, it stops being able to save a file
+//          once it tells us that the file has been closed (or couldn't be opened), and it cannot save any file once it
+//          is gone (see onRenderProcessGone()). It can save the file again once the user reopens it.
+// Note #4: our renderer refers to a file using the path that was used to open it, but tells us about the files that are
+//          open or that have been closed using their canonical path (see ContentsComponent.vue), which may be different
+//          (e.g., "/tmp/model.cellml" vs "/private/tmp/model.cellml" on macOS). So, we identify a file using its real
+//          path or, if it doesn't exist (yet), the real path of its folder followed by its name.
 
 const savableFilePaths = new Set<string>();
 
-export const allowSavingFile = (filePath: string): void => {
-  if (path.isAbsolute(filePath)) {
-    savableFilePaths.add(path.resolve(filePath));
+const savableFilePath = (filePath: string): string => {
+  const res = path.resolve(filePath);
+
+  try {
+    return fs.realpathSync.native(res);
+  } catch {
+    try {
+      return path.join(fs.realpathSync.native(path.dirname(res)), path.basename(res));
+    } catch {
+      return res;
+    }
   }
 };
 
+export const allowSavingFile = (filePath: string): void => {
+  if (path.isAbsolute(filePath)) {
+    savableFilePaths.add(savableFilePath(filePath));
+  }
+};
+
+export const disallowSavingFile = (filePath: string): void => {
+  if (path.isAbsolute(filePath)) {
+    savableFilePaths.delete(savableFilePath(filePath));
+  }
+};
+
+const disallowSavingAnyFile = (): void => {
+  savableFilePaths.clear();
+};
+
 export const canSaveFile = (filePath: string): boolean => {
-  return path.isAbsolute(filePath) && savableFilePaths.has(path.resolve(filePath));
+  return path.isAbsolute(filePath) && savableFilePaths.has(savableFilePath(filePath));
 };
 
 export const isTrustedFilePath = (filePath: string): boolean => {
@@ -1043,6 +1075,11 @@ export class MainWindow extends ApplicationWindow {
   //       files that were open, the latter allowing them to break such a cycle.
 
   onRenderProcessGone(details: electron.RenderProcessGoneDetails): void {
+    // Our renderer is gone, so its files are no longer open and it cannot save them anymore (see canSaveFile()). Should
+    // our renderer be reloaded, it will be able to save the files that we ask it to reopen.
+
+    disallowSavingAnyFile();
+
     // Ignore our renderer being gone if we are being closed (e.g., because OpenCOR is being quit), whatever the reason.
     // Indeed, our renderer will normally exit cleanly in that case, but it may also be killed (e.g., when logging off or
     // shutting down the system) or crash while being torn down. Either way, there is nothing to recover since we are

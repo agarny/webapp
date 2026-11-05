@@ -33,6 +33,7 @@ import {
   checkForUpdates,
   closeConfirmed,
   closeRequestReceived,
+  disallowSavingFile,
   downloadAndInstallUpdate,
   fileClosed,
   fileIssue,
@@ -512,9 +513,13 @@ electron.app
           if (isTrustedFilePath(filePath)) {
             fileClosed(filePath);
           }
+
+          disallowSavingFile(filePath);
         });
         electron.ipcMain.handle('file-issue', (_event, filePath: string, canonicalFilePath: string) => {
           fileIssue(filePath, canonicalFilePath);
+          disallowSavingFile(filePath);
+          disallowSavingFile(canonicalFilePath);
         });
         electron.ipcMain.handle('file-opened', (_event, filePath: string, canonicalFilePath: string) => {
           fileOpened(filePath, canonicalFilePath);

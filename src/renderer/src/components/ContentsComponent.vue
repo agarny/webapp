@@ -338,10 +338,22 @@ const closeFile = async (
   //          also have been closed in the meantime, in which case there is nothing left to close.
   // Note #3: the file gets saved using the given function, which must be doSaveFile() if we are called while a file is
   //          being saved (see enqueueSaveOperation()).
+  // Note #4: the file may be being saved, in which case we wait for it to be saved before closing it. Otherwise, it may
+  //          still be being written once closed, i.e. once our main process doesn't let us save it anymore (see
+  //          canSaveFile() in src/main/MainWindow.ts). It may then not be modified anymore, so we only determine
+  //          whether it is once it has been saved (by which time its file tab may also have been closed). If we are
+  //          called while a file is being saved (see Note #3), then that file is not the given one, so we don't wait
+  //          for ourselves.
 
   const fileTab = fileTabs.value.find((fileTab) => fileTab.file.path() === filePath);
 
   if (!fileTab) {
+    return true;
+  }
+
+  await fileSaved(fileTab);
+
+  if (!fileTabs.value.includes(fileTab)) {
     return true;
   }
 
@@ -643,18 +655,43 @@ type SaveOutcome = 'saved' | 'downloaded' | 'notSaved';
 //          otherwise only get saved once our file has been saved, i.e. never.
 
 let lastSaveOperation: Promise<unknown> = Promise.resolve();
+let runningSaveOperation: { fileTab: IFileTab; operation: Promise<unknown> } | null = null;
 
 const enqueueSaveOperation = (
   fileTab: IFileTab,
   operation: (fileTab: IFileTab) => Promise<SaveOutcome>
 ): Promise<SaveOutcome> => {
   const res = lastSaveOperation.then(() => {
-    return fileTabs.value.includes(fileTab) ? operation(fileTab) : 'notSaved';
+    if (!fileTabs.value.includes(fileTab)) {
+      return 'notSaved';
+    }
+
+    const savedFileTab = vue.toRaw(fileTab);
+    const savingOperation = operation(fileTab);
+    const done = (): void => {
+      if (runningSaveOperation?.operation === savingOperation) {
+        runningSaveOperation = null;
+      }
+    };
+
+    runningSaveOperation = { fileTab: savedFileTab, operation: savingOperation };
+
+    savingOperation.then(done, done);
+
+    return savingOperation;
   });
 
   lastSaveOperation = res.catch(() => undefined);
 
   return res;
+};
+
+// Wait for the given file to be saved, if it is being saved.
+
+const fileSaved = async (fileTab: IFileTab): Promise<void> => {
+  if (runningSaveOperation?.fileTab === vue.toRaw(fileTab)) {
+    await runningSaveOperation.operation.catch(() => undefined);
+  }
 };
 
 const saveFile = (fileTab: IFileTab): Promise<SaveOutcome> => {
