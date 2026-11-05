@@ -17,7 +17,7 @@
     @drop="onDrop"
   >
     <BackgroundComponent v-show="!fileTabs.length" class="h-full" />
-    <div v-show="fileTabs.length" ref="fileTabBarRef" class="file-tab-bar shrink-0 border-b border-b-primary flex overflow-x-auto"
+    <div v-show="fileTabs.length" ref="fileTabBarRef" class="file-tab-bar shrink-0 flex overflow-x-auto"
       @wheel.prevent="onWheel"
     >
       <div v-show="dropIndicatorLeft !== null" class="file-tab-drop-indicator"
@@ -27,16 +27,28 @@
         class="file-tab"
         :class="{
           'file-tab-active': fileTab.file.path() === activeFile,
+          'file-tab-modified': isModified(fileTab),
           'file-tab-dragging': dragState?.filePath === fileTab.file.path()
         }"
+        v-hint="fileTab.file.canonicalPath()"
         :draggable="true"
         @click="selectFile(fileTab.file.path())"
+        @mousedown.middle.prevent
+        @mouseup.middle="closeFile(fileTab.file.path())"
         @dragstart="onDragStart($event, fileTab.file.path())"
         @dragend="onDragEnd"
       >
+        <i :class="fileTabIcon(fileTab)" class="file-tab-icon" />
         <span class="file-tab-label">{{ common.fileName(fileTab.file.canonicalPath()) }}</span>
-        <div v-if="isModified(fileTab)" class="pi pi-circle-fill modified-indicator" v-hint="'Modified'" />
-        <div class="pi pi-times remove-button" @mousedown.prevent @click.stop="closeFile(fileTab.file.path())" />
+        <span class="file-tab-end">
+          <span v-if="isModified(fileTab)" class="file-tab-modified-indicator pi pi-circle-fill" />
+          <button class="file-tab-close-button pi pi-times"
+            type="button"
+            v-hint="'Close'"
+            @mousedown.prevent
+            @click.stop="closeFile(fileTab.file.path())"
+          />
+        </span>
       </div>
     </div>
     <div class="grow min-h-0 relative">
@@ -139,6 +151,19 @@ interface IDragState {
 const dragState = vue.ref<IDragState | null>(null);
 const fileTabBarRef = vue.shallowRef<HTMLElement | null>(null);
 const dropIndicatorLeft = vue.ref<number | null>(null);
+
+// Icon of a file tab, based on the type of its file.
+
+const fileTabIcon = (fileTab: IFileTab): string => {
+  switch (fileTab.file.type()) {
+    case locApi.EFileType.COMBINE_ARCHIVE:
+      return 'pi pi-box';
+    case locApi.EFileType.SEDML_FILE:
+      return 'pi pi-list';
+    default:
+      return 'pi pi-file';
+  }
+};
 
 const captureSimulationExperimentInteractiveViewRef = (element: unknown): void => {
   simulationExperimentInteractiveViewRef.value = element as InstanceType<
@@ -1458,49 +1483,160 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
 </script>
 
 <style scoped>
-.file-tab {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.125rem 0.5rem;
-  border-right: 1px solid var(--p-content-border-color);
-  color: var(--p-text-muted-color);
-  cursor: pointer;
-  white-space: nowrap;
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.file-tab:first-of-type {
-  border-left: 1px solid var(--p-content-border-color);
-}
-
-.file-tab:hover {
-  background-color: var(--p-content-hover-background) !important;
-}
-
-.file-tab .remove-button {
-  visibility: hidden;
-}
-
-.file-tab:hover .remove-button,
-.file-tab-active .remove-button {
-  visibility: visible;
-}
-
-.file-tab-active,
-.file-tab-active:hover {
-  background-color: var(--p-primary-color) !important;
-  color: var(--p-primary-contrast-color);
-}
+/**
+ * File tab bar, which bottom border is drawn using an inset box shadow (rather than a border) so that the active file
+ * tab can be drawn over it and therefore look like it is part of the view below it.
+ */
 
 .file-tab-bar {
+  --file-tab-bar-background: var(--p-surface-50);
+
   position: relative;
+  padding: 0.25rem 0.375rem 0;
+  background-color: var(--file-tab-bar-background);
+  box-shadow: inset 0 -1px 0 var(--p-content-border-color);
   scrollbar-width: none;
+}
+
+.opencor-dark-mode .file-tab-bar {
+  --file-tab-bar-background: var(--p-surface-950);
 }
 
 .file-tab-bar::-webkit-scrollbar {
   display: none;
+}
+
+.file-tab {
+  position: relative;
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 16rem;
+  height: 1.875rem;
+  padding: 0 0.375rem 0 0.75rem;
+  border: 1px solid transparent;
+  border-top-width: 2px;
+  border-bottom: none;
+  border-radius: 0.5rem 0.5rem 0 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.file-tab:not(.file-tab-active):hover {
+  background-color: color-mix(in srgb, var(--p-text-color) 6%, transparent);
+  color: var(--p-text-color);
+}
+
+/**
+ * Divider between two inactive file tabs, unless one of them is hovered.
+ */
+
+.file-tab:not(.file-tab-active) + .file-tab:not(.file-tab-active)::before {
+  position: absolute;
+  top: 25%;
+  bottom: 25%;
+  left: -1px;
+  width: 1px;
+  background-color: var(--p-content-border-color);
+  content: "";
+}
+
+.file-tab:hover::before,
+.file-tab:hover + .file-tab::before {
+  opacity: 0;
+}
+
+/**
+ * Active file tab, which top border is used as an accent (rather than, say, a pseudo-element on top of it) so that it
+ * follows the rounded corners of the file tab and blends into its side borders. */
+
+.file-tab-active {
+  border-color: var(--p-content-border-color);
+  border-top-color: var(--p-primary-color);
+  background-color: var(--p-content-background);
+  color: var(--p-text-color);
+}
+
+.file-tab-icon {
+  font-size: 0.8125rem;
+}
+
+.file-tab-active .file-tab-icon {
+  color: var(--p-primary-color);
+}
+
+.file-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/**
+ * The end of a file tab, which shows our close button and, if our file is modified, a modified indicator. The modified
+ * indicator takes the place of our close button, except when our file tab is hovered (or our close button has the
+ * keyboard focus), so that our file can still be closed.
+ */
+
+.file-tab-end {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.file-tab-modified-indicator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5rem;
+  pointer-events: none;
+}
+
+.file-tab:hover .file-tab-modified-indicator,
+.file-tab-end:has(.file-tab-close-button:focus-visible) .file-tab-modified-indicator {
+  visibility: hidden;
+}
+
+.file-tab-close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  border-radius: 0.25rem;
+  background-color: transparent;
+  color: inherit;
+  font-size: 0.625rem;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.file-tab:hover .file-tab-close-button,
+.file-tab-active:not(.file-tab-modified) .file-tab-close-button,
+.file-tab-close-button:focus-visible {
+  opacity: 1;
+}
+
+.file-tab-close-button:hover {
+  background-color: color-mix(in srgb, var(--p-text-color) 12%, transparent);
+  color: var(--p-text-color);
+}
+
+.file-tab-close-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--p-primary-color);
 }
 
 .file-tab-dragging {
@@ -1509,30 +1645,12 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
 
 .file-tab-drop-indicator {
   position: absolute;
-  top: 0;
+  top: 0.25rem;
   bottom: 0;
   width: 2px;
+  border-radius: 1px;
   background-color: var(--p-primary-color);
   pointer-events: none;
   z-index: 10;
-}
-
-.modified-indicator {
-  font-size: 0.5rem;
-}
-
-.remove-button {
-  padding: 0.15rem;
-  font-size: 0.75rem;
-}
-
-.remove-button:hover {
-  border-radius: var(--p-border-radius-sm);
-  background-color: var(--p-red-500);
-  color: var(--p-red-50);
-}
-
-.opencor-dark-mode .remove-button:hover {
-  background-color: var(--p-red-400);
 }
 </style>
