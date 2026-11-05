@@ -54,7 +54,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
-    "@celldl/editor": "^0.20261029.0",
+    "@celldl/editor": "^0.20261105.0",
     "@celldl/rdf": "^1.20260822.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@electron-toolkit/utils": "^4.0.0",
