@@ -270,11 +270,23 @@ export const recentFilePathCanonicalised = (filePath: string, canonicalFilePath:
   // Replace the given (non-canonical) file path with its canonical version in our recent file paths (see
   // MainWindow.rendererReady()), unless it is no longer there (e.g., if our Reopen menu got cleared in the meantime),
   // making sure that the canonical file path is only listed once.
+  // Note: the canonical file path is given to us by our renderer, so we only trust it if it is trusted anyway or if it
+  //       is the real path of the given file path (see isTrustedFilePath()). Otherwise, we keep the given file path.
 
   const index = recentFilePaths.indexOf(filePath);
 
   if (filePath === canonicalFilePath || index === -1) {
     return;
+  }
+
+  if (!isTrustedFilePath(canonicalFilePath)) {
+    try {
+      if (!path.isAbsolute(filePath) || fs.realpathSync.native(filePath) !== path.resolve(canonicalFilePath)) {
+        return;
+      }
+    } catch {
+      return;
+    }
   }
 
   recentFilePaths[index] = canonicalFilePath;
@@ -360,7 +372,37 @@ export const closeRequestReceived = (): void => {
   MainWindow.instance?.closeRequestReceived();
 };
 
-// Save the given contents to the given (local) file.
+// Keep track of the local files that our renderer may save and determine whether it may save a given file or whether a
+// given file path that it gives us is to be trusted.
+// Note #1: our renderer may be compromised (e.g., through some cross-site scripting), so we cannot let it save any file
+//          that it wants. Instead, it may only save a file that the user (or the operating system on their behalf)
+//          asked us to open (using our File|Open dialog, our File|Reopen menu, our command line, or the command line of
+//          another instance of OpenCOR), that the user dropped onto OpenCOR (see our preload script), that we reopened
+//          when starting OpenCOR, or that the user chose to save to using our File|Save As dialog. Any other local file
+//          (e.g., one that was opened using an OpenCOR action, which a Web page can trigger) can only be saved using
+//          our File|Save As dialog (see ContentsComponent.saveFile()).
+// Note #2: we reopen the files that our renderer tells us are open (when starting OpenCOR) and that it tells us have
+//          been closed (through our File|Reopen menu), and doing so lets our renderer save them. So, we only trust a
+//          local file path that our renderer gives us if it may save that file, so that a compromised renderer cannot
+//          get to save a file by having it reopened.
+
+const savableFilePaths = new Set<string>();
+
+export const allowSavingFile = (filePath: string): void => {
+  if (path.isAbsolute(filePath)) {
+    savableFilePaths.add(path.resolve(filePath));
+  }
+};
+
+export const canSaveFile = (filePath: string): boolean => {
+  return path.isAbsolute(filePath) && savableFilePaths.has(path.resolve(filePath));
+};
+
+export const isTrustedFilePath = (filePath: string): boolean => {
+  return !path.isAbsolute(filePath) || canSaveFile(filePath);
+};
+
+// Save the given contents to the given (local) file, if our renderer may save it (see canSaveFile()).
 // Note #1: writing to a file truncates it first, so if the writing fails (e.g., because the disk is full), then the
 //          file is left partially written. So, instead, we write our contents to a temporary file next to the file and
 //          then replace the file with it, meaning that the file is either fully saved or left untouched. If the file is
@@ -381,6 +423,10 @@ const REPLACE_ATTEMPTS = 5;
 const REPLACE_DELAY = 100;
 
 export const saveFile = async (filePath: string, contents: Uint8Array): Promise<void> => {
+  if (!canSaveFile(filePath)) {
+    throw new Error('the file can only be saved using File|Save As');
+  }
+
   // Determine the file to save, i.e. the given file or, if it is a symbolic link, the file it points to.
 
   let realFilePath: string;
@@ -1257,7 +1303,7 @@ export class MainWindow extends ApplicationWindow {
       if (filePath) {
         this._reopeningFilePath = filePath;
 
-        this.send('open', filePath);
+        this.openFile(filePath);
 
         return;
       }
@@ -1294,9 +1340,19 @@ export class MainWindow extends ApplicationWindow {
       if (isAction(argument)) {
         this.send('action', argument.slice(FULL_URI_SCHEME.length));
       } else {
-        this.send('open', argument);
+        this.openFile(argument);
       }
     }
+  }
+
+  // Ask our renderer to open the given file, which it may then save (see canSaveFile()).
+  // Note: the given file was either given to us by the user (or the operating system on their behalf) or it is a file
+  //       that our renderer told us it had open or had closed, in which case it is trusted (see isTrustedFilePath()).
+
+  openFile(filePath: string): void {
+    allowSavingFile(filePath);
+
+    this.send('open', filePath);
   }
 
   // Enable/disable our UI.
@@ -1342,7 +1398,7 @@ export class MainWindow extends ApplicationWindow {
   }
 
   // Handle our renderer's File|Save As menu, i.e. let the user choose where to save a file and return the chosen file
-  // path, or null if the user cancelled.
+  // path, which our renderer may then save (see canSaveFile()), or null if the user cancelled.
   // Note: same as for open() when it comes to the enabling of our UI.
 
   async saveAs(defaultFilePath: string): Promise<string | null> {
@@ -1356,7 +1412,13 @@ export class MainWindow extends ApplicationWindow {
         properties: ['createDirectory', 'showOverwriteConfirmation']
       });
 
-      return canceled || !filePath ? null : filePath;
+      if (canceled || !filePath) {
+        return null;
+      }
+
+      allowSavingFile(filePath);
+
+      return filePath;
     } finally {
       if (this._rendererGoneCount === rendererGoneCount) {
         this.enableDisableUi(true);

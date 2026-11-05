@@ -127,7 +127,11 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       label: 'Most Recent',
       accelerator: 'CmdOrCtrl+Shift+T',
       click: () => {
-        mainWindow?.send('open', recentFilePaths[0]);
+        const filePath = recentFilePaths[0];
+
+        if (filePath) {
+          mainWindow?.openFile(filePath);
+        }
       },
       enabled: recentFilePaths.length > 0
     });
@@ -139,7 +143,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
         fileReopenSubMenu.push({
           label: filePath,
           click: () => {
-            mainWindow?.send('open', filePath);
+            mainWindow?.openFile(filePath);
           }
         });
       });

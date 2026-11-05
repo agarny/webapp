@@ -451,10 +451,12 @@ const onQuestionVisibilityUpdated = (visible: boolean): void => {
 // Save a file.
 // Note #1: only a file that has an editor (i.e. that is open in a view that can edit it) can be modified and therefore
 //          saved, but any file can be saved under another name (e.g., a remote file can be saved as a local file).
-// Note #2: in OpenCOR, a local file is saved where it is, while in OpenCOR's Web app, a file can only be saved where it
-//          is if we have a handle to it (i.e. if it was dropped onto OpenCOR's Web app or saved using File|Save As,
-//          and only in Chromium-based Web browsers). Any other file (e.g., a remote file or a file opened using a data
-//          URL) gets saved using File|Save As instead.
+// Note #2: in OpenCOR, a local file can only be saved where it is if our main process lets us save it (i.e. if the user
+//          opened it in some way, or saved it using File|Save As, but not if it was opened using an OpenCOR action, see
+//          canSaveFile() in src/main/MainWindow.ts), while in OpenCOR's Web app, a file can only be saved where it is
+//          if we have a handle to it (i.e. if it was dropped onto OpenCOR's Web app or saved using File|Save As, and
+//          only in Chromium-based Web browsers). Any other file (e.g., a remote file or a file opened using a data URL)
+//          gets saved using File|Save As instead.
 
 interface IFileSystemFileHandleWithPermission {
   queryPermission?: (descriptor: { mode: 'readwrite' }) => Promise<PermissionState>;
@@ -534,8 +536,10 @@ const isLocalFilePath = (filePath: string): boolean => {
   );
 };
 
-const canBeSavedInPlace = (fileTab: IFileTab): boolean => {
-  return electronApi ? isLocalFilePath(fileTab.file.path()) : !!fileTab.fileHandle;
+const canBeSavedInPlace = async (fileTab: IFileTab): Promise<boolean> => {
+  const filePath = fileTab.file.path();
+
+  return electronApi ? isLocalFilePath(filePath) && (await electronApi.canSaveFile(filePath)) : !!fileTab.fileHandle;
 };
 
 // Determine whether the given file tab is for the given file, knowing that its file has the same path (see
@@ -629,7 +633,7 @@ const saveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
     return 'notSaved';
   }
 
-  if (!canBeSavedInPlace(fileTab)) {
+  if (!(await canBeSavedInPlace(fileTab))) {
     return saveFileAs(fileTab);
   }
 

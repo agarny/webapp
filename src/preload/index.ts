@@ -86,6 +86,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   // Renderer process asking the main process to do something for it.
 
   applyTheme: (theme: OpenCORTheme) => electron.ipcRenderer.invoke('apply-theme', theme),
+  canSaveFile: (filePath: string): Promise<boolean> => electron.ipcRenderer.invoke('can-save-file', filePath),
   checkForUpdates: (atStartup: boolean) => electron.ipcRenderer.invoke('check-for-updates', atStartup),
   closeConfirmed: () => electron.ipcRenderer.invoke('close-confirmed'),
   closeRequestReceived: () => electron.ipcRenderer.invoke('close-request-received'),
@@ -102,7 +103,20 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
     electron.ipcRenderer.invoke('file-issue', filePath, canonicalFilePath),
   fileOpened: (filePath: string, canonicalFilePath: string) =>
     electron.ipcRenderer.invoke('file-opened', filePath, canonicalFilePath),
-  filePath: (file: File) => electron.webUtils.getPathForFile(file),
+  filePath: (file: File) => {
+    // Return the path of the given file, which is only known if the user dropped or selected it, in which case our
+    // renderer may save it (see canSaveFile() in src/main/MainWindow.ts).
+    // Note: our renderer can only use our IPC channels through what we expose here (since its context is isolated), and
+    //       a Web page cannot create a file that has a path, so our renderer cannot get to save any file that it wants.
+
+    const res = electron.webUtils.getPathForFile(file);
+
+    if (res) {
+      void electron.ipcRenderer.invoke('allow-saving-dropped-file', res);
+    }
+
+    return res;
+  },
   fileSelected: (filePath: string) => electron.ipcRenderer.invoke('file-selected', filePath),
   filesModified: (filePaths: string[]) => electron.ipcRenderer.invoke('files-modified', filePaths),
   filesOpened: (filePaths: string[]) => electron.ipcRenderer.invoke('files-opened', filePaths),

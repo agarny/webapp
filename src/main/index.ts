@@ -27,7 +27,9 @@ import {
   enableDisableMainMenu
 } from './MainMenu';
 import {
+  allowSavingFile,
   applyTheme,
+  canSaveFile,
   checkForUpdates,
   closeConfirmed,
   closeRequestReceived,
@@ -39,6 +41,7 @@ import {
   filesModified,
   filesOpened,
   installUpdateAndRestart,
+  isTrustedFilePath,
   loadSettings,
   MainWindow,
   normaliseCommandLine,
@@ -464,8 +467,14 @@ electron.app
 
         // Handle some requests from our renderer process.
 
+        electron.ipcMain.handle('allow-saving-dropped-file', (_event, filePath: string) => {
+          allowSavingFile(filePath);
+        });
         electron.ipcMain.handle('apply-theme', (_event, theme: OpenCORTheme) => {
           applyTheme(theme);
+        });
+        electron.ipcMain.handle('can-save-file', (_event, filePath: string): boolean => {
+          return canSaveFile(filePath);
         });
         electron.ipcMain.handle('check-for-updates', (_event, atStartup: boolean) => {
           checkForUpdates(atStartup);
@@ -500,7 +509,9 @@ electron.app
           }
         );
         electron.ipcMain.handle('file-closed', (_event, filePath: string) => {
-          fileClosed(filePath);
+          if (isTrustedFilePath(filePath)) {
+            fileClosed(filePath);
+          }
         });
         electron.ipcMain.handle('file-issue', (_event, filePath: string, canonicalFilePath: string) => {
           fileIssue(filePath, canonicalFilePath);
@@ -515,7 +526,7 @@ electron.app
           filesModified(filePaths);
         });
         electron.ipcMain.handle('files-opened', (_event, filePaths: string[]) => {
-          filesOpened(filePaths);
+          filesOpened(filePaths.filter(isTrustedFilePath));
         });
         electron.ipcMain.handle('install-update-and-restart', () => {
           installUpdateAndRestart();
