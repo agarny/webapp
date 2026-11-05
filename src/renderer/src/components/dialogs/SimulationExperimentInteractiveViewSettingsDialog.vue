@@ -1812,7 +1812,7 @@ const toggleUiJsonIssues = (event: Event) => {
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  color: var(--p-message-success-color);
+  color: var(--opencor-success-color);
   font-size: 0.875rem;
 }
 

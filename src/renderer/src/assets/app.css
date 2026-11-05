@@ -29,6 +29,50 @@ body {
   .opencor {
     --border-color: var(--p-content-border-color);
 
+    /**
+     * The colour of our thin scrollbars, which are used where a scroll panel can't be (i.e. where the height of the
+     * scrollable area isn't fixed).
+     * Note: we can't use PrimeVue's scroll panel colour since it is only defined once a scroll panel is used.
+     */
+
+    --opencor-scrollbar-color: var(--p-surface-300);
+
+    /**
+     * The shadows of our overlays (e.g., the menus of our main menu, our context menus, or our popovers) and of our
+     * cards (e.g., our blocking message or our toasts).
+     */
+
+    --opencor-overlay-shadow: 0 8px 24px -4px rgb(0 0 0 / 12%), 0 2px 6px -2px rgb(0 0 0 / 8%);
+    --opencor-card-shadow: 0 0.25rem 1rem rgb(0 0 0 / 12%);
+
+    /**
+     * The colours of our hints (e.g., the tooltip of our toolbar buttons), which are dark in both light and dark modes.
+     */
+
+    --opencor-hint-background: var(--p-surface-800);
+    --opencor-hint-border-color: transparent;
+    --opencor-hint-color: var(--p-surface-0);
+    --opencor-hint-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+
+    /**
+     * Our severity colours, which are those of PrimeVue's Message component (Aura theme).
+     * Note: PrimeVue only defines the colours of a component (e.g., --p-message-error-color) once that component is
+     *       used, so we can't rely on them (and therefore have our own).
+     */
+
+    --opencor-success-background: color-mix(in sRGB, var(--p-green-50), transparent 5%);
+    --opencor-success-border-color: var(--p-green-200);
+    --opencor-success-color: var(--p-green-600);
+    --opencor-info-background: color-mix(in sRGB, var(--p-blue-50), transparent 5%);
+    --opencor-info-border-color: var(--p-blue-200);
+    --opencor-info-color: var(--p-blue-600);
+    --opencor-warn-background: color-mix(in sRGB, var(--p-yellow-50), transparent 5%);
+    --opencor-warn-border-color: var(--p-yellow-200);
+    --opencor-warn-color: var(--p-yellow-600);
+    --opencor-error-background: color-mix(in sRGB, var(--p-red-50), transparent 5%);
+    --opencor-error-border-color: var(--p-red-200);
+    --opencor-error-color: var(--p-red-600);
+
     *,
     ::before,
     ::after {
@@ -59,4 +103,74 @@ body {
       outline: none !important;
     }
   }
+}
+
+/**
+ * Our colours in dark mode (see above).
+ */
+
+.opencor-dark-mode .opencor {
+  --opencor-scrollbar-color: var(--p-surface-600);
+  --opencor-hint-background: var(--p-surface-700);
+  --opencor-hint-border-color: var(--p-surface-600);
+  --opencor-success-background: color-mix(in sRGB, var(--p-green-500), transparent 84%);
+  --opencor-success-border-color: color-mix(in sRGB, var(--p-green-700), transparent 64%);
+  --opencor-success-color: var(--p-green-500);
+  --opencor-info-background: color-mix(in sRGB, var(--p-blue-500), transparent 84%);
+  --opencor-info-border-color: color-mix(in sRGB, var(--p-blue-700), transparent 64%);
+  --opencor-info-color: var(--p-blue-500);
+  --opencor-warn-background: color-mix(in sRGB, var(--p-yellow-500), transparent 84%);
+  --opencor-warn-border-color: color-mix(in sRGB, var(--p-yellow-700), transparent 64%);
+  --opencor-warn-color: var(--p-yellow-500);
+  --opencor-error-background: color-mix(in sRGB, var(--p-red-500), transparent 84%);
+  --opencor-error-border-color: color-mix(in sRGB, var(--p-red-700), transparent 64%);
+  --opencor-error-color: var(--p-red-500);
+}
+
+/**
+ * A spinner, i.e. a ring that is partly coloured using our primary colour, which size can be changed using
+ * --opencor-spinner-size.
+ */
+
+.opencor-spinner {
+  flex-shrink: 0;
+  width: var(--opencor-spinner-size, 1.125rem);
+  height: var(--opencor-spinner-size, 1.125rem);
+  border: 2px solid color-mix(in sRGB, var(--p-primary-color) 20%, transparent);
+  border-top-color: var(--p-primary-color);
+  border-radius: 50%;
+  animation: opencor-spinner-spin 0.8s linear infinite;
+}
+
+@keyframes opencor-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/**
+ * A section title (e.g., in a dialog), and a small one (e.g., in a side panel).
+ */
+
+.opencor-section-title {
+  margin: 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.opencor-section-title-small {
+  font-size: 0.6875rem;
+}
+
+/**
+ * A panel, i.e. a bordered area with rounded corners.
+ */
+
+.opencor-panel {
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.5rem;
+  background-color: var(--p-content-background);
 }
