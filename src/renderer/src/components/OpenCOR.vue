@@ -867,6 +867,53 @@ if (!electronApi) {
   });
 }
 
+// Remove the keyboard focus when the user presses the Escape key, so that whatever has it no longer looks focused
+// (e.g., with a focus ring), unless something is open (e.g., a dialog, a menu, or a popover), in which case the Escape
+// key is for closing it.
+// Note #1: we only do this for our instance of OpenCOR, and only if it is active and its UI is enabled.
+// Note #2: we listen to the Escape key before anything else does since some PrimeVue components (e.g., our main menu or
+//          a select) prevent its default action even when they have nothing to close.
+// Note #3: CellDL Editor may use the Escape key itself (e.g., to cancel what the user is doing), so we leave the
+//          keyboard focus alone if it is within it.
+
+const ESCAPE_KEY_OPEN_ELEMENTS = '.p-dialog-mask, .p-popover, .p-select-overlay, .p-contextmenu, .p-menubar-submenu';
+
+const onEscapeKeyDown = (event: KeyboardEvent): void => {
+  if (
+    event.key !== 'Escape' ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    !compIsActiveApp.value ||
+    !compUiEnabled.value
+  ) {
+    return;
+  }
+
+  const root = (safeBlockUiRef.value as unknown as { $el?: HTMLElement } | null)?.$el;
+  const focusedElement = document.activeElement;
+
+  if (
+    !root ||
+    !(focusedElement instanceof HTMLElement) ||
+    !root.contains(focusedElement) ||
+    !focusedElement.matches(':focus-visible') ||
+    focusedElement.closest('.celldl-editor-container') ||
+    Array.from(root.querySelectorAll<HTMLElement>(ESCAPE_KEY_OPEN_ELEMENTS)).some((element) => element.offsetParent)
+  ) {
+    return;
+  }
+
+  focusedElement.blur();
+};
+
+window.addEventListener('keydown', onEscapeKeyDown, { capture: true });
+
+trackCleanup(() => {
+  window.removeEventListener('keydown', onEscapeKeyDown, { capture: true });
+});
+
 // Auto update.
 
 trackCleanup(
