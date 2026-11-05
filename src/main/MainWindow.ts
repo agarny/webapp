@@ -141,14 +141,20 @@ export const downloadAndInstallUpdate = (): void => {
     });
 };
 
-export const installUpdateAndRestart = (): void => {
-  // Install the update and restart OpenCOR.
-  // Note: our renderer may ask us to install the update more than once (see resendUpdateState()), but electron-updater
-  //       must only be asked once (e.g., on macOS, it would otherwise install the update once Squirrel.Mac has fetched it
-  //       as many times as it was asked to).
+export const installUpdateAndRestart = (): boolean => {
+  // Install the update and restart OpenCOR, and return whether the update is being installed.
+  // Note #1: our renderer may ask us to install the update more than once (see resendUpdateState()), but
+  //          electron-updater must only be asked once (e.g., on macOS, it would otherwise install the update once
+  //          Squirrel.Mac has fetched it as many times as it was asked to).
+  // Note #2: the update may not be installable anymore (e.g., if an issue occurred since it was downloaded, see the
+  //          error listener above), in which case our renderer needs to know that OpenCOR is not going to be quit.
+
+  if (updateState === 'installing') {
+    return true;
+  }
 
   if (updateState !== 'downloaded') {
-    return;
+    return false;
   }
 
   updateState = 'installing';
@@ -159,6 +165,8 @@ export const installUpdateAndRestart = (): void => {
   MainWindow.instance?.skipCloseConfirmation();
 
   autoUpdater.quitAndInstall(true, true);
+
+  return true;
 };
 
 const resendUpdateState = (): void => {

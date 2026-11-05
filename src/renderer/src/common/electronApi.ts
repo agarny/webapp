@@ -29,7 +29,7 @@ interface IElectronApi {
   fileSelected(filePath: string): void;
   filesModified(filePaths: string[]): void;
   filesOpened(filePaths: string[]): void;
-  installUpdateAndRestart: () => void;
+  installUpdateAndRestart: () => Promise<boolean>;
   loadGitHubAccessToken: () => Promise<string | null>;
   loadSettings: () => Promise<ISettings>;
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) => void;

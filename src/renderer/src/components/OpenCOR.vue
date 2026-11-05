@@ -377,6 +377,66 @@ const {
   progress: opencorMessageProgress
 } = provideOpenCORMessage();
 
+// Block the user's input once the user has confirmed that OpenCOR can be quit (or restarted), until it actually is.
+// Note #1: our main process doesn't quit OpenCOR straight away (e.g., on macOS, an update gets fetched by Squirrel.Mac
+//          before being installed), and the user might otherwise modify a file in the meantime (e.g., by undoing
+//          something in a CellDL file), in which case the modification would be lost without the user having been
+//          asked whether to save it.
+// Note #2: we intercept the user's input before anything else can handle it, i.e. during the capture phase of our
+//          window, using listeners that are added before anything else gets a chance to add its own (since the
+//          listeners of a given target and phase are called in the order in which they were added), e.g., before
+//          CellDL Editor gets loaded. We also disable our main menu (see compUiEnabled below), so that the user cannot,
+//          for instance, paste something using it.
+// Note #3: our main process may not quit OpenCOR after all (e.g., if an update couldn't be installed), in which case we
+//          unblock the user's input.
+
+const USER_INPUT_EVENT_TYPES = [
+  'auxclick',
+  'beforeinput',
+  'click',
+  'contextmenu',
+  'cut',
+  'dblclick',
+  'dragstart',
+  'drop',
+  'input',
+  'keydown',
+  'keypress',
+  'keyup',
+  'mousedown',
+  'mousemove',
+  'mouseup',
+  'paste',
+  'pointerdown',
+  'pointermove',
+  'pointerup',
+  'touchend',
+  'touchmove',
+  'touchstart',
+  'wheel'
+];
+
+const userInputBlocked = vue.ref<boolean>(false);
+
+if (electronApi) {
+  const blockUserInput = (event: Event): void => {
+    if (userInputBlocked.value) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  };
+
+  for (const eventType of USER_INPUT_EVENT_TYPES) {
+    window.addEventListener(eventType, blockUserInput, { capture: true, passive: false });
+  }
+
+  trackCleanup(() => {
+    for (const eventType of USER_INPUT_EVENT_TYPES) {
+      window.removeEventListener(eventType, blockUserInput, { capture: true });
+    }
+  });
+}
+
 // Determine whether the component UI should be blocked/enabled.
 // Note: compBlockUiEnabled is used to determine whether PrimeVue's BlockUI component should be enabled, whereas
 //       compUiEnabled is used to determine whether the UI should be enabled (it checks whether various dialogs are
@@ -397,7 +457,7 @@ const compBlockUiEnabled = vue.computed<boolean>(() => {
 });
 
 const compUiEnabled = vue.computed<boolean>(() => {
-  return !compBlockUiEnabled.value && !isDialogActive.value;
+  return !compBlockUiEnabled.value && !isDialogActive.value && !userInputBlocked.value;
 });
 
 // Enable/disable our main menu (in OpenCOR) whenever our UI gets enabled/disabled.
@@ -772,6 +832,8 @@ trackCleanup(
 
     try {
       if ((await saveModifiedFiles('Quit')) !== null) {
+        userInputBlocked.value = true;
+
         electronApi?.closeConfirmed();
       }
     } finally {
@@ -858,6 +920,8 @@ trackCleanup(
 
 trackCleanup(
   electronApi?.onUpdateInstallError((issue: string) => {
+    userInputBlocked.value = false;
+
     updateErrorTitle.value = 'Installing Update...';
     updateErrorIssue.value = `An error occurred while installing the update (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
@@ -884,7 +948,12 @@ trackCleanup(
     // electron-updater) or once the user has checked for updates again (see checkForUpdates() in MainWindow.ts).
 
     if ((await saveModifiedFiles('Install Update')) !== null) {
-      electronApi?.installUpdateAndRestart();
+      userInputBlocked.value = true;
+
+      if (!(await electronApi?.installUpdateAndRestart())) {
+        userInputBlocked.value = false;
+        updateDownloadProgressVisible.value = false;
+      }
     } else {
       updateDownloadProgressVisible.value = false;
     }
@@ -1756,6 +1825,8 @@ const onResetAll = async (): Promise<void> => {
   resetAllVisible.value = false;
 
   if ((await saveModifiedFiles('Reset All')) !== null) {
+    userInputBlocked.value = true;
+
     electronApi?.resetAll();
   }
 };

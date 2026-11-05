@@ -528,8 +528,8 @@ electron.app
         electron.ipcMain.handle('files-opened', (_event, filePaths: string[]) => {
           filesOpened(filePaths.filter(isTrustedFilePath));
         });
-        electron.ipcMain.handle('install-update-and-restart', () => {
-          installUpdateAndRestart();
+        electron.ipcMain.handle('install-update-and-restart', (): boolean => {
+          return installUpdateAndRestart();
         });
         /* TODO: enable once our GitHub integration is fully ready.
         electron.ipcMain.handle('load-github-access-token', async (): Promise<string | null> => {
