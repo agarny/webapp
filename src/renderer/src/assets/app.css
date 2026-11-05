@@ -193,6 +193,57 @@ body {
       }
     }
 
+    /**
+     * Our context menus (e.g., the one of our graph panels or of our file tabs), which look like the menus of our main
+     * menu (see MainMenu.vue).
+     * Note: our context menus use an item template (see ContextMenuWidget.vue), which shows an icon
+     *       (.context-menu-item-icon), a label, and, for an item that has a submenu, a chevron
+     *       (.context-menu-item-chevron).
+     */
+
+    .opencor-context-menu {
+      --p-contextmenu-list-padding: 0.25rem;
+      --p-contextmenu-list-gap: 0;
+      --p-contextmenu-item-padding: 0.375rem 0.5rem;
+      --p-contextmenu-border-radius: 0.5rem;
+      --p-contextmenu-shadow: var(--opencor-overlay-shadow);
+
+      min-width: 12rem;
+      font-size: 0.875rem;
+
+      .p-contextmenu-submenu {
+        min-width: 9rem;
+        margin-top: calc(-1 * var(--p-contextmenu-list-padding) - 1px);
+        margin-left: 0.25rem;
+      }
+
+      .p-contextmenu-separator {
+        margin: 0.125rem 0.5rem;
+      }
+
+      .context-menu-item-icon {
+        width: 1rem;
+        color: var(--p-text-muted-color);
+        font-size: 0.875rem;
+        text-align: center;
+      }
+
+      .context-menu-item-chevron {
+        margin-left: auto;
+        padding-left: 1.5rem;
+        color: var(--p-text-muted-color);
+        font-size: 0.75rem;
+      }
+
+      .p-contextmenu-item-active > .p-contextmenu-item-content,
+      .p-contextmenu-item.p-focus > .p-contextmenu-item-content {
+        .context-menu-item-icon,
+        .context-menu-item-chevron {
+          color: var(--p-text-color);
+        }
+      }
+    }
+
     .p-popover {
       --p-popover-border-radius: 0.5rem;
       --p-popover-shadow: var(--opencor-overlay-shadow);

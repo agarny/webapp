@@ -14,7 +14,7 @@
         :width="plotRect.width"
         :height="plotRect.height"
       >
-        <rect class="fade-in"
+        <rect
           :x="zoomBox.x"
           :y="zoomBox.y"
           :width="zoomBox.width"
@@ -106,7 +106,7 @@
         </div>
       </div>
     </div>
-    <ContextMenu ref="contextMenuRef" :model="contextMenuItems" :appendTo="appendTarget" />
+    <ContextMenuWidget ref="contextMenuRef" :model="contextMenuItems" :appendTo="appendTarget" />
     <Teleport v-if="hover" :to="appendTarget ?? 'body'">
       <div ref="hoverTooltipRef" class="hover-tooltip">
         <div class="hover-tooltip-header">
@@ -130,7 +130,6 @@
 <script setup lang="ts">
 import * as vueusecore from '@vueuse/core';
 
-import ContextMenu from 'primevue/contextmenu';
 import type { MenuItem } from 'primevue/menuitem';
 import type uPlot from 'uplot';
 import * as vue from 'vue';
@@ -143,8 +142,7 @@ import * as math from '../../common/math';
 import * as vueCommon from '../../common/vueCommon';
 
 import { useOpenCORMessage } from '../OpenCORMessage';
-
-const CONTEXT_MENU_EVENT: string = 'graph-panel-context-menu-open';
+import ContextMenuWidget from './ContextMenuWidget.vue';
 
 export interface IGraphPanelPlotTrace {
   name: string;
@@ -277,7 +275,6 @@ defineExpose({
   resize
 });
 
-const instanceId = Symbol('GraphPanelWidget');
 const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const mainDivRef = vue.shallowRef<HTMLElement | null>(null);
 const plotDivRef = vue.shallowRef<HTMLElement | null>(null);
@@ -287,7 +284,7 @@ const yAxisTitleRef = vue.shallowRef<HTMLElement | null>(null);
 const rangeEditorRef = vue.shallowRef<HTMLElement | null>(null);
 const hoverTooltipRef = vue.shallowRef<HTMLElement | null>(null);
 const theme = vueCommon.useTheme();
-const contextMenuRef = vue.ref<InstanceType<typeof ContextMenu> | null>(null);
+const contextMenuRef = vue.ref<InstanceType<typeof ContextMenuWidget> | null>(null);
 const appendTarget = vueCommon.useAppendTarget(rootRef);
 const opencorMessage = useOpenCORMessage();
 let plot: uPlot | undefined;
@@ -700,23 +697,23 @@ const contextMenuItems = vue.computed<MenuItem[]>(() => [
     label: 'Export Plot',
     items: [
       {
-        icon: 'pi pi-file',
-        label: 'Export to JPEG',
+        icon: 'pi pi-image',
+        label: 'JPEG',
         command: () => exportToImage('jpeg')
       },
       {
-        icon: 'pi pi-file',
-        label: 'Export to PNG',
+        icon: 'pi pi-image',
+        label: 'PNG',
         command: () => exportToImage('png')
       },
       {
-        icon: 'pi pi-file',
-        label: 'Export to SVG',
+        icon: 'pi pi-image',
+        label: 'SVG',
         command: () => exportToImage('svg')
       },
       {
-        icon: 'pi pi-file',
-        label: 'Export to WebP',
+        icon: 'pi pi-image',
+        label: 'WebP',
         command: () => exportToImage('webp')
       }
     ]
@@ -762,18 +759,6 @@ const onContextMenu = (event: MouseEvent): void => {
       contextMenuCenterFractions.y = yFraction;
     }
   }
-
-  // Dispatch a custom event to notify other instances of GraphPanelWidget that our context menu is being shown.
-  // Note: this allows those other instances to hide their context menus if they are open, ensuring that only one
-  //       context menu is open at any given time.
-
-  window.dispatchEvent(
-    new CustomEvent(CONTEXT_MENU_EVENT, {
-      detail: {
-        sourceId: instanceId
-      }
-    })
-  );
 
   // Show our context menu.
 
@@ -4154,28 +4139,9 @@ const updatePlot = (): void => {
   }
 };
 
-// Context menu handling.
-
-const handleContextMenu = (event: Event): void => {
-  // Hide our context menu if the event was dispatched by another instance of GraphPanelWidget.
-  // Note: this ensures that only one context menu is open at any given time.
-
-  const detail = (event as CustomEvent<{ sourceId?: symbol }>)?.detail;
-
-  if (!detail || detail.sourceId === instanceId) {
-    return;
-  }
-
-  contextMenuRef.value?.hide?.();
-};
-
 // Vue lifecycle hooks.
 
 vue.onMounted(() => {
-  // Listen for the custom event that is dispatched when another instance of GraphPanelWidget shows its context menu.
-
-  window.addEventListener(CONTEXT_MENU_EVENT, handleContextMenu);
-
   // Start tracking the size of our container so that we can update our plot when it changes.
   // Note #1: we pass a getter (i.e. mainDivRef.value) rather than our ref (i.e. mainDivRef) since VueUse uses its own
   //          version of Vue's types, which are not compatible with ours.
@@ -4249,11 +4215,6 @@ vue.onBeforeUnmount(() => {
 });
 
 vue.onUnmounted(() => {
-  // Stop listening for the custom event that is dispatched when another instance of GraphPanelWidget shows its context
-  // menu.
-
-  window.removeEventListener(CONTEXT_MENU_EVENT, handleContextMenu);
-
   stopTrackingContainerSize?.();
   stopTrackingLegendSize?.();
 });
@@ -4348,20 +4309,6 @@ vue.watch(
     vertical-align: super;
   }
 
-  .fade-in {
-    animation: fade-in 200ms;
-  }
-
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-    }
-
-    to {
-      opacity: 1;
-    }
-  }
-
   /**
    * Note: our hover tooltip is shown above our panels (so that it doesn't get clipped by short panels), but below
    *       PrimeVue's overlays (e.g., our context menu), which z-index is at least 1000.
@@ -4373,9 +4320,9 @@ vue.watch(
     max-width: 320px;
     padding: 6px 10px;
     border: 1px solid var(--p-overlay-popover-border-color);
-    border-radius: var(--p-overlay-popover-border-radius);
+    border-radius: 0.5rem;
     background-color: var(--p-overlay-popover-background);
-    box-shadow: var(--p-overlay-popover-shadow);
+    box-shadow: var(--opencor-overlay-shadow);
     color: var(--p-overlay-popover-color);
     font-size: 12px;
     line-height: 18px;

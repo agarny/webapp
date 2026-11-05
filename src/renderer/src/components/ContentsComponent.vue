@@ -17,40 +17,47 @@
     @drop="onDrop"
   >
     <BackgroundComponent v-show="!fileTabs.length" class="h-full" />
-    <div v-show="fileTabs.length" ref="fileTabBarRef" class="file-tab-bar shrink-0 flex overflow-x-auto"
-      @wheel.prevent="onWheel"
-    >
-      <div v-show="dropIndicatorLeft !== null" class="file-tab-drop-indicator"
-        :style="{ left: `${dropIndicatorLeft}px` }"
-      />
-      <div v-for="fileTab in fileTabs" :key="`tab_${fileTab.file.path()}`" :ref="(element) => setFileTabRef(fileTab.file.path(), element as HTMLElement | null)"
-        class="file-tab"
-        :class="{
-          'file-tab-active': fileTab.file.path() === activeFile,
-          'file-tab-modified': isModified(fileTab),
-          'file-tab-dragging': dragState?.filePath === fileTab.file.path()
-        }"
-        v-hint="fileTab.file.canonicalPath()"
-        :draggable="true"
-        @click="selectFile(fileTab.file.path())"
-        @mousedown.middle.prevent
-        @mouseup.middle="closeFile(fileTab.file.path())"
-        @dragstart="onDragStart($event, fileTab.file.path())"
-        @dragend="onDragEnd"
+    <div v-show="fileTabs.length" class="file-tab-bar-container shrink-0">
+      <div ref="fileTabBarRef" class="file-tab-bar flex overflow-x-auto"
+        @wheel.prevent="onWheel"
+        @scroll="updateFileTabBarOverflow"
       >
-        <i :class="fileTabIcon(fileTab)" class="file-tab-icon" />
-        <span class="file-tab-label">{{ common.fileName(fileTab.file.canonicalPath()) }}</span>
-        <span class="file-tab-end">
-          <span v-if="isModified(fileTab)" class="file-tab-modified-indicator pi pi-circle-fill" />
-          <button class="file-tab-close-button pi pi-times"
-            type="button"
-            v-hint="'Close'"
-            @mousedown.prevent
-            @click.stop="closeFile(fileTab.file.path())"
-          />
-        </span>
+        <div v-show="dropIndicatorLeft !== null" class="file-tab-drop-indicator"
+          :style="{ left: `${dropIndicatorLeft}px` }"
+        />
+        <div v-for="fileTab in fileTabs" :key="`tab_${fileTab.file.path()}`" :ref="(element) => setFileTabRef(fileTab.file.path(), element as HTMLElement | null)"
+          class="file-tab"
+          :class="{
+            'file-tab-active': fileTab.file.path() === activeFile,
+            'file-tab-modified': isModified(fileTab),
+            'file-tab-dragging': dragState?.filePath === fileTab.file.path()
+          }"
+          v-hint="fileTab.file.canonicalPath()"
+          :draggable="true"
+          @click="selectFile(fileTab.file.path())"
+          @mousedown.middle.prevent
+          @mouseup.middle="closeFile(fileTab.file.path())"
+          @contextmenu.prevent="onFileTabContextMenu($event, fileTab.file.path())"
+          @dragstart="onDragStart($event, fileTab.file.path())"
+          @dragend="onDragEnd"
+        >
+          <i :class="fileTabIcon(fileTab)" class="file-tab-icon" />
+          <span class="file-tab-label">{{ common.fileName(fileTab.file.canonicalPath()) }}</span>
+          <span class="file-tab-end">
+            <span v-if="isModified(fileTab)" class="file-tab-modified-indicator pi pi-circle-fill" />
+            <button class="file-tab-close-button pi pi-times"
+              type="button"
+              v-hint="'Close'"
+              @mousedown.prevent
+              @click.stop="closeFile(fileTab.file.path())"
+            />
+          </span>
+        </div>
       </div>
+      <div v-show="fileTabBarOverflow.left" class="file-tab-bar-fade file-tab-bar-fade-left" />
+      <div v-show="fileTabBarOverflow.right" class="file-tab-bar-fade file-tab-bar-fade-right" />
     </div>
+    <ContextMenuWidget ref="fileTabContextMenuRef" :model="fileTabContextMenuItems" :appendTo="appendTarget" />
     <div class="grow min-h-0 relative">
       <template v-for="fileTab in fileTabs" :key="`panel_${fileTab.file.path()}`">
         <div class="absolute inset-0 flex h-full" :class="{ 'invisible pointer-events-none': fileTab.file.path() !== activeFile }">
@@ -90,6 +97,7 @@
 </template>
 
 <script setup lang="ts">
+import type { MenuItem } from 'primevue/menuitem';
 import * as vue from 'vue';
 
 import type { IOpenCORExternalDataEvent, IOpenCORSimulationDataEvent } from '../../index';
@@ -99,10 +107,12 @@ import { electronApi } from '../common/electronApi';
 import { vHint } from '../common/hint';
 import * as locCommon from '../common/locCommon';
 import { type IFileEditor, useViewRegistry } from '../common/viewRegistry';
+import * as vueCommon from '../common/vueCommon';
 import * as locApi from '../libopencor/locApi';
 
 import SimulationExperimentInteractiveView from './views/SimulationExperimentInteractiveView.vue';
 import UnsupportedFileTypeView from './views/UnsupportedFileTypeView.vue';
+import ContextMenuWidget from './widgets/ContextMenuWidget.vue';
 import { useOpenCORContext, useOpenCORKeyStroke } from './OpenCORContext';
 
 interface IFileTab {
@@ -448,6 +458,113 @@ const closeAllFiles = async (): Promise<void> => {
     }
   }
 };
+
+const closeOtherFiles = async (filePath: string): Promise<void> => {
+  // Select the given file and then close the other files (from a snapshot of our file paths, see closeAllFiles()).
+  // Note: we stop as soon as the user cancels the closing of a (modified) file.
+
+  await selectFile(filePath);
+
+  for (const otherFilePath of filePaths.value.filter((path) => path !== filePath)) {
+    if (!(await closeFile(otherFilePath))) {
+      return;
+    }
+  }
+};
+
+// Context menu of our file tabs.
+
+const fileTabContextMenuRef = vue.ref<InstanceType<typeof ContextMenuWidget> | null>(null);
+const fileTabContextMenuFilePath = vue.ref<string>('');
+const appendTarget = vueCommon.useAppendTarget(fileTabBarRef);
+
+const fileTabContextMenuItems = vue.computed<MenuItem[]>(() => {
+  const filePath = fileTabContextMenuFilePath.value;
+
+  return [
+    {
+      label: 'Close',
+      icon: 'pi pi-times',
+      command: () => {
+        void closeFile(filePath);
+      }
+    },
+    {
+      label: 'Close Others',
+      icon: 'pi pi-clone',
+      disabled: fileTabs.value.length < 2,
+      command: () => {
+        void closeOtherFiles(filePath);
+      }
+    },
+    {
+      label: 'Close All',
+      icon: 'pi pi-times-circle',
+      command: () => {
+        void closeAllFiles();
+      }
+    },
+    {
+      separator: true
+    },
+    {
+      label: 'Copy Path',
+      icon: 'pi pi-copy',
+      command: () => {
+        const canonicalPath = findFileTab(filePath)?.file.canonicalPath();
+
+        if (canonicalPath) {
+          navigator.clipboard.writeText(canonicalPath).catch((error: unknown) => {
+            emit('error', `The path of the file could not be copied (${common.formatError(error)}).`);
+          });
+        }
+      }
+    }
+  ];
+});
+
+const onFileTabContextMenu = (event: MouseEvent, filePath: string): void => {
+  fileTabContextMenuFilePath.value = filePath;
+
+  fileTabContextMenuRef.value?.show(event);
+};
+
+// Fade the edges of our file tab bar when some file tabs are hidden past them (since our file tab bar has no visible
+// scrollbar), so that the user can tell that there are more file tabs.
+
+const fileTabBarOverflow = vue.reactive({ left: false, right: false });
+
+const updateFileTabBarOverflow = (): void => {
+  const fileTabBar = fileTabBarRef.value;
+
+  if (!fileTabBar) {
+    return;
+  }
+
+  fileTabBarOverflow.left = fileTabBar.scrollLeft > 1;
+  fileTabBarOverflow.right = fileTabBar.scrollLeft + fileTabBar.clientWidth < fileTabBar.scrollWidth - 1;
+};
+
+let fileTabBarResizeObserver: ResizeObserver | null = null;
+
+vue.onMounted(() => {
+  if (fileTabBarRef.value) {
+    fileTabBarResizeObserver = new ResizeObserver(updateFileTabBarOverflow);
+
+    fileTabBarResizeObserver.observe(fileTabBarRef.value);
+  }
+});
+
+vue.onUnmounted(() => {
+  fileTabBarResizeObserver?.disconnect();
+});
+
+vue.watch(
+  () => fileTabs.value.length,
+  () => {
+    void vue.nextTick().then(updateFileTabBarOverflow);
+  }
+);
 
 // Ask the user a (yes/no or yes/no/cancel) question and return their answer.
 // Note: BaseDialog emits a cancel event whenever it gets hidden, including after the user has answered our question, so
@@ -1488,9 +1605,17 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
  * tab can be drawn over it and therefore look like it is part of the view below it.
  */
 
-.file-tab-bar {
+.file-tab-bar-container {
   --file-tab-bar-background: var(--p-surface-50);
 
+  position: relative;
+}
+
+.opencor-dark-mode .file-tab-bar-container {
+  --file-tab-bar-background: var(--p-surface-950);
+}
+
+.file-tab-bar {
   position: relative;
   padding: 0.25rem 0.375rem 0;
   background-color: var(--file-tab-bar-background);
@@ -1498,12 +1623,32 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
   scrollbar-width: none;
 }
 
-.opencor-dark-mode .file-tab-bar {
-  --file-tab-bar-background: var(--p-surface-950);
-}
-
 .file-tab-bar::-webkit-scrollbar {
   display: none;
+}
+
+/**
+ * Fades at the edges of the file tab bar, to indicate that there are more tabs available.
+ * Note: our fades stop just above the bottom border of our file tab bar, so that it doesn't look faded.
+ */
+
+.file-tab-bar-fade {
+  position: absolute;
+  top: 0;
+  bottom: 1px;
+  z-index: 2;
+  width: 2rem;
+  pointer-events: none;
+}
+
+.file-tab-bar-fade-left {
+  left: 0;
+  background: linear-gradient(to right, var(--file-tab-bar-background), transparent);
+}
+
+.file-tab-bar-fade-right {
+  right: 0;
+  background: linear-gradient(to left, var(--file-tab-bar-background), transparent);
 }
 
 .file-tab {
