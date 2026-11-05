@@ -144,6 +144,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
     onIpc('canonicalise-recent-file-paths', callback),
   onChangelog: (callback: () => void) => onIpc('changelog', callback),
   onCheckForUpdates: (callback: () => void) => onIpc('check-for-updates', callback),
+  onClearRecentFiles: (callback: () => void) => onIpc('clear-recent-files', callback),
   onEnableDisableUi: (callback: (enable: boolean) => void) => onIpc('enable-disable-ui', callback),
   onOpen: (callback: (filePath: string) => void) => onIpc('open', callback),
   onOpenRemote: (callback: () => void) => onIpc('open-remote', callback),

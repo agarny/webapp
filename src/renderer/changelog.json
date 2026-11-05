@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.20261106.0",
+    "changes": [
+      {
+        "type": "improved",
+        "description": "A file opened using a data URL can now be reopened, using File|Reopen, once closed (but only during the current session)."
+      }
+    ]
+  },
+  {
     "version": "1.20261105.1",
     "changes": [
       {

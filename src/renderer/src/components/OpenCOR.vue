@@ -1128,6 +1128,10 @@ interface IFileInfo {
   file: locApi.File | null;
   filePath: string;
   canonicalFilePath: string;
+  dataUrlContents?: Uint8Array;
+  // Note: the contents of the file if it was opened using a data URL (undefined otherwise). We keep them because such a
+  //       file only exists in memory, so they are what we need to reopen it once it has been closed (see
+  //       addRecentFile()).
 }
 
 // A helper function to describe a file for which we don't (yet) have a file path.
@@ -1170,10 +1174,14 @@ const reportFileIssue = (filePath: string, issueMessage: string, canonicalFilePa
   emit('file', { type: 'issue', filePath, issues: [issueMessage] });
 };
 
-const processFile = async (fileFilePathOrFileContents: string | Uint8Array | File): Promise<IFileInfo | null> => {
+const processFile = async (
+  fileFilePathOrFileContents: string | Uint8Array | File,
+  dataUrlFileName: string = ''
+): Promise<IFileInfo | null> => {
   // Check whether we were passed a ZIP-CellML data URL.
+  // Note: we may also have been passed the contents of a file that was opened using a data URL and then closed, along
+  //       with its name, so that it can be reopened under that name (see onReopenMenu() and electronApi.onOpen()).
 
-  let cellmlDataUrlFileName: string = '';
   let omexDataUrlCounter: number = 0;
 
   const zipCellmlDataUriInfo = await locCommon.zipCellmlDataUrl(fileFilePathOrFileContents);
@@ -1192,7 +1200,7 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
 
     const zipCellmlFileName = zipCellmlDataUriInfo.fileName as string;
 
-    cellmlDataUrlFileName = `${common.CELLML_PREFIX}${common.nextCellmlDataUrlNumber()}/${common.fileName(zipCellmlFileName) || zipCellmlFileName}`;
+    dataUrlFileName = `${common.CELLML_PREFIX}${common.nextCellmlDataUrlNumber()}/${common.fileName(zipCellmlFileName) || zipCellmlFileName}`;
     fileFilePathOrFileContents = zipCellmlDataUriInfo.data as Uint8Array;
   } else {
     // Check whether we were passed a COMBINE archive data URL.
@@ -1228,7 +1236,7 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
   let fileIsOpen = false;
 
   try {
-    filePath = locCommon.filePath(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter);
+    filePath = locCommon.filePath(fileFilePathOrFileContents, dataUrlFileName, omexDataUrlCounter);
     canonicalFilePath = locApi.fileManager.canonicalPath(filePath);
     fileIsOpen = contentsRef.value?.hasFile(filePath) ?? false;
   } catch (error: unknown) {
@@ -1268,7 +1276,7 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
   let fileToBeOpened = false;
 
   try {
-    file = await locCommon.file(fileFilePathOrFileContents, cellmlDataUrlFileName, omexDataUrlCounter);
+    file = await locCommon.file(fileFilePathOrFileContents, dataUrlFileName, omexDataUrlCounter);
     // Note: to retrieve the type of the file may fail (e.g., if libOpenCOR throws an exception), in which case we must
     //       release the file since nothing else would (see the catch block below).
 
@@ -1297,7 +1305,11 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
       alreadyOpen: false,
       file,
       filePath,
-      canonicalFilePath
+      canonicalFilePath,
+      dataUrlContents:
+        (dataUrlFileName || omexDataUrlCounter) && fileFilePathOrFileContents instanceof Uint8Array
+          ? fileFilePathOrFileContents
+          : undefined
     };
   } catch (error: unknown) {
     try {
@@ -1422,8 +1434,12 @@ const openProcessedFile = async (
         fileFilePathOrFileContents instanceof File ? fileHandles.get(fileFilePathOrFileContents) : undefined
       );
 
-      if (fileFilePathOrFileContents instanceof File && contentsRef.value?.hasFile(fileInfo.filePath)) {
-        openedFiles.set(fileInfo.filePath, fileFilePathOrFileContents);
+      const source =
+        fileInfo.dataUrlContents ??
+        (fileFilePathOrFileContents instanceof File ? fileFilePathOrFileContents : undefined);
+
+      if (source && contentsRef.value?.hasFile(fileInfo.filePath)) {
+        openedFiles.set(fileInfo.filePath, source);
       }
     }
   } catch (error: unknown) {
@@ -1437,8 +1453,8 @@ const openProcessedFile = async (
   }
 };
 
-const openFile = (fileFilePathOrFileContents: string | Uint8Array | File): void => {
-  void openProcessedFile(fileFilePathOrFileContents, processFile(fileFilePathOrFileContents), false);
+const openFile = (fileFilePathOrFileContents: string | Uint8Array | File, dataUrlFileName: string = ''): void => {
+  void openProcessedFile(fileFilePathOrFileContents, processFile(fileFilePathOrFileContents, dataUrlFileName), false);
 };
 
 const openFiles = (filesFilePathsOrFileContents: (string | Uint8Array | File)[]): void => {
@@ -1574,7 +1590,18 @@ const onDragLeave = (): void => {
 trackCleanup(
   electronApi?.onOpen((filePath: string) => {
     handleExternalRequest(() => {
-      openFile(filePath);
+      // Note: our main process may ask us to reopen a file that was opened using a data URL (through its File|Reopen
+      //       menu), in which case we reopen it using the contents that we kept for it (see addRecentFile()).
+
+      const closedDataUrlFile = closedDataUrlFiles.get(filePath);
+
+      if (closedDataUrlFile) {
+        closedDataUrlFiles.delete(filePath);
+
+        openFile(closedDataUrlFile.contents, closedDataUrlFile.filePath);
+      } else {
+        openFile(filePath);
+      }
     });
   })
 );
@@ -1656,14 +1683,25 @@ const onOpenSampleLorenzMenu = (): void => {
 //          to do it for OpenCOR's Web app, and only for the current session.
 // Note #2: in OpenCOR's Web app, a local file is only known by its name, so we keep track of what is needed to reopen
 //          it, i.e. its file handle, if any (see droppedFileHandle() and ContentsComponent.doSaveFileAs()), or its File
-//          object. A file opened using a data URL or some contents cannot be reopened (see common.isDataUrlFileName()).
+//          object. Similarly, a file opened using a data URL only exists in memory (see common.isDataUrlFileName()), so
+//          we keep track of its contents, so that it can be reopened under the same name, but only for the current
+//          session, including in OpenCOR where we keep them for the main process to ask us to reopen the file (see
+//          closedDataUrlFiles). A file opened using some contents cannot be reopened.
 
 interface IRecentFile {
   filePath: string;
-  source: string | File | FileSystemFileHandle;
+  source: string | File | FileSystemFileHandle | Uint8Array;
 }
 
-const openedFiles = new Map<string, File>();
+interface IClosedDataUrlFile {
+  filePath: string;
+  contents: Uint8Array;
+}
+
+const openedFiles = new Map<string, File | Uint8Array>();
+const closedDataUrlFiles = new Map<string, IClosedDataUrlFile>();
+// Note: keyed by the canonical path of the file since that is what our main process refers to it by. It only lists up
+//       to MAX_RECENT_FILES files, so we never need to keep more than that.
 const recentFiles = vue.shallowRef<IRecentFile[]>([]);
 const recentFilePaths = vue.computed<string[]>(() => {
   return recentFiles.value.map((recentFile) => recentFile.filePath);
@@ -1680,7 +1718,36 @@ const addRecentFile = (filePath: string, fileHandle?: FileSystemFileHandle): voi
 
   openedFiles.delete(filePath);
 
-  if (!isFullWebApp.value || common.isDataUrlFileName(filePath)) {
+  if (electronApi) {
+    if (!(file instanceof Uint8Array)) {
+      return;
+    }
+
+    let canonicalFilePath: string;
+
+    try {
+      canonicalFilePath = locApi.fileManager.canonicalPath(filePath);
+    } catch (error: unknown) {
+      console.warn(`OpenCOR: failed to canonicalise a file path (${filePath}):`, common.formatError(error));
+
+      return;
+    }
+
+    closedDataUrlFiles.delete(canonicalFilePath);
+    closedDataUrlFiles.set(canonicalFilePath, { filePath, contents: file });
+
+    for (const oldCanonicalFilePath of closedDataUrlFiles.keys()) {
+      if (closedDataUrlFiles.size <= MAX_RECENT_FILES) {
+        break;
+      }
+
+      closedDataUrlFiles.delete(oldCanonicalFilePath);
+    }
+
+    return;
+  }
+
+  if (!isFullWebApp.value) {
     return;
   }
 
@@ -1705,6 +1772,12 @@ const onReopenMenu = async (filePath: string): Promise<void> => {
 
   removeRecentFile(filePath);
 
+  if (recentFile.source instanceof Uint8Array) {
+    openFile(recentFile.source, filePath);
+
+    return;
+  }
+
   if (typeof recentFile.source === 'string' || recentFile.source instanceof File) {
     openFile(recentFile.source);
 
@@ -1728,6 +1801,15 @@ const onReopenMenu = async (filePath: string): Promise<void> => {
 
   openFile(file);
 };
+
+// Note: in OpenCOR, our main process clears its recent files itself, but it lets us know about it so that we can
+//       release the contents of the files that were opened using a data URL and then closed (see addRecentFile()).
+
+trackCleanup(
+  electronApi?.onClearRecentFiles(() => {
+    closedDataUrlFiles.clear();
+  })
+);
 
 const onClearRecentFilesMenu = (): void => {
   recentFiles.value = [];

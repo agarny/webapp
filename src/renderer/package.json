@@ -42,7 +42,7 @@
     },
     "./style.css": "./dist/opencor.css"
   },
-  "version": "1.20261105.1",
+  "version": "1.20261106.0",
   "libopencorVersion": "1.20261029.0",
   "scripts": {
     "build": "vite build && bun scripts/generate.version.ts",
@@ -59,7 +59,7 @@
     "version:new": "bun scripts/version.new.ts"
   },
   "peerDependencies": {
-    "vue": "^3.5.44"
+    "vue": "^3.5.45"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
@@ -92,8 +92,8 @@
     "typescript-6": "npm:typescript@^6.0.3",
     "unplugin-vue-components": "^32.1.0",
     "uplot": "1.6.32",
-    "vite": "^8.3.5",
-    "vue": "^3.5.44",
+    "vite": "^8.3.6",
+    "vue": "^3.5.45",
     "vue-tsc": "^3.3.14",
     "xxhash-wasm": "^1.1.0"
   }
