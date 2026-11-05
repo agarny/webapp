@@ -233,6 +233,15 @@ export const resetAll = (): void => {
 
 let recentFilePaths: string[] = [];
 
+const recentFilePathsUpdated = (): void => {
+  // Let our Reopen menu and our renderer (which lists our most recent files on its start screen, see
+  // BackgroundComponent.vue) know about our (updated) recent file paths.
+
+  updateReopenMenu(recentFilePaths);
+
+  MainWindow.instance?.send('recent-files', [...recentFilePaths]);
+};
+
 const removeRecentFilePath = (filePath: string): boolean => {
   // Remove the given file path from our recent file paths and return whether it was removed (in which case our Reopen
   // menu needs to be updated).
@@ -253,7 +262,7 @@ const removeRecentFilePath = (filePath: string): boolean => {
 export const clearRecentFiles = (): void => {
   recentFilePaths = [];
 
-  updateReopenMenu(recentFilePaths);
+  recentFilePathsUpdated();
 
   // Let our renderer know that our recent files have been cleared, so that it can release the contents that it kept for
   // the files that were opened using a data URL and then closed (see OpenCOR.addRecentFile()).
@@ -276,7 +285,7 @@ const forgetDataUrlRecentFilePaths = (): void => {
   if (filePaths.length !== recentFilePaths.length) {
     recentFilePaths = filePaths;
 
-    updateReopenMenu(recentFilePaths);
+    recentFilePathsUpdated();
   }
 };
 
@@ -289,7 +298,17 @@ export const fileClosed = (filePath: string): void => {
     recentFilePaths.length = MAX_RECENT_FILES;
   }
 
-  updateReopenMenu(recentFilePaths);
+  recentFilePathsUpdated();
+};
+
+// Reopen the given recent file, i.e. as if it was reopened using our Reopen menu.
+// Note: we only reopen a file that is one of our recent files since our renderer (which asks us to reopen it, see
+//       BackgroundComponent.vue) could otherwise use this to be allowed to save any file (see openFile()).
+
+export const reopenRecentFile = (filePath: string): void => {
+  if (recentFilePaths.includes(filePath)) {
+    MainWindow.instance?.openFile(filePath);
+  }
 };
 
 export const recentFilePathCanonicalised = (filePath: string, canonicalFilePath: string): void => {
@@ -323,7 +342,7 @@ export const recentFilePathCanonicalised = (filePath: string, canonicalFilePath:
     }
   }
 
-  updateReopenMenu(recentFilePaths);
+  recentFilePathsUpdated();
 };
 
 // Note: for fileIssue() and fileOpened(), filePath is the path that was used to (try to) open the file, which may be
@@ -340,7 +359,7 @@ const removeRecentFilePaths = (filePath: string, canonicalFilePath: string): voi
   const canonicalFilePathRemoved = removeRecentFilePath(canonicalFilePath);
 
   if (filePathRemoved || canonicalFilePathRemoved) {
-    updateReopenMenu(recentFilePaths);
+    recentFilePathsUpdated();
   }
 };
 
@@ -803,7 +822,7 @@ export class MainWindow extends ApplicationWindow {
 
     recentFilePaths = electronConf.get('app.files.recent');
 
-    updateReopenMenu(recentFilePaths);
+    recentFilePathsUpdated();
 
     // Handle our command line, which will effectively be done once our renderer is ready (see rendererReady()).
 
@@ -1266,6 +1285,10 @@ export class MainWindow extends ApplicationWindow {
   //       ready, but there is nothing more for us to do then.
 
   rendererReady(): void {
+    // Let our (possibly reloaded) renderer know about our recent file paths (see recentFilePathsUpdated()).
+
+    this.send('recent-files', [...recentFilePaths]);
+
     if (this._rendererReady) {
       return;
     }

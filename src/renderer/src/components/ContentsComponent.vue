@@ -17,7 +17,9 @@
     @drop="onDrop"
   >
     <BackgroundComponent v-show="!fileTabs.length" actions
+      :recentFilePaths="recentFilePaths"
       @open="$emit('open')"
+      @openRecentFile="$emit('openRecentFile', $event)"
       @openRemote="$emit('openRemote')"
       @openSampleLorenz="$emit('openSampleLorenz')"
     />
@@ -126,12 +128,22 @@ interface IFileTab {
   fileHandle?: FileSystemFileHandle; // Only used in OpenCOR's Web app, to save a file where it is (see saveFile()).
 }
 
+withDefaults(
+  defineProps<{
+    recentFilePaths?: string[];
+  }>(),
+  {
+    recentFilePaths: () => []
+  }
+);
+
 const emit = defineEmits<{
   error: [message: string];
   fileClosed: [filePath: string, fileHandle?: FileSystemFileHandle];
   fileOpened: [filePath: string];
   open: [];
   openFile: [fileFilePathOrFileContents: string];
+  openRecentFile: [filePath: string];
   openRemote: [];
   openSampleLorenz: [];
   simulationData: [];

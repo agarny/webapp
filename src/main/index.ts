@@ -47,6 +47,7 @@ import {
   MainWindow,
   normaliseCommandLine,
   recentFilePathCanonicalised,
+  reopenRecentFile,
   reportFatalErrorAndQuit,
   resetAll,
   saveFile,
@@ -556,6 +557,9 @@ electron.app
             recentFilePathCanonicalised(filePath, canonicalFilePath);
           }
         );
+        electron.ipcMain.handle('reopen-recent-file', (_event, filePath: string) => {
+          reopenRecentFile(filePath);
+        });
         electron.ipcMain.handle('renderer-ready', () => {
           MainWindow.instance?.rendererReady();
         });
