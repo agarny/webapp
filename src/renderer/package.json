@@ -42,7 +42,7 @@
     },
     "./style.css": "./dist/opencor.css"
   },
-  "version": "1.20261106.0",
+  "version": "1.20261109.0",
   "libopencorVersion": "1.20261029.0",
   "scripts": {
     "build": "vite build && bun scripts/generate.version.ts",
