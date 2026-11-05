@@ -254,15 +254,33 @@ export const clearRecentFiles = (): void => {
   recentFilePaths = [];
 
   updateReopenMenu(recentFilePaths);
+
+  // Let our renderer know that our recent files have been cleared, so that it can release the contents that it kept for
+  // the files that were opened using a data URL and then closed (see OpenCOR.addRecentFile()).
+
+  MainWindow.instance?.send('clear-recent-files');
+};
+
+// Note: a file opened using a data URL only exists in memory, in our renderer (see isDataUrlFileName()), so it can only
+//       be reopened during the current session and only as long as our renderer is not gone. Hence, we never save such
+//       a file as a recent file (see the constructor of MainWindow) and we forget about it when our renderer is gone
+//       (see onRenderProcessGone()).
+
+const persistentRecentFilePaths = (): string[] => {
+  return recentFilePaths.filter((filePath) => !isDataUrlFileName(filePath));
+};
+
+const forgetDataUrlRecentFilePaths = (): void => {
+  const filePaths = persistentRecentFilePaths();
+
+  if (filePaths.length !== recentFilePaths.length) {
+    recentFilePaths = filePaths;
+
+    updateReopenMenu(recentFilePaths);
+  }
 };
 
 export const fileClosed = (filePath: string): void => {
-  // Make sure that the file was not opened using a data URL (see isDataUrlFileName()).
-
-  if (isDataUrlFileName(filePath)) {
-    return;
-  }
-
   removeRecentFilePath(filePath);
 
   recentFilePaths.unshift(filePath);
@@ -825,7 +843,7 @@ export class MainWindow extends ApplicationWindow {
 
         // Recent files.
 
-        electronConf.set('app.files.recent', recentFilePaths);
+        electronConf.set('app.files.recent', persistentRecentFilePaths());
 
         // Opened files and selected file.
         // Note: if our renderer is not ready, then either it crashed and we are being closed before it could be
@@ -1081,6 +1099,11 @@ export class MainWindow extends ApplicationWindow {
     // our renderer be reloaded, it will be able to save the files that we ask it to reopen.
 
     disallowSavingAnyFile();
+
+    // Our renderer is gone, so are the contents of the files that were opened using a data URL and then closed, i.e.
+    // those files cannot be reopened anymore.
+
+    forgetDataUrlRecentFilePaths();
 
     // Ignore our renderer being gone if we are being closed (e.g., because OpenCOR is being quit), whatever the reason.
     // Indeed, our renderer will normally exit cleanly in that case, but it may also be killed (e.g., when logging off or
