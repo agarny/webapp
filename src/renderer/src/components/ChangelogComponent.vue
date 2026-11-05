@@ -52,26 +52,26 @@ const CHANGE_TYPE_ICONS: Record<OpenCORChangelogChangeType, string> = {
 }
 
 .change-type-added {
-  background-color: var(--p-message-success-background);
-  border-color: var(--p-message-success-border-color);
-  color: var(--p-message-success-color);
+  background-color: var(--opencor-success-background);
+  border-color: var(--opencor-success-border-color);
+  color: var(--opencor-success-color);
 }
 
 .change-type-removed {
-  background-color: var(--p-message-error-background);
-  border-color: var(--p-message-error-border-color);
-  color: var(--p-message-error-color);
+  background-color: var(--opencor-error-background);
+  border-color: var(--opencor-error-border-color);
+  color: var(--opencor-error-color);
 }
 
 .change-type-improved {
-  background-color: var(--p-message-info-background);
-  border-color: var(--p-message-info-border-color);
-  color: var(--p-message-info-color);
+  background-color: var(--opencor-info-background);
+  border-color: var(--opencor-info-border-color);
+  color: var(--opencor-info-color);
 }
 
 .change-type-fixed {
-  background-color: var(--p-message-warn-background);
-  border-color: var(--p-message-warn-border-color);
-  color: var(--p-message-warn-color);
+  background-color: var(--opencor-warn-background);
+  border-color: var(--opencor-warn-border-color);
+  color: var(--opencor-warn-color);
 }
 </style>

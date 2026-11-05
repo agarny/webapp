@@ -105,8 +105,8 @@ const onShow = (): void => {
 }
 
 .highlight-version {
-  background-color: var(--p-message-success-background);
-  border-color: var(--p-message-success-border-color);
-  color: var(--p-message-success-color);
+  background-color: var(--opencor-success-background);
+  border-color: var(--opencor-success-border-color);
+  color: var(--opencor-success-color);
 }
 </style>

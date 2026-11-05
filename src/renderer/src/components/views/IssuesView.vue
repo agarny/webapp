@@ -117,7 +117,7 @@ const issueIcon = (type: locApi.EIssueType): string => {
 
 <style scoped>
 .empty-state {
-  color: var(--p-message-success-color);
+  color: var(--opencor-success-color);
 }
 
 .header-title {
@@ -133,15 +133,15 @@ const issueIcon = (type: locApi.EIssueType): string => {
 }
 
 .issue-count.error {
-  background-color: var(--p-message-error-color);
+  background-color: var(--opencor-error-color);
 }
 
 .issue-count.information {
-  background-color: var(--p-message-info-color);
+  background-color: var(--opencor-info-color);
 }
 
 .issue-count.warning {
-  background-color: var(--p-message-warn-color);
+  background-color: var(--opencor-warn-color);
 }
 
 .issue-description {
@@ -149,15 +149,15 @@ const issueIcon = (type: locApi.EIssueType): string => {
 }
 
 .issue-item.severity-error {
-  border-color: var(--p-message-error-color);
+  border-color: var(--opencor-error-color);
 }
 
 .issue-item.severity-information {
-  border-color: var(--p-message-info-color);
+  border-color: var(--opencor-info-color);
 }
 
 .issue-item.severity-warning {
-  border-color: var(--p-message-warn-color);
+  border-color: var(--opencor-warn-color);
 }
 
 .issues-header {
@@ -169,15 +169,15 @@ const issueIcon = (type: locApi.EIssueType): string => {
 }
 
 .severity-error {
-  color: var(--p-message-error-color);
+  color: var(--opencor-error-color);
 }
 
 .severity-information {
-  color: var(--p-message-info-color);
+  color: var(--opencor-info-color);
 }
 
 .severity-warning {
-  color: var(--p-message-warn-color);
+  color: var(--opencor-warn-color);
 }
 
 .summary-item {
@@ -189,15 +189,15 @@ const issueIcon = (type: locApi.EIssueType): string => {
 }
 
 .summary-item.error {
-  color: var(--p-message-error-color);
+  color: var(--opencor-error-color);
 }
 
 .summary-item.information {
-  color: var(--p-message-info-color);
+  color: var(--opencor-info-color);
 }
 
 .summary-item.warning {
-  color: var(--p-message-warn-color);
+  color: var(--opencor-warn-color);
 }
 
 .summary-item i {
