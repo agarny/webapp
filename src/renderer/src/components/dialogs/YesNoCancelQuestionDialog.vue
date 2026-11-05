@@ -1,23 +1,40 @@
 <template>
-  <BaseDialog :header="title">
-    <div class="mt-2 mb-4" v-html="question"></div>
+  <BaseDialog :header="title" class="w-120">
+    <div class="message-dialog" :class="`message-dialog-${severity}`">
+      <span class="message-dialog-icon">
+        <i :class="ICONS[severity]" />
+      </span>
+      <div class="message-dialog-text" v-html="question"></div>
+    </div>
     <template #footer>
-      <Button autofocus label="Yes" :severity="severity" @click="$emit('yes')" />
-      <Button label="No" severity="secondary" @click="$emit('no')" />
-      <Button label="Cancel" severity="secondary" @click="$emit('cancel')" />
+      <Button autofocus :label="yesLabel" :severity="severity" @click="$emit('yes')" />
+      <Button :label="noLabel" severity="secondary" @click="$emit('no')" />
+      <Button :label="cancelLabel" severity="secondary" @click="$emit('cancel')" />
     </template>
   </BaseDialog>
 </template>
 
 <script setup lang="ts">
+import './message-dialog.css';
+
+type Severity = 'danger' | 'warning' | 'info';
+
+// Note: same as for YesNoQuestionDialog.vue when it comes to the labels of our buttons.
+
 withDefaults(
   defineProps<{
     title: string;
     question: string;
-    severity?: 'danger' | 'warning' | 'info';
+    severity?: Severity;
+    yesLabel?: string;
+    noLabel?: string;
+    cancelLabel?: string;
   }>(),
   {
-    severity: 'warning'
+    severity: 'warning',
+    yesLabel: 'Yes',
+    noLabel: 'No',
+    cancelLabel: 'Cancel'
   }
 );
 
@@ -26,4 +43,10 @@ defineEmits<{
   no: [];
   cancel: [];
 }>();
+
+const ICONS: Record<Severity, string> = {
+  danger: 'pi pi-exclamation-triangle',
+  warning: 'pi pi-exclamation-triangle',
+  info: 'pi pi-question-circle'
+};
 </script>
