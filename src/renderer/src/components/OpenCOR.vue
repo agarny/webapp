@@ -9,27 +9,23 @@
   >
     <Toast :id="toastId" :class="compIsActiveApp ? 'visible' : 'invisible'"
       :group="toastId"
-      :pt:root:style="{ position: 'absolute' }"
-    />
+      :pt="TOAST_PT"
+      :onMouseEnter="onToastHover"
+      :onMouseLeave="onToastHover"
+    >
+      <template #container="{ message, closeCallback }">
+        <ToastMessageWidget :message="message" @close="closeCallback" />
+      </template>
+    </Toast>
     <BackgroundComponent v-show="compBackgroundVisible" />
     <IssuesView v-if="compIssues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="compIssues" />
     <div v-else class="h-full flex flex-col"
       @dragenter="onDragEnter"
-      @dragover.prevent
+      @dragover="onDragOver"
       @drop.prevent="onDrop"
-      @dragleave="onDragLeave"
     >
       <input ref="filesRef" type="file" multiple style="display: none;" @change="onChange" />
-      <Transition
-        enter-active-class="transition-opacity duration-200"
-        leave-active-class="transition-opacity duration-200"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <DragNDropComponent v-if="dragAndDropCounter" />
-      </Transition>
+      <DragNDropComponent v-if="dragAndDropVisible" :fileCount="dragAndDropFileCount" @leave="dragAndDropVisible = false" />
       <MainMenu ref="mainMenuRef" v-if="isFullWebApp"
         :hasFiles="hasFiles"
         :canSave="canSave"
@@ -571,6 +567,28 @@ const addToast = (options: Parameters<typeof toast.add>[0]) => {
 };
 
 provideOpenCORToast(addToast);
+
+// Note: PrimeVue only pauses the life of a toast while it is hovered if it has some mouse enter and leave handlers, so
+//       we give it some (that don't need to do anything), so that the user has time to read a toast that they hover.
+
+const onToastHover = (): void => {};
+
+// Our toasts are positioned within OpenCOR (rather than within the page) and shown/hidden without any animation, and
+// their messages are rendered by ToastMessageWidget.vue, hence we remove the styling of PrimeVue's messages.
+// Note: we must use a pt object (rather than some pt: attributes) since PrimeVue's Toast component only passes its pt
+//       object to its messages.
+
+const TOAST_PT = {
+  root: {
+    style: { position: 'absolute', top: '0.75rem', right: '0.75rem', width: 'min(24rem, calc(100% - 1.5rem))' }
+  },
+  message: {
+    style: { margin: '0 0 0.5rem', border: 'none', background: 'none', boxShadow: 'none', backdropFilter: 'none' }
+  },
+  transition: {
+    css: false
+  }
+};
 
 // Finish initialising OpenCOR.
 
@@ -1541,11 +1559,16 @@ const onChange = (event: Event): void => {
 };
 
 // Drag and drop.
+// Note: once our drop zone is shown, it covers the whole of OpenCOR and its contents ignore pointer events (see
+//       DragNDropComponent.vue), so it is the only target of our drag events. This means that we know that the files
+//       being dragged have left OpenCOR (or that the drag has been cancelled) as soon as our drop zone gets left,
+//       without having to keep track of the (nested) elements that are being entered and left.
 
-const dragAndDropCounter = vue.ref<number>(0);
+const dragAndDropVisible = vue.ref<boolean>(false);
+const dragAndDropFileCount = vue.ref<number>(0);
 
 const onDragEnter = (event: DragEvent): void => {
-  if (!compUiEnabled.value || props.omex) {
+  if (dragAndDropVisible.value || !compUiEnabled.value || props.omex) {
     return;
   }
 
@@ -1555,7 +1578,21 @@ const onDragEnter = (event: DragEvent): void => {
     return;
   }
 
-  ++dragAndDropCounter.value;
+  // Keep track of the number of files being dragged, if known (see DragNDropComponent.vue), and show our drop zone.
+
+  dragAndDropFileCount.value = Array.from(event.dataTransfer.items).filter((item) => item.kind === 'file').length;
+  dragAndDropVisible.value = true;
+};
+
+const onDragOver = (event: DragEvent): void => {
+  event.preventDefault();
+
+  // Let the user know whether the files being dragged would get opened if they were to be dropped, i.e. whether we are
+  // showing our drop zone (we are not if our UI is disabled, for instance).
+
+  if (event.dataTransfer?.types.includes('Files')) {
+    event.dataTransfer.dropEffect = dragAndDropVisible.value ? 'copy' : 'none';
+  }
 };
 
 // Retrieve the file handle of a dropped file, if possible, so that the file can be saved where it is (see
@@ -1589,11 +1626,11 @@ const droppedFileHandle = (item: DataTransferItem): Promise<FileSystemFileHandle
 };
 
 const onDrop = async (event: DragEvent): Promise<void> => {
-  if (!dragAndDropCounter.value) {
+  if (!dragAndDropVisible.value) {
     return;
   }
 
-  dragAndDropCounter.value = 0;
+  dragAndDropVisible.value = false;
 
   // Retrieve the dropped files and their file handle.
   // Note: this must be done before we await anything since the dropped items can only be accessed while the drop
@@ -1622,14 +1659,6 @@ const onDrop = async (event: DragEvent): Promise<void> => {
   }
 
   openFiles(files);
-};
-
-const onDragLeave = (): void => {
-  if (!dragAndDropCounter.value) {
-    return;
-  }
-
-  dragAndDropCounter.value -= 1;
 };
 
 // Open.
