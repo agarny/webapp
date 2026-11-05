@@ -124,6 +124,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   installUpdateAndRestart: (): Promise<boolean> => electron.ipcRenderer.invoke('install-update-and-restart'),
   loadGitHubAccessToken: (): Promise<string | null> => electron.ipcRenderer.invoke('load-github-access-token'),
   loadSettings: (): Promise<ISettings> => electron.ipcRenderer.invoke('load-settings'),
+  open: () => electron.ipcRenderer.invoke('open'),
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) =>
     electron.ipcRenderer.invoke('recent-file-path-canonicalised', filePath, canonicalFilePath),
   rendererReady: () => electron.ipcRenderer.invoke('renderer-ready'),

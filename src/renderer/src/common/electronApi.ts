@@ -33,6 +33,7 @@ interface IElectronApi {
   installUpdateAndRestart: () => Promise<boolean>;
   loadGitHubAccessToken: () => Promise<string | null>;
   loadSettings: () => Promise<ISettings>;
+  open: () => void;
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) => void;
   rendererReady: () => Promise<void>;
   resetAll: () => void;

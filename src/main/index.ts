@@ -547,6 +547,9 @@ electron.app
         electron.ipcMain.handle('load-settings', (): ISettings => {
           return loadSettings();
         });
+        electron.ipcMain.handle('open', () => {
+          MainWindow.instance?.open();
+        });
         electron.ipcMain.handle(
           'recent-file-path-canonicalised',
           (_event, filePath: string, canonicalFilePath: string) => {

@@ -16,7 +16,11 @@
     @dragover.prevent="onDragOver"
     @drop="onDrop"
   >
-    <BackgroundComponent v-show="!fileTabs.length" class="h-full" />
+    <BackgroundComponent v-show="!fileTabs.length" actions
+      @open="$emit('open')"
+      @openRemote="$emit('openRemote')"
+      @openSampleLorenz="$emit('openSampleLorenz')"
+    />
     <div v-show="fileTabs.length" class="file-tab-bar-container shrink-0">
       <div ref="fileTabBarRef" class="file-tab-bar flex overflow-x-auto"
         @wheel.prevent="onWheel"
@@ -126,7 +130,10 @@ const emit = defineEmits<{
   error: [message: string];
   fileClosed: [filePath: string, fileHandle?: FileSystemFileHandle];
   fileOpened: [filePath: string];
+  open: [];
   openFile: [fileFilePathOrFileContents: string];
+  openRemote: [];
+  openSampleLorenz: [];
   simulationData: [];
 }>();
 
@@ -1597,6 +1604,28 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
     selectPreviousFile();
   }
 });
+
+// Show the name of the selected file, if any, in our window's title (or our browser tab's title), so that the user can
+// tell which file is selected when switching between windows (or browser tabs).
+// Note #1: we only do this for full OpenCOR (i.e. not in simulation-only mode) since, otherwise, OpenCOR is likely to
+//          be embedded in a page which title is not ours to change.
+// Note #2: OpenCOR's window title is that of its renderer's document (since our main process doesn't override it).
+
+if (!simulationOnly.value) {
+  const originalTitle = document.title;
+
+  vue.watchEffect(() => {
+    const activeFileTab = fileTabs.value.find((fileTab) => fileTab.file.path() === activeFile.value);
+
+    document.title = activeFileTab
+      ? `${common.fileName(activeFileTab.file.canonicalPath())} — ${originalTitle}`
+      : originalTitle;
+  });
+
+  vue.onUnmounted(() => {
+    document.title = originalTitle;
+  });
+}
 </script>
 
 <style scoped>
