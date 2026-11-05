@@ -1,27 +1,24 @@
 <template>
   <div class="toolbar-based-view relative h-full flex flex-col">
-    <Toolbar class="p-1! shrink-0">
+    <Toolbar class="shrink-0">
       <template #start>
-        <Button class="p-1! toolbar-button"
+        <ToolbarButtonWidget
           icon="pi pi-info-circle"
-          text severity="secondary"
-          title="Limitations"
+          label="Limitations"
           @click="limitationsVisible = true"
         />
       </template>
       <template #end>
         <div class="flex gap-1">
-          <Button class="p-1! toolbar-button"
+          <ToolbarButtonWidget
             icon="pi pi-chart-line"
-            text severity="secondary"
-            title="Standard simulation"
+            label="Standard simulation"
             :disabled="!client.loaded"
             @click="onExportCombineArchive(EXPORT_KIND_SIMULATE)"
           />
-          <Button class="p-1! toolbar-button"
+          <ToolbarButtonWidget
             icon="pi pi-download"
-            text severity="secondary"
-            title="Export COMBINE archive"
+            label="Export COMBINE archive"
             :disabled="!client.loaded"
             @click="onExportCombineArchive(EXPORT_KIND_DOWNLOAD)"
           />

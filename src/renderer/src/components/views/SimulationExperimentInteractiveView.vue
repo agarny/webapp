@@ -2,29 +2,23 @@
   <div ref="rootRef" class="simulation-experiment-view toolbar-based-view h-full flex flex-col">
     <IssuesView v-if="issues.length" class="m-4 mb-0" style="height: calc(100% - 2rem);" :issues="issues" />
     <template v-else>
-      <Toolbar v-if="!simulationOnly" class="p-1! shrink-0">
+      <Toolbar v-if="!simulationOnly" class="shrink-0">
         <template #start>
           <div class="flex gap-1 invisible">
-            <Button class="p-1! toolbar-button"
-              icon="pi pi-play-circle"
-            />
-            <Button class="p-1! toolbar-button"
-              icon="pi pi-stop-circle"
-            />
+            <ToolbarButtonWidget icon="pi pi-play-circle" />
+            <ToolbarButtonWidget icon="pi pi-stop-circle" />
           </div>
         </template>
         <template #end>
           <div class="flex gap-1">
-            <Button class="p-1! toolbar-button"
+            <ToolbarButtonWidget
               icon="pi pi-download"
-              text severity="secondary"
-              title="Export COMBINE archive"
+              label="Export COMBINE archive"
               @click="onDownloadCombineArchive"
             />
-            <Button class="p-1! toolbar-button"
+            <ToolbarButtonWidget
               icon="pi pi-cog"
-              text severity="secondary"
-              title="Settings"
+              label="Settings"
               @click="settingsVisible = true"
             />
           </div>

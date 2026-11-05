@@ -2,30 +2,29 @@
   <div ref="rootRef" class="simulation-experiment-view toolbar-based-view h-full flex flex-col">
     <IssuesView v-if="issues.length" class="m-4 mb-0" style="height: calc(100% - 2rem);" :issues="issues" />
     <template v-else>
-      <Toolbar class="p-1! shrink-0">
+      <Toolbar class="shrink-0">
         <template #start>
-          <Button class="p-1! toolbar-button"
-            :icon="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'pi pi-play-circle' : 'pi pi-pause-circle'"
-            text severity="secondary"
-            :title="(simulationStatus === locSedApi.ESedInstanceStatus.IDLE ? 'Run' : simulationStatus === locSedApi.ESedInstanceStatus.RUNNING ? 'Pause' : 'Resume') + ' simulation (F9)'"
-            @click="onRunPause"
-          />
-          <Button class="p-1! toolbar-button"
-            icon="pi pi-stop-circle"
-            text severity="secondary"
-            title="Stop simulation"
-            :disabled="simulationStatus === locSedApi.ESedInstanceStatus.IDLE"
-            @click="onStop"
-          />
+          <div class="flex gap-1">
+            <ToolbarButtonWidget
+              :icon="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'pi pi-play-circle' : 'pi pi-pause-circle'"
+              :accent="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'primary' : 'warning'"
+              :label="(simulationStatus === locSedApi.ESedInstanceStatus.IDLE ? 'Run' : simulationStatus === locSedApi.ESedInstanceStatus.RUNNING ? 'Pause' : 'Resume') + ' simulation'"
+              shortcut="F9"
+              @click="onRunPause"
+            />
+            <ToolbarButtonWidget
+              icon="pi pi-stop-circle"
+              accent="danger"
+              label="Stop simulation"
+              :disabled="simulationStatus === locSedApi.ESedInstanceStatus.IDLE"
+              @click="onStop"
+            />
+          </div>
         </template>
         <template #end>
           <div class="flex gap-1 invisible">
-            <Button class="p-1! toolbar-button"
-              icon="pi pi-download"
-            />
-            <Button class="p-1! toolbar-button"
-              icon="pi pi-cog"
-            />
+            <ToolbarButtonWidget icon="pi pi-download" />
+            <ToolbarButtonWidget icon="pi pi-cog" />
           </div>
         </template>
       </Toolbar>
