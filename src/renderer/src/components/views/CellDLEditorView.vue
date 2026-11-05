@@ -1,6 +1,14 @@
 <template>
   <div class="toolbar-based-view relative h-full flex flex-col">
     <Toolbar class="p-1! shrink-0">
+      <template #start>
+        <Button class="p-1! toolbar-button"
+          icon="pi pi-info-circle"
+          text severity="secondary"
+          title="Limitations"
+          @click="limitationsVisible = true"
+        />
+      </template>
       <template #end>
         <div class="flex gap-1">
           <Button class="p-1! toolbar-button"
@@ -31,6 +39,17 @@
         <Button autofocus label="OK" @click="exportIssuesVisible = false" />
       </template>
     </BaseDialog>
+    <BaseDialog v-model:visible="limitationsVisible" header="Limitations" style="width: 39rem">
+      <div class="mt-2 mb-4 space-y-2">
+        <div>The <strong>CellDL Editor view</strong> currently has the following limitations inherent to the <a href="https://github.com/CellDL/CellDLEditorComponent" target="_blank" rel="noopener noreferrer">CellDL Editor component</a>:</div>
+        <ul class="list-disc ml-6 space-y-1">
+          <li v-for="(limitation, index) in LIMITATIONS" :key="index">{{ limitation }}</li>
+        </ul>
+      </div>
+      <template #footer>
+        <Button autofocus label="OK" @click="limitationsVisible = false" />
+      </template>
+    </BaseDialog>
   </div>
 </template>
 
@@ -42,6 +61,7 @@ import { type ICellDLEditorClient, useCellDLEditorHost } from '../../common/cell
 import { loadCellDLRuntime } from '../../common/celldlRuntime';
 import * as common from '../../common/common';
 import { LONG_DELAY } from '../../common/constants';
+import { type IFileEditor, useViewRegistry } from '../../common/viewRegistry';
 import * as locApi from '../../libopencor/locApi';
 
 import { useOpenCORContext } from '../OpenCORContext';
@@ -62,11 +82,21 @@ const emit = defineEmits<{
   openFile: [fileFilePathOrFileContents: string];
 }>();
 
+// Current limitations of the CellDL Editor view.
+
+const LIMITATIONS = [
+  'Only adding, deleting, and moving can be undone.',
+  "Undoing all changes doesn't make a file unmodified.",
+  'Switching files loses the selection, zoom, scroll position, undo history, etc.',
+  'Safari and Firefox draw diagrams differently.'
+];
+
 const host = useCellDLEditorHost();
 const opencorMessage = useOpenCORMessage();
 const containerRef = vue.shallowRef<HTMLElement | null>(null);
 const exportIssues = vue.ref<locApi.IIssue[]>([]);
 const exportIssuesVisible = vue.ref<boolean>(false);
+const limitationsVisible = vue.ref<boolean>(false);
 const celldlFileName = common.fileName(props.file.canonicalPath());
 
 // Our view is kept alive, so keep track of whether it is active, i.e. whether it is visible in its file tab.
@@ -90,8 +120,44 @@ const client = vue.reactive({
   active: vue.computed<boolean>(() => props.isActiveFile && isActiveView.value),
   activation: 0,
   loaded: false,
+  editCount: 0,
   issues: []
 }) as ICellDLEditorClient;
+
+// Let people know that we can edit our file, so that it can be saved (see ContentsComponent.vue).
+// Note: our diagram may get edited while it is being saved (e.g., while our file is being written), in which case it
+//       must still be considered modified once saved, hence we keep track of the number of edits that had been made
+//       when we asked for some contents, for each contents that we provide (since several of them may be being saved at
+//       once, see IFileEditor). We do so before asking for them since an edit made while they are being retrieved may
+//       or may not be part of them, in which case we would rather consider our diagram modified when it isn't than the
+//       other way round. Also, our file may have unsaved contents (see viewRegistry.markUnsavedContents()), in which
+//       case our diagram is modified until it gets saved, i.e. our initial number of saved edits must not match any
+//       number of edits (which starts at zero).
+
+const viewRegistry = useViewRegistry();
+const savedEditCount = vue.ref<number>(viewRegistry.hasUnsavedContents(props.file) ? -1 : 0);
+const contentsEditCounts = new WeakMap<Uint8Array, number>();
+const fileEditor: IFileEditor = {
+  modified: () => client.editCount !== savedEditCount.value,
+  contents: async () => {
+    const editCount = client.editCount;
+    const res = new TextEncoder().encode(await host.clientData(client));
+
+    contentsEditCounts.set(res, editCount);
+
+    return res;
+  },
+  editedSince: (contents: Uint8Array) => client.editCount !== contentsEditCounts.get(contents),
+  markSaved: (contents: Uint8Array) => {
+    const editCount = contentsEditCounts.get(contents);
+
+    if (editCount !== undefined) {
+      savedEditCount.value = editCount;
+    }
+  }
+};
+
+viewRegistry.registerFileEditor(props.file, fileEditor);
 
 // Let our shared CellDL Editor know whenever we become visible or our OpenCOR instance becomes active while we are
 // visible, so that it shows our diagram if another OpenCOR instance also has a visible CellDL Editor view.
@@ -140,6 +206,7 @@ vue.onBeforeUnmount(() => {
   unmounted = true;
 
   host.unregister(client);
+  viewRegistry.unregisterFileEditor(props.file, fileEditor);
 });
 
 // Export our (possibly edited) diagram to a COMBINE archive, which we can then either simulate or download.

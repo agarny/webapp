@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.20261105.0",
+    "changes": [
+      {
+        "type": "added",
+        "description": "File|Save and File|Save As to save a file, either where it is or under another name."
+      },
+      { "type": "added", "description": "A file's tab now shows whether the file has been modified." },
+      {
+        "type": "added",
+        "description": "OpenCOR now asks whether to save the files that have been modified before closing them, quitting OpenCOR, installing an update, resetting everything, reloading OpenCOR's Web app, or logging off or shutting down Windows."
+      },
+      { "type": "added", "description": "A dialog that lists the current limitations of the CellDL Editor view." }
+    ]
+  },
+  {
     "version": "1.20261031.0",
     "changes": [
       {

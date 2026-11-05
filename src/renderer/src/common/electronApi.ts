@@ -12,24 +12,32 @@ interface IElectronApi {
   // Renderer process asking the main process to do something for it.
 
   applyTheme: (theme: OpenCORTheme) => void;
+  canSaveFile: (filePath: string) => Promise<boolean>;
   checkForUpdates: (atStartup: boolean) => void;
+  closeConfirmed: () => void;
+  closeRequestReceived: () => void;
   clearGitHubCache: () => Promise<void>;
   deleteGitHubAccessToken: () => Promise<boolean>;
+  disallowSavingFile: (filePath: string) => void;
   downloadAndInstallUpdate: () => void;
   enableDisableMainMenu: (enable: boolean) => void;
   enableDisableFileCloseAndCloseAllMenuItems: (enable: boolean) => void;
+  enableDisableFileSaveAndSaveAsMenuItems: (enableSave: boolean, enableSaveAs: boolean) => void;
   fileClosed: (filePath: string) => void;
   fileIssue: (filePath: string, canonicalFilePath: string) => void;
   fileOpened: (filePath: string, canonicalFilePath: string) => void;
   filePath: (file: File) => string;
   fileSelected(filePath: string): void;
+  filesModified(filePaths: string[]): void;
   filesOpened(filePaths: string[]): void;
-  installUpdateAndRestart: () => void;
+  installUpdateAndRestart: () => Promise<boolean>;
   loadGitHubAccessToken: () => Promise<string | null>;
   loadSettings: () => Promise<ISettings>;
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) => void;
   rendererReady: () => Promise<void>;
   resetAll: () => void;
+  saveFile: (filePath: string, contents: Uint8Array) => Promise<void>;
+  saveFileAs: (defaultFilePath: string) => Promise<string | null>;
   saveGitHubAccessToken: (token: string) => Promise<boolean>;
   saveSettings: (settings: ISettings) => void;
 
@@ -46,7 +54,10 @@ interface IElectronApi {
   onOpenSampleLorenz: (callback: () => void) => () => void;
   onClose: (callback: () => void) => () => void;
   onCloseAll: (callback: () => void) => () => void;
+  onConfirmClose: (callback: () => void) => () => void;
   onResetAll: (callback: () => void) => () => void;
+  onSave: (callback: () => void) => () => void;
+  onSaveAs: (callback: () => void) => () => void;
   onSelect: (callback: (filePath: string) => void) => () => void;
   onSettings: (callback: () => void) => () => void;
   onUpdateAvailable: (callback: (version: string) => void) => () => void;

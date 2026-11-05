@@ -32,11 +32,19 @@
       </Transition>
       <MainMenu ref="mainMenuRef" v-if="isFullWebApp"
         :hasFiles="hasFiles"
+        :canSave="canSave"
+        :canSaveAs="canSaveAs"
+        :recentFilePaths="recentFilePaths"
         @about="onAboutMenu"
         @changelog="onChangelogMenu"
         @open="onOpenMenu"
         @openRemote="onOpenRemoteMenu"
         @openSampleLorenz="onOpenSampleLorenzMenu"
+        @reopen="onReopenMenu"
+        @clearRecentFiles="onClearRecentFilesMenu"
+        @save="onSaveMenu"
+        @saveAs="onSaveAsMenu"
+        @download="onDownloadMenu"
         @close="onCloseMenu"
         @closeAll="onCloseAllMenu"
         @settings="onSettingsMenu"
@@ -74,7 +82,9 @@
       />
       <UpdateAvailableDialog v-model:visible="updateAvailableVisible"
         :version="updateVersion"
+        :reloading="updateReloading"
         @downloadAndInstall="onDownloadAndInstall"
+        @reload="onReload"
         @close="updateAvailableVisible = false"
       />
       <UpdateDownloadProgressDialog v-model:visible="updateDownloadProgressVisible"
@@ -130,7 +140,7 @@ import celldlIcon from '../assets/celldl.svg?inline';
 import '../assets/primeicons-assets';
 import * as changelog from '../common/changelog';
 import * as common from '../common/common';
-import { FULL_URI_SCHEME, LONG_DELAY, SHORT_DELAY, TOAST_LIFE } from '../common/constants';
+import { FULL_URI_SCHEME, LONG_DELAY, MAX_RECENT_FILES, SHORT_DELAY, TOAST_LIFE } from '../common/constants';
 import { electronApi } from '../common/electronApi';
 /* TODO: enable once our GitHub integration is fully ready.
 import firebaseConfig, { missingFirebaseKeys } from '../common/firebaseConfig';
@@ -256,10 +266,14 @@ const emitSimulationData = (): void => {
 // Methods to handle files.
 
 const onFileOpened = (filePath: string): void => {
+  removeRecentFile(filePath);
+
   emit('file', { type: 'opened', filePath, issues: [] });
 };
 
-const onFileClosed = (filePath: string): void => {
+const onFileClosed = (filePath: string, fileHandle?: FileSystemFileHandle): void => {
+  addRecentFile(filePath, fileHandle);
+
   emit('file', { type: 'closed', filePath, issues: [] });
 };
 
@@ -363,6 +377,66 @@ const {
   progress: opencorMessageProgress
 } = provideOpenCORMessage();
 
+// Block the user's input once the user has confirmed that OpenCOR can be quit (or restarted), until it actually is.
+// Note #1: our main process doesn't quit OpenCOR straight away (e.g., on macOS, an update gets fetched by Squirrel.Mac
+//          before being installed), and the user might otherwise modify a file in the meantime (e.g., by undoing
+//          something in a CellDL file), in which case the modification would be lost without the user having been
+//          asked whether to save it.
+// Note #2: we intercept the user's input before anything else can handle it, i.e. during the capture phase of our
+//          window, using listeners that are added before anything else gets a chance to add its own (since the
+//          listeners of a given target and phase are called in the order in which they were added), e.g., before
+//          CellDL Editor gets loaded. We also disable our main menu (see compUiEnabled below), so that the user cannot,
+//          for instance, paste something using it.
+// Note #3: our main process may not quit OpenCOR after all (e.g., if an update couldn't be installed), in which case we
+//          unblock the user's input.
+
+const USER_INPUT_EVENT_TYPES = [
+  'auxclick',
+  'beforeinput',
+  'click',
+  'contextmenu',
+  'cut',
+  'dblclick',
+  'dragstart',
+  'drop',
+  'input',
+  'keydown',
+  'keypress',
+  'keyup',
+  'mousedown',
+  'mousemove',
+  'mouseup',
+  'paste',
+  'pointerdown',
+  'pointermove',
+  'pointerup',
+  'touchend',
+  'touchmove',
+  'touchstart',
+  'wheel'
+];
+
+const userInputBlocked = vue.ref<boolean>(false);
+
+if (electronApi) {
+  const blockUserInput = (event: Event): void => {
+    if (userInputBlocked.value) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  };
+
+  for (const eventType of USER_INPUT_EVENT_TYPES) {
+    window.addEventListener(eventType, blockUserInput, { capture: true, passive: false });
+  }
+
+  trackCleanup(() => {
+    for (const eventType of USER_INPUT_EVENT_TYPES) {
+      window.removeEventListener(eventType, blockUserInput, { capture: true });
+    }
+  });
+}
+
 // Determine whether the component UI should be blocked/enabled.
 // Note: compBlockUiEnabled is used to determine whether PrimeVue's BlockUI component should be enabled, whereas
 //       compUiEnabled is used to determine whether the UI should be enabled (it checks whether various dialogs are
@@ -383,7 +457,7 @@ const compBlockUiEnabled = vue.computed<boolean>(() => {
 });
 
 const compUiEnabled = vue.computed<boolean>(() => {
-  return !compBlockUiEnabled.value && !isDialogActive.value;
+  return !compBlockUiEnabled.value && !isDialogActive.value && !userInputBlocked.value;
 });
 
 // Enable/disable our main menu (in OpenCOR) whenever our UI gets enabled/disabled.
@@ -685,6 +759,114 @@ vue.watch(
   { immediate: true }
 );
 
+const canSave = vue.computed<boolean>(() => {
+  return contentsRef.value?.canSaveCurrentFile() ?? false;
+});
+
+const canSaveAs = vue.computed<boolean>(() => {
+  return contentsRef.value?.canSaveCurrentFileAs() ?? false;
+});
+
+vue.watch(
+  [canSave, canSaveAs],
+  ([newCanSave, newCanSaveAs]: [boolean, boolean]) => {
+    electronApi?.enableDisableFileSaveAndSaveAsMenuItems(newCanSave, newCanSaveAs);
+  },
+  { immediate: true }
+);
+
+// Keep track of the files that have been modified, so that the user can be asked whether to save them before OpenCOR
+// gets quit or before the Web page gets unloaded (see below).
+// Note: we get recomputed whenever a file gets edited (e.g., for every pointer move while an object is being moved in
+//       our CellDL Editor view), so we return our previous value if the files that have been modified haven't changed,
+//       so that our main process doesn't get told about them (again) for nothing.
+
+const modifiedFilePaths = vue.computed<string[]>((oldModifiedFilePaths?: string[]) => {
+  const res = contentsRef.value?.modifiedFilePaths() ?? [];
+
+  if (
+    oldModifiedFilePaths?.length === res.length &&
+    res.every((filePath, index) => filePath === oldModifiedFilePaths[index])
+  ) {
+    return oldModifiedFilePaths;
+  }
+
+  return res;
+});
+
+vue.watch(
+  modifiedFilePaths,
+  (newModifiedFilePaths: string[]) => {
+    electronApi?.filesModified(newModifiedFilePaths);
+  },
+  { immediate: true }
+);
+
+// Ask the user whether to save the files that have been modified, except the given ones, which the user has already
+// chosen not to save, and return the path of the files that are still modified (i.e. that the user chose not to save),
+// or null if the user cancelled or a file that they wanted to save couldn't be saved, i.e. if we cannot proceed (see
+// ContentsComponent.saveModifiedFiles()).
+
+const saveModifiedFiles = async (title: string, leftUnsavedFilePaths?: string[]): Promise<string[] | null> => {
+  return contentsRef.value ? contentsRef.value.saveModifiedFiles(title, leftUnsavedFilePaths) : [];
+};
+
+// Ask the user whether to save the files that have been modified before OpenCOR gets quit, and then let our main
+// process quit OpenCOR, unless the user cancelled.
+// Note #1: we let our main process know straight away that we have received its request, even if we are going to ignore
+//          it, so that it doesn't consider us as not responding (see MainWindow.ts).
+// Note #2: we ignore a request while we are already handling one (e.g., if the user tries to quit OpenCOR twice in a
+//          row).
+
+let confirmingClose = false;
+
+trackCleanup(
+  electronApi?.onConfirmClose(async () => {
+    electronApi?.closeRequestReceived();
+
+    if (confirmingClose) {
+      return;
+    }
+
+    confirmingClose = true;
+
+    try {
+      if ((await saveModifiedFiles('Quit')) !== null) {
+        userInputBlocked.value = true;
+
+        electronApi?.closeConfirmed();
+      }
+    } finally {
+      confirmingClose = false;
+    }
+  })
+);
+
+// Warn the user that leaving the Web page will lose the changes made to the files that have been modified.
+// Note #1: in the case of Electron, our main process asks us to ask the user whether to save those files (see above),
+//          so we only do this for OpenCOR's Web app. Also, preventing our Web page from being unloaded would prevent
+//          OpenCOR from being quit (without the user being told why).
+// Note #2: unlike our main process, a Web browser doesn't let us ask the user whether to save those files, only whether
+//          to leave the Web page.
+// Note #3: we don't warn the user about the files that they have chosen not to save when asked whether to reload
+//          OpenCOR's Web app (see onReload()), but we do about any other file that has been modified.
+
+let leftUnsavedFilePathsOnUnload: string[] = [];
+
+const onBeforeUnload = (event: BeforeUnloadEvent): void => {
+  if (modifiedFilePaths.value.some((filePath) => !leftUnsavedFilePathsOnUnload.includes(filePath))) {
+    event.preventDefault();
+  }
+};
+
+if (!electronApi) {
+  window.addEventListener('beforeunload', onBeforeUnload);
+
+  trackCleanup(() => {
+    window.removeEventListener('beforeunload', onBeforeUnload);
+  });
+}
+
 // Auto update.
 
 trackCleanup(
@@ -738,6 +920,8 @@ trackCleanup(
 
 trackCleanup(
   electronApi?.onUpdateInstallError((issue: string) => {
+    userInputBlocked.value = false;
+
     updateErrorTitle.value = 'Installing Update...';
     updateErrorIssue.value = `An error occurred while installing the update (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
@@ -756,10 +940,23 @@ trackCleanup(
 );
 
 trackCleanup(
-  electronApi?.onUpdateDownloaded(() => {
+  electronApi?.onUpdateDownloaded(async () => {
     updateDownloadPercent.value = 100; // Just to be on the safe side.
 
-    electronApi?.installUpdateAndRestart();
+    // Installing the update restarts OpenCOR, so ask the user whether to save the files that have been modified first.
+    // If the user cancels, then the update will be installed when OpenCOR gets quit (see autoInstallOnAppQuit in
+    // electron-updater) or once the user has checked for updates again (see checkForUpdates() in MainWindow.ts).
+
+    if ((await saveModifiedFiles('Install Update')) !== null) {
+      userInputBlocked.value = true;
+
+      if (!(await electronApi?.installUpdateAndRestart())) {
+        userInputBlocked.value = false;
+        updateDownloadProgressVisible.value = false;
+      }
+    } else {
+      updateDownloadProgressVisible.value = false;
+    }
   })
 );
 
@@ -860,6 +1057,41 @@ vue.watch(
 const onUpdateAvailable = () => {
   updateVersion.value = version.latestVersion.value;
   updateAvailableVisible.value = true;
+};
+
+// Reload OpenCOR's Web app, after having asked the user whether to save the files that have been modified, since
+// reloading it would otherwise lose the changes made to them (see onBeforeUnload()).
+// Note #1: we only let our update available dialog know that we are reloading once we actually are since, otherwise, it
+//          would be stuck in its reloading state, should the user cancel.
+// Note #2: forceReload() first refreshes our Web page in the HTTP cache, which may take a while, during which some
+//          files may get edited. So, right before our Web page gets reloaded, we ask the user whether to save the files
+//          that have been modified since, if any, and we don't reload if the user cancels.
+
+const updateReloading = vue.ref<boolean>(false);
+
+const onReload = async (): Promise<void> => {
+  if (updateReloading.value) {
+    return;
+  }
+
+  let leftUnsavedFilePaths = await saveModifiedFiles('Reload');
+
+  if (leftUnsavedFilePaths === null) {
+    return;
+  }
+
+  updateReloading.value = true;
+
+  const reloading = await version.forceReload(async () => {
+    leftUnsavedFilePaths = await saveModifiedFiles('Reload', leftUnsavedFilePaths ?? []);
+    leftUnsavedFilePathsOnUnload = leftUnsavedFilePaths ?? [];
+
+    return leftUnsavedFilePaths !== null;
+  });
+
+  if (!reloading) {
+    updateReloading.value = false;
+  }
 };
 
 // Open a file.
@@ -1099,7 +1331,8 @@ const processFile = async (fileFilePathOrFileContents: string | Uint8Array | Fil
 const openFileInContents = async (
   file: locApi.File,
   canonicalFilePath: string,
-  wait: boolean = false
+  wait: boolean = false,
+  fileHandle?: FileSystemFileHandle
 ): Promise<void> => {
   // Open the given file in our contents component or release it if we can't (e.g., we got unmounted in the meantime).
   // Note #1: to open a file may fail (e.g., if libOpenCOR throws an exception), in which case we report the issue and
@@ -1116,7 +1349,7 @@ const openFileInContents = async (
       return;
     }
 
-    await contentsRef.value.openFile(file, wait);
+    await contentsRef.value.openFile(file, wait, fileHandle);
   } catch (error: unknown) {
     if (!contentsRef.value?.hasFile(filePath)) {
       file.release();
@@ -1182,7 +1415,16 @@ const openProcessedFile = async (
     }
 
     if (fileInfo.file) {
-      await openFileInContents(fileInfo.file, fileInfo.canonicalFilePath, wait);
+      await openFileInContents(
+        fileInfo.file,
+        fileInfo.canonicalFilePath,
+        wait,
+        fileFilePathOrFileContents instanceof File ? fileHandles.get(fileFilePathOrFileContents) : undefined
+      );
+
+      if (fileFilePathOrFileContents instanceof File && contentsRef.value?.hasFile(fileInfo.filePath)) {
+        openedFiles.set(fileInfo.filePath, fileFilePathOrFileContents);
+      }
     }
   } catch (error: unknown) {
     console.error('OpenCOR: an unexpected error occurred while opening a file:', common.formatError(error));
@@ -1253,18 +1495,70 @@ const onDragEnter = (event: DragEvent): void => {
   ++dragAndDropCounter.value;
 };
 
-const onDrop = (event: DragEvent): void => {
+// Retrieve the file handle of a dropped file, if possible, so that the file can be saved where it is (see
+// ContentsComponent.saveFile()).
+// Note #1: this is only needed for OpenCOR's Web app since OpenCOR knows where a dropped file is (see
+//          electronApi.filePath()).
+// Note #2: DataTransferItem.getAsFileSystemHandle() is part of the File System Access API, which is only supported by
+//          Chromium-based Web browsers, and it may return the handle of a directory.
+
+interface IDataTransferItemWithFileSystemHandle {
+  getAsFileSystemHandle?: () => Promise<FileSystemHandle | null>;
+}
+
+const fileHandles = new WeakMap<File, FileSystemFileHandle>();
+
+const droppedFileHandle = (item: DataTransferItem): Promise<FileSystemFileHandle | null> => {
+  const getAsFileSystemHandle = (item as unknown as IDataTransferItemWithFileSystemHandle).getAsFileSystemHandle;
+
+  if (electronApi || !getAsFileSystemHandle) {
+    return Promise.resolve(null);
+  }
+
+  return getAsFileSystemHandle
+    .call(item)
+    .then((fileHandle) => {
+      return fileHandle?.kind === 'file' ? (fileHandle as FileSystemFileHandle) : null;
+    })
+    .catch(() => {
+      return null;
+    });
+};
+
+const onDrop = async (event: DragEvent): Promise<void> => {
   if (!dragAndDropCounter.value) {
     return;
   }
 
   dragAndDropCounter.value = 0;
 
-  const files = event.dataTransfer?.files;
+  // Retrieve the dropped files and their file handle.
+  // Note: this must be done before we await anything since the dropped items can only be accessed while the drop
+  //       event is being handled.
 
-  if (files) {
-    openFiles(Array.from(files));
+  const droppedFiles = Array.from(event.dataTransfer?.items ?? [])
+    .filter((item) => item.kind === 'file')
+    .map((item) => {
+      return {
+        file: item.getAsFile(),
+        fileHandle: droppedFileHandle(item)
+      };
+    });
+  const files: File[] = [];
+
+  for (const droppedFile of droppedFiles) {
+    if (droppedFile.file) {
+      const fileHandle = await droppedFile.fileHandle;
+
+      if (fileHandle) {
+        fileHandles.set(droppedFile.file, fileHandle);
+      }
+
+      files.push(droppedFile.file);
+    }
   }
+
+  openFiles(files);
 };
 
 const onDragLeave = (): void => {
@@ -1357,6 +1651,132 @@ const onOpenSampleLorenzMenu = (): void => {
   openFile('https://github.com/opencor/webapp/raw/refs/heads/main/tests/models/ui/lorenz.omex');
 };
 
+// Reopen a file from the recent files menu.
+// Note #1: OpenCOR's main process keeps track of OpenCOR's recent files (see MainWindow.fileClosed()), so we only need
+//          to do it for OpenCOR's Web app, and only for the current session.
+// Note #2: in OpenCOR's Web app, a local file is only known by its name, so we keep track of what is needed to reopen
+//          it, i.e. its file handle, if any (see droppedFileHandle() and ContentsComponent.doSaveFileAs()), or its File
+//          object. A file opened using a data URL or some contents cannot be reopened (see common.isDataUrlFileName()).
+
+interface IRecentFile {
+  filePath: string;
+  source: string | File | FileSystemFileHandle;
+}
+
+const openedFiles = new Map<string, File>();
+const recentFiles = vue.shallowRef<IRecentFile[]>([]);
+const recentFilePaths = vue.computed<string[]>(() => {
+  return recentFiles.value.map((recentFile) => recentFile.filePath);
+});
+
+const removeRecentFile = (filePath: string): void => {
+  if (recentFilePaths.value.includes(filePath)) {
+    recentFiles.value = recentFiles.value.filter((recentFile) => recentFile.filePath !== filePath);
+  }
+};
+
+const addRecentFile = (filePath: string, fileHandle?: FileSystemFileHandle): void => {
+  const file = openedFiles.get(filePath);
+
+  openedFiles.delete(filePath);
+
+  if (!isFullWebApp.value || common.isDataUrlFileName(filePath)) {
+    return;
+  }
+
+  const source = fileHandle ?? (common.isUrl(filePath) ? filePath : file);
+
+  if (!source) {
+    return;
+  }
+
+  recentFiles.value = [
+    { filePath, source },
+    ...recentFiles.value.filter((recentFile) => recentFile.filePath !== filePath)
+  ].slice(0, MAX_RECENT_FILES);
+};
+
+const onReopenMenu = async (filePath: string): Promise<void> => {
+  const recentFile = recentFiles.value.find((recentFile) => recentFile.filePath === filePath);
+
+  if (!recentFile) {
+    return;
+  }
+
+  removeRecentFile(filePath);
+
+  if (typeof recentFile.source === 'string' || recentFile.source instanceof File) {
+    openFile(recentFile.source);
+
+    return;
+  }
+
+  // Retrieve the current contents of the file through its file handle, and keep track of its file handle so that it can
+  // still be saved where it is.
+
+  let file: File;
+
+  try {
+    file = await recentFile.source.getFile();
+  } catch (error: unknown) {
+    reportFileIssue(filePath, common.formatMessage(common.formatError(error)));
+
+    return;
+  }
+
+  fileHandles.set(file, recentFile.source);
+
+  openFile(file);
+};
+
+const onClearRecentFilesMenu = (): void => {
+  recentFiles.value = [];
+};
+
+// Save.
+
+trackCleanup(
+  electronApi?.onSave(() => {
+    onSaveMenu();
+  })
+);
+
+const onSaveMenu = (): void => {
+  if (props.omex) {
+    return;
+  }
+
+  contentsRef.value?.saveCurrentFile();
+};
+
+// Save as.
+
+trackCleanup(
+  electronApi?.onSaveAs(() => {
+    onSaveAsMenu();
+  })
+);
+
+const onSaveAsMenu = (): void => {
+  if (props.omex) {
+    return;
+  }
+
+  contentsRef.value?.saveCurrentFileAs();
+};
+
+// Download.
+// Note: this is only offered in OpenCOR's Web app when the Web browser has no save file picker (see
+//       common.hasSaveFilePicker()), in which case saving a file as another file downloads it.
+
+const onDownloadMenu = (): void => {
+  if (props.omex) {
+    return;
+  }
+
+  contentsRef.value?.saveCurrentFileAs();
+};
+
 // Close.
 
 trackCleanup(
@@ -1399,8 +1819,16 @@ trackCleanup(
   })
 );
 
-const onResetAll = (): void => {
-  electronApi?.resetAll();
+// Note: resetting all restarts OpenCOR, so we ask the user whether to save the files that have been modified first.
+
+const onResetAll = async (): Promise<void> => {
+  resetAllVisible.value = false;
+
+  if ((await saveModifiedFiles('Reset All')) !== null) {
+    userInputBlocked.value = true;
+
+    electronApi?.resetAll();
+  }
 };
 
 // Select.
