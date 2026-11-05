@@ -53,8 +53,11 @@
         </div>
         <YesNoQuestionDialog
           v-model:visible="disconnectFromGitHubVisible"
-          title="Disconnect from GitHub..."
-          question="You are about to disconnect from GitHub. Do you want to proceed?"
+          title="Disconnect from GitHub"
+          question="You are about to disconnect from GitHub. Do you want to continue?"
+          severity="danger"
+          yesLabel="Disconnect"
+          noLabel="Cancel"
           @yes="onDisconnectFromGitHub"
           @no="disconnectFromGitHubVisible = false"
         />
@@ -79,6 +82,7 @@
       <OkMessageDialog v-model:visible="updateErrorVisible"
         :title="updateErrorTitle"
         :message="updateErrorIssue"
+        severity="danger"
         @ok="onUpdateErrorDialogClose"
       />
       <UpdateAvailableDialog v-model:visible="updateAvailableVisible"
@@ -92,8 +96,9 @@
         :percent="updateDownloadPercent"
       />
       <OkMessageDialog v-model:visible="updateNotAvailableVisible"
-        title="Check for Updates..."
-        message="No updates are available at this time."
+        title="Check for Updates"
+        message="You are using the latest version of OpenCOR."
+        severity="success"
         @ok="updateNotAvailableVisible = false"
       />
       <OpenRemoteDialog v-model:visible="openRemoteVisible"
@@ -104,9 +109,11 @@
         @close="settingsVisible = false"
       />
       <YesNoQuestionDialog v-model:visible="resetAllVisible"
-        title="Reset All..."
-        question="You are about to reset all of your settings. Do you want to proceed?"
+        title="Reset All"
+        question="All of your settings will be reset and OpenCOR will restart. Do you want to continue?"
         severity="danger"
+        yesLabel="Reset All"
+        noLabel="Cancel"
         @yes="onResetAll"
         @no="resetAllVisible = false"
       />
@@ -982,7 +989,7 @@ const onDownloadAndInstall = (): void => {
 
 trackCleanup(
   electronApi?.onUpdateDownloadError((issue: string) => {
-    updateErrorTitle.value = 'Downloading Update...';
+    updateErrorTitle.value = 'Downloading Update';
     updateErrorIssue.value = `An error occurred while downloading the update (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
   })
@@ -992,7 +999,7 @@ trackCleanup(
   electronApi?.onUpdateInstallError((issue: string) => {
     userInputBlocked.value = false;
 
-    updateErrorTitle.value = 'Installing Update...';
+    updateErrorTitle.value = 'Installing Update';
     updateErrorIssue.value = `An error occurred while installing the update (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
   })
@@ -1040,7 +1047,7 @@ trackCleanup(
 
 trackCleanup(
   electronApi?.onUpdateCheckError((issue: string) => {
-    updateErrorTitle.value = 'Checking For Updates...';
+    updateErrorTitle.value = 'Check for Updates';
     updateErrorIssue.value = `An error occurred while checking for updates (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
   })
