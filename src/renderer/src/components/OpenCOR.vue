@@ -64,8 +64,10 @@
         @error="onError"
         @fileClosed="onFileClosed"
         @fileOpened="onFileOpened"
+        :recentFilePaths="startScreenRecentFilePaths"
         @open="onOpenAction"
         @openFile="openFile"
+        @openRecentFile="onOpenRecentFileAction"
         @openRemote="onOpenRemoteMenu"
         @openSampleLorenz="onOpenSampleLorenzMenu"
         @simulationData="emitSimulationData"
@@ -1904,6 +1906,32 @@ trackCleanup(
 
 const onClearRecentFilesMenu = (): void => {
   recentFiles.value = [];
+};
+
+// Recent files, as listed on our start screen (see BackgroundComponent.vue).
+// Note: in OpenCOR, our recent files are kept by our main process, which lets us know about them (see
+//       recentFilePathsUpdated() in MainWindow.ts) and which must be the one to reopen them (as if they were reopened
+//       using its Reopen menu, see reopenRecentFile() in MainWindow.ts). In OpenCOR's Web app, they are those of our
+//       Reopen menu.
+
+const mainProcessRecentFilePaths = vue.ref<string[]>([]);
+
+trackCleanup(
+  electronApi?.onRecentFiles((filePaths: string[]) => {
+    mainProcessRecentFilePaths.value = filePaths;
+  })
+);
+
+const startScreenRecentFilePaths = vue.computed<string[]>(() => {
+  return electronApi ? mainProcessRecentFilePaths.value : recentFilePaths.value;
+});
+
+const onOpenRecentFileAction = (filePath: string): void => {
+  if (electronApi) {
+    electronApi.reopenRecentFile(filePath);
+  } else {
+    void onReopenMenu(filePath);
+  }
 };
 
 // Save.

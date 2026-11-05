@@ -1,8 +1,8 @@
 <template>
-  <div class="background" :class="{ 'background-with-actions': actions }">
+  <div class="background" :class="{ 'background-with-actions': actions, 'background-with-recent-files': actions && recentFiles.length }">
     <div class="background-pattern" />
     <div class="background-scroll">
-      <div class="background-contents">
+      <div class="background-contents" :style="{ '--recent-file-count': recentFiles.length }">
         <img class="logo" src="../assets/logo.svg" alt="OpenCOR" />
         <template v-if="actions">
           <div class="actions opencor-panel">
@@ -20,6 +20,21 @@
             <i class="pi pi-upload" />
             Files can also be dropped here.
           </p>
+          <section v-if="recentFiles.length" class="recent-files">
+            <div class="opencor-section-title">Recent</div>
+            <div class="recent-files-list opencor-panel">
+              <button v-for="recentFile in recentFiles" :key="recentFile.path" class="recent-file"
+                type="button"
+                v-hint="recentFile.path"
+                @mousedown.prevent
+                @click="emit('openRecentFile', recentFile.path)"
+              >
+                <i class="pi pi-file recent-file-icon" />
+                <span class="recent-file-name">{{ recentFile.name }}</span>
+                <span class="recent-file-location">{{ recentFile.location }}</span>
+              </button>
+            </div>
+          </section>
         </template>
       </div>
       <div class="footer">
@@ -31,23 +46,51 @@
 </template>
 
 <script lang="ts" setup>
+import * as vue from 'vue';
+
 import * as common from '../common/common';
 import { COPYRIGHT } from '../common/constants';
 import { electronApi } from '../common/electronApi';
+import { vHint } from '../common/hint';
 import { currentVersion } from '../common/version';
 
 // Our background, i.e. what is shown when no file is open. It shows our logo and, if requested, some actions to get
-// started.
+// started, as well as our most recent files, if any.
 
-defineProps<{
-  actions?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    actions?: boolean;
+    recentFilePaths?: string[];
+  }>(),
+  {
+    recentFilePaths: () => []
+  }
+);
 
 const emit = defineEmits<{
   open: [];
+  openRecentFile: [filePath: string];
   openRemote: [];
   openSampleLorenz: [];
 }>();
+
+// Our most recent files, i.e. their path, as well as their name and location (i.e. the path of their folder), which we
+// show separately.
+// Note: we only show a few of them since our Reopen menu lists all of them anyway.
+
+const MAX_SHOWN_RECENT_FILES = 5;
+
+const recentFiles = vue.computed<{ path: string; name: string; location: string }[]>(() => {
+  return props.recentFilePaths.slice(0, MAX_SHOWN_RECENT_FILES).map((path) => {
+    const name = common.fileName(path);
+
+    return {
+      path,
+      name,
+      location: path.slice(0, path.length - name.length).replace(/[/\\]$/, '')
+    };
+  });
+});
 
 // Our actions, along with their keyboard shortcut.
 // Note: our shortcuts must be in sync with those of our main menu, i.e. src/main/MainMenu.ts for OpenCOR and
@@ -106,6 +149,15 @@ const ACTIONS: { label: string; icon: string; shortcut?: string; command: () => 
 
 .background-with-actions {
   --reserved-height: 15rem;
+}
+
+/**
+ * Note: our recent files take some room (i.e. a title and a row, with its spacing, for each of them), which our logo
+ *       must leave for them (see .logo).
+ */
+
+.background-with-recent-files .background-contents {
+  --reserved-height: calc(18.75rem + var(--recent-file-count) * 2.3125rem);
 }
 
 /**
@@ -218,6 +270,80 @@ const ACTIONS: { label: string; icon: string; shortcut?: string; command: () => 
 }
 
 /**
+ * Recent files.
+ */
+
+.recent-files {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.recent-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem;
+}
+
+.recent-file {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.4375rem 0.625rem;
+  border: none;
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--p-text-color);
+  font-size: 0.875rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.recent-file:hover {
+  background-color: color-mix(in srgb, var(--p-text-color) 6%, transparent);
+}
+
+.recent-file:active {
+  background-color: color-mix(in srgb, var(--p-text-color) 10%, transparent);
+}
+
+.recent-file:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--p-primary-color);
+}
+
+.recent-file-icon {
+  align-self: center;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+}
+
+/**
+ * Note: the location of a recent file only gets the room that its name doesn't need, so that its name gets truncated
+ *       only if it doesn't fit on its own (the full path of a recent file is shown in its hint anyway).
+ */
+
+.recent-file-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-file-location {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+}
+
+/**
  * Drop hint.
  */
 
@@ -264,6 +390,16 @@ const ACTIONS: { label: string; icon: string; shortcut?: string; command: () => 
   .action-shortcut,
   .drop-hint {
     display: none;
+  }
+}
+
+@container (height < 33rem) {
+  .recent-files {
+    display: none;
+  }
+
+  .background-with-recent-files .background-contents {
+    --reserved-height: 15rem;
   }
 }
 

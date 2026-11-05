@@ -128,6 +128,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) =>
     electron.ipcRenderer.invoke('recent-file-path-canonicalised', filePath, canonicalFilePath),
   rendererReady: () => electron.ipcRenderer.invoke('renderer-ready'),
+  reopenRecentFile: (filePath: string) => electron.ipcRenderer.invoke('reopen-recent-file', filePath),
   resetAll: () => electron.ipcRenderer.invoke('reset-all'),
   saveFile: (filePath: string, contents: Uint8Array): Promise<void> =>
     electron.ipcRenderer.invoke('save-file', filePath, contents),
@@ -150,6 +151,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   onOpen: (callback: (filePath: string) => void) => onIpc('open', callback),
   onOpenRemote: (callback: () => void) => onIpc('open-remote', callback),
   onOpenSampleLorenz: (callback: () => void) => onIpc('open-sample-lorenz', callback),
+  onRecentFiles: (callback: (filePaths: string[]) => void) => onIpc('recent-files', callback),
   onClose: (callback: () => void) => onIpc('close', callback),
   onCloseAll: (callback: () => void) => onIpc('close-all', callback),
   onConfirmClose: (callback: () => void) => onIpc('confirm-close', callback),

@@ -36,6 +36,7 @@ interface IElectronApi {
   open: () => void;
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) => void;
   rendererReady: () => Promise<void>;
+  reopenRecentFile: (filePath: string) => void;
   resetAll: () => void;
   saveFile: (filePath: string, contents: Uint8Array) => Promise<void>;
   saveFileAs: (defaultFilePath: string) => Promise<string | null>;
@@ -54,6 +55,7 @@ interface IElectronApi {
   onOpen: (callback: (filePath: string) => void) => () => void;
   onOpenRemote: (callback: () => void) => () => void;
   onOpenSampleLorenz: (callback: () => void) => () => void;
+  onRecentFiles: (callback: (filePaths: string[]) => void) => () => void;
   onClose: (callback: () => void) => () => void;
   onCloseAll: (callback: () => void) => () => void;
   onConfirmClose: (callback: () => void) => () => void;
