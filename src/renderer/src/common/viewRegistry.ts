@@ -136,18 +136,35 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
 
   // Mark a file as having unsaved contents, i.e. contents that are not those of the file itself (e.g., a file that was
   // edited while it was being saved under another name, see ContentsComponent.saveFileAs()), so that its editor
-  // considers it modified from the start, and determine whether a file has unsaved contents.
-  // Note: same as for registerFileEditor() when it comes to using the raw file.
+  // considers it modified from the start (and so that it is considered modified while it has no editor, see
+  // ContentsComponent.isModified()), clear that mark once those contents have been saved, and determine whether a file
+  // has unsaved contents.
+  // Note #1: same as for registerFileEditor() when it comes to using the raw file.
+  // Note #2: a WeakSet cannot be reactive, so we keep track of its changes so that whoever determines whether a file has
+  //          unsaved contents (e.g., a template) gets updated when that changes.
+
+  const _unsavedContentsFilesVersion = vue.ref<number>(0);
 
   function markUnsavedContents(file: File): void {
     _unsavedContentsFiles.add(vue.toRaw(file));
+
+    ++_unsavedContentsFilesVersion.value;
+  }
+
+  function clearUnsavedContents(file: File): void {
+    if (_unsavedContentsFiles.delete(vue.toRaw(file))) {
+      ++_unsavedContentsFilesVersion.value;
+    }
   }
 
   function hasUnsavedContents(file: File): boolean {
+    void _unsavedContentsFilesVersion.value; // Track changes to the unsaved contents files.
+
     return _unsavedContentsFiles.has(vue.toRaw(file));
   }
 
   return {
+    clearUnsavedContents,
     descriptors,
     fileEditor,
     hasUnsavedContents,

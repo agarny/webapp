@@ -465,16 +465,45 @@ const fileEditor = (fileTab: IFileTab): IFileEditor | undefined => {
   return viewRegistry.fileEditor(fileTab.file);
 };
 
+// Determine whether the given file has been modified.
+// Note: a file that has unsaved contents (see saveFileAs()) may not have an editor (yet), e.g., its views may not have
+//       been created yet or its active view may not be one that can edit it, in which case it is still modified.
+
 const isModified = (fileTab: IFileTab): boolean => {
-  return fileEditor(fileTab)?.modified() ?? false;
+  const editor = fileEditor(fileTab);
+
+  return editor ? editor.modified() : viewRegistry.hasUnsavedContents(fileTab.file);
+};
+
+// Mark the given contents of the given file, as retrieved using fileContents(), as saved.
+// Note: if the file had no editor when its contents were retrieved, then they are the contents of the file itself,
+//       which may be unsaved contents (see saveFileAs()), but no longer are.
+
+const markSaved = (file: locApi.File, editor: IFileEditor | undefined, contents: Uint8Array): void => {
+  if (editor) {
+    editor.markSaved(contents);
+  } else {
+    viewRegistry.clearUnsavedContents(file);
+  }
+};
+
+// Determine whether the given contents are the same as the given other contents, i.e. whether they are the same object
+// or, if not, whether they have the same length and the same bytes.
+
+const sameContents = (contents: Uint8Array, otherContents: Uint8Array): boolean => {
+  return (
+    contents === otherContents ||
+    (contents.length === otherContents.length && contents.every((byte, index) => byte === otherContents[index]))
+  );
 };
 
 // Retrieve the contents of the given file, i.e. the contents of its file editor, if any, or the contents that it was
 // opened with (e.g., a remote file cannot be edited, but it can still be saved as a local file).
 
-const fileContents = async (fileTab: IFileTab): Promise<Uint8Array> => {
-  const editor = fileEditor(fileTab);
-
+const fileContents = async (
+  fileTab: IFileTab,
+  editor: IFileEditor | undefined = fileEditor(fileTab)
+): Promise<Uint8Array> => {
   return editor ? editor.contents() : fileTab.file.contents();
 };
 
@@ -593,9 +622,10 @@ type SaveOutcome = 'saved' | 'downloaded' | 'notSaved';
 const saveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   // Save the given file, if possible, and return the outcome.
 
-  const editor = fileEditor(fileTab);
+  const file = fileTab.file;
+  let editor = fileEditor(fileTab);
 
-  if (!editor) {
+  if (!editor && !viewRegistry.hasUnsavedContents(file)) {
     return 'notSaved';
   }
 
@@ -605,7 +635,8 @@ const saveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
 
   // Note: we make sure that we can write to the file before retrieving its contents since a Web browser only lets us ask
   //       the user for permission to write to it while handling one of their actions (e.g., a menu item being clicked),
-  //       i.e. not too long after it.
+  //       i.e. not too long after it. The file may get an editor in the meantime (see isModified()), hence we retrieve
+  //       its editor again.
 
   let contents: Uint8Array;
 
@@ -614,25 +645,45 @@ const saveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
       throw new Error('permission to save changes to the file was not granted');
     }
 
-    contents = await editor.contents();
+    editor = fileEditor(fileTab);
+    contents = await fileContents(fileTab, editor);
 
-    await writeFile(fileTab.file.path(), fileTab.fileHandle, contents);
+    await writeFile(file.path(), fileTab.fileHandle, contents);
   } catch (error: unknown) {
     reportSaveIssue(fileTab, error);
 
     return 'notSaved';
   }
 
-  editor.markSaved(contents);
+  markSaved(file, editor, contents);
 
   return 'saved';
 };
 
-const saveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
-  // Save the given file under a name of the user's choosing and return the outcome.
+// Save the given file under a name of the user's choosing and return the outcome.
+// Note: a file may be saved under another name while it is still being saved under another name (e.g., while it is
+//       still being written), in which case both would otherwise start from the same file and file path, and whichever
+//       completes last would rename our file tab using stale information (e.g., the file path of our active file). So,
+//       we save a file under another name only once it has been saved under any other name, i.e. our file tab is then
+//       up to date. Our file tab may also have been closed in the meantime, in which case there is nothing to save.
 
-  const editor = fileEditor(fileTab);
+const saveFileAsOperations = new WeakMap<IFileTab, Promise<SaveOutcome>>();
 
+const saveFileAs = (fileTab: IFileTab): Promise<SaveOutcome> => {
+  const rawFileTab = vue.toRaw(fileTab);
+  const res = (saveFileAsOperations.get(rawFileTab) ?? Promise.resolve()).then(() => {
+    return fileTabs.value.includes(fileTab) ? doSaveFileAs(fileTab) : 'notSaved';
+  });
+
+  saveFileAsOperations.set(
+    rawFileTab,
+    res.catch((): SaveOutcome => 'notSaved')
+  );
+
+  return res;
+};
+
+const doSaveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   // Let the user choose where to save the file.
   // Note: in OpenCOR's Web app, we can only let the user choose where to save the file if the File System Access API
   //       is available (and allowed, e.g., it isn't in a cross-origin iframe). If it isn't, then we download the file
@@ -693,10 +744,12 @@ const saveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   const otherFileTab = findFileTab(newFilePath);
 
   if (fileTab === otherFileTab) {
+    const file = fileTab.file;
+    const editor = fileEditor(fileTab);
     let contents: Uint8Array;
 
     try {
-      contents = await fileContents(fileTab);
+      contents = await fileContents(fileTab, editor);
 
       await writeFile(newFilePath, newFileHandle, contents);
     } catch (error: unknown) {
@@ -709,7 +762,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
       fileTab.fileHandle = vue.markRaw(newFileHandle);
     }
 
-    editor?.markSaved(contents);
+    markSaved(file, editor, contents);
 
     return 'saved';
   }
@@ -786,7 +839,11 @@ const saveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   //          file (rather than have libOpenCOR retrieve them from disk in OpenCOR, see locCommon.file()) and mark it as
   //          having unsaved contents, so that our file tab remains modified. Our file may also be edited while we
   //          retrieve its latest contents, hence we keep retrieving them until it hasn't been. From there, we must not
-  //          await anything until our file has been replaced, so that it cannot be edited in the meantime.
+  //          await anything until our file has been replaced, so that it cannot be edited in the meantime. Also, our
+  //          file may have got an editor since we retrieved the contents that we saved (see isModified()), so we always
+  //          use its current editor. Such an editor doesn't know about the contents that we saved, so it considers them
+  //          possibly not the latest ones (see IFileEditor), which is why we compare them with the latest contents
+  //          rather than check whether they are the same object.
   // Note #3: the old file gets closed and the new file gets opened, as far as people are concerned (and, in the case of
   //          Electron, the old file gets added to our list of recent files).
   // Note #4: the reference to our file tab's element is keyed by the path of its file (see setFileTabRef()), which is
@@ -796,7 +853,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   let newContents = contents;
 
   try {
-    while (editor?.editedSince(newContents)) {
+    for (let editor = fileEditor(fileTab); editor?.editedSince(newContents); editor = fileEditor(fileTab)) {
       newContents = await editor.contents();
     }
   } catch (error: unknown) {
@@ -811,6 +868,18 @@ const saveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
     return 'saved';
   }
 
+  // Another file tab may have been opened for the saved file since we checked (see above), e.g., the user may have
+  // opened it or saved another file under its name, in which case we cannot rename our file tab (since a file can only
+  // have one file tab).
+
+  const destinationFileTab = findFileTab(newFilePath);
+
+  if (destinationFileTab && destinationFileTab !== fileTab) {
+    reportRenameIssue(fileTab, newFilePath, new Error('the file is already open in another file tab'));
+
+    return 'notSaved';
+  }
+
   let newFile: locApi.File;
 
   try {
@@ -821,7 +890,7 @@ const saveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
     return 'notSaved';
   }
 
-  if (newContents !== contents) {
+  if (!sameContents(newContents, contents)) {
     viewRegistry.markUnsavedContents(newFile);
   }
 
