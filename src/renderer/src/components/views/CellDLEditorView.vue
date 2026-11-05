@@ -27,7 +27,7 @@
     </Toolbar>
     <div class="grow min-h-0 relative">
       <IssuesView v-if="issues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="issues" />
-      <div v-show="!issues.length" ref="containerRef" class="h-full" />
+      <div v-show="!issues.length" ref="containerRef" class="celldl-editor-container h-full" />
       <BlockingMessageComponent v-if="!client.loaded && !issues.length" message="Loading CellDL Editor..." />
     </div>
     <BaseDialog v-model:visible="exportIssuesVisible" header="Generating CellML" style="width: 39rem">
