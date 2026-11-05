@@ -106,12 +106,12 @@
                       >
                         <div class="flex items-center">
                           <div class="w-1 h-6 rounded-xs mr-2" :style="`background-color: ${run.color};`"></div>
-                          <TooltipWidget :content="run.isLiveRun ? '' : run.tooltip"
+                          <div v-hint.html="run.isLiveRun ? '' : run.tooltip"
                             class="grow text-sm"
                             :class="{ 'cursor-help': !run.isLiveRun, 'opacity-50': !run.isVisible }"
                           >
                             {{ run.isLiveRun ? 'Live run' : `Run #${index}` }}
-                          </TooltipWidget>
+                          </div>
                           <div class="flex items-center">
                             <Button class="p-0! w-5! h-5! run-action-button"
                               icon="pi pi-palette"
@@ -191,7 +191,7 @@
             v-for="(name, color) in colors.PALETTE" :key="color"
             :style="`background-color: ${color};`"
             :class="{ 'color-swatch-selected': color === runs[runColorPopoverIndex].color }"
-            :title="name"
+            v-hint="name"
             @click="onRunColorChange(runColorPopoverIndex, color)"
           />
         </div>
@@ -215,6 +215,7 @@ import * as colors from '../../common/colors';
 import * as common from '../../common/common';
 import * as dependencies from '../../common/dependencies';
 import * as externalData from '../../common/externalData';
+import { vHint } from '../../common/hint';
 import * as locCommon from '../../common/locCommon';
 import * as math from '../../common/math';
 import * as vueCommon from '../../common/vueCommon';

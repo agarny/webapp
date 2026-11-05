@@ -16,7 +16,7 @@
         type="button"
         :disabled="disabled || readonly || atDefaultValue"
         :tabindex="-1"
-        :title="`Reset to ${defaultValue}`"
+        v-hint="`Reset to ${defaultValue}`"
         @mousedown.prevent
         @click="onResetButtonClick"
       >
@@ -27,7 +27,7 @@
           type="button"
           :disabled="disabled || readonly || maxBoundary"
           :tabindex="-1"
-          title="Increment (hold Shift for a larger step)"
+          v-hint="'Increment (hold Shift for a larger step)'"
           @mousedown="onSpinButtonMouseDown($event, 1)"
           @mouseleave="clearSpinTimerAndRemoveEventListeners"
           @mouseup="clearSpinTimerAndRemoveEventListeners"
@@ -43,7 +43,7 @@
           type="button"
           :disabled="disabled || readonly || minBoundary"
           :tabindex="-1"
-          title="Decrement (hold Shift for a larger step)"
+          v-hint="'Decrement (hold Shift for a larger step)'"
           @mousedown="onSpinButtonMouseDown($event, -1)"
           @mouseleave="clearSpinTimerAndRemoveEventListeners"
           @mouseup="clearSpinTimerAndRemoveEventListeners"
@@ -65,6 +65,7 @@
 import * as vue from 'vue';
 
 import * as constants from '../../common/constants';
+import { vHint } from '../../common/hint';
 
 defineOptions({
   inheritAttrs: false

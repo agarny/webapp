@@ -17,7 +17,7 @@
         type="button"
         :disabled="atDefaultValue"
         :tabindex="-1"
-        :title="`Reset to ${defaultPossibleValue.name}`"
+        v-hint="`Reset to ${defaultPossibleValue.name}`"
         @mousedown.prevent
         @click="selectReset"
       >
@@ -59,6 +59,7 @@
 import * as vue from 'vue';
 
 import { LONG_DELAY } from '../../common/constants';
+import { vHint } from '../../common/hint';
 import * as vueCommon from '../../common/vueCommon';
 import type * as locApi from '../../libopencor/locApi';
 
