@@ -64,7 +64,10 @@
         @error="onError"
         @fileClosed="onFileClosed"
         @fileOpened="onFileOpened"
+        @open="onOpenAction"
         @openFile="openFile"
+        @openRemote="onOpenRemoteMenu"
+        @openSampleLorenz="onOpenSampleLorenzMenu"
         @simulationData="emitSimulationData"
       />
       <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="initialisation.progress.value" />
@@ -1709,6 +1712,18 @@ const onOpenMenu = (): void => {
   }
 
   filesRef.value?.click();
+};
+
+// Open action, i.e. from our background (see BackgroundComponent.vue).
+// Note: OpenCOR shows its native open dialog (which allows it to keep track of the files that are opened), while
+//       OpenCOR's Web app does the same as when using our main menu.
+
+const onOpenAction = (): void => {
+  if (electronApi) {
+    electronApi.open();
+  } else {
+    onOpenMenu();
+  }
 };
 
 // Open remote.
