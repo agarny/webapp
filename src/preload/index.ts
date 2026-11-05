@@ -92,6 +92,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   closeRequestReceived: () => electron.ipcRenderer.invoke('close-request-received'),
   clearGitHubCache: (): Promise<void> => electron.ipcRenderer.invoke('clear-github-cache'),
   deleteGitHubAccessToken: (): Promise<boolean> => electron.ipcRenderer.invoke('delete-github-access-token'),
+  disallowSavingFile: (filePath: string) => electron.ipcRenderer.invoke('disallow-saving-file', filePath),
   downloadAndInstallUpdate: () => electron.ipcRenderer.invoke('download-and-install-update'),
   enableDisableMainMenu: (enable: boolean) => electron.ipcRenderer.invoke('enable-disable-main-menu', enable),
   enableDisableFileCloseAndCloseAllMenuItems: (enable: boolean) =>

@@ -800,6 +800,32 @@ const doSaveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
     return 'notSaved';
   }
 
+  // Save the file to the chosen file.
+  // Note: in OpenCOR, our main process lets us save the chosen file (see saveAs() in src/main/MainWindow.ts), but we
+  //       should only be able to save a file that is open (see canSaveFile() in src/main/MainWindow.ts). So, we let our
+  //       main process know that we shouldn't be able to save the chosen file if no file tab is for it once we are done
+  //       (e.g., if the file couldn't be saved or its file tab was closed while it was being saved). If a file tab is
+  //       for it, then it may also be another file tab than ours (e.g., if the user chose not to replace it), in which
+  //       case we must still be able to save it.
+
+  try {
+    return await saveFileTo(fileTab, newFilePath, newFileHandle);
+  } finally {
+    if (electronApi && !findFileTab(newFilePath)) {
+      electronApi.disallowSavingFile(newFilePath);
+    }
+  }
+};
+
+const saveFileTo = async (
+  fileTab: IFileTab,
+  newFilePath: string,
+  newFileHandle: FileSystemFileHandle | undefined
+): Promise<SaveOutcome> => {
+  // Save the given file to the given file, which the user chose (see doSaveFileAs()), and return the outcome.
+
+  const oldFilePath = fileTab.file.path();
+
   // Check whether the file is to be saved where it is or whether another file tab is for the file to which it is to be
   // saved, in which case we ask the user whether to replace it.
 

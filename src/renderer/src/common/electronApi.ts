@@ -18,6 +18,7 @@ interface IElectronApi {
   closeRequestReceived: () => void;
   clearGitHubCache: () => Promise<void>;
   deleteGitHubAccessToken: () => Promise<boolean>;
+  disallowSavingFile: (filePath: string) => void;
   downloadAndInstallUpdate: () => void;
   enableDisableMainMenu: (enable: boolean) => void;
   enableDisableFileCloseAndCloseAllMenuItems: (enable: boolean) => void;

@@ -494,6 +494,9 @@ electron.app
           return deleteGitHubAccessToken();
         });
 */
+        electron.ipcMain.handle('disallow-saving-file', (_event, filePath: string) => {
+          disallowSavingFile(filePath);
+        });
         electron.ipcMain.handle('download-and-install-update', () => {
           downloadAndInstallUpdate();
         });
