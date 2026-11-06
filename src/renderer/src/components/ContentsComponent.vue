@@ -116,7 +116,7 @@ import * as common from '../common/common';
 import { electronApi } from '../common/electronApi';
 import { vHint } from '../common/hint';
 import * as locCommon from '../common/locCommon';
-import { type IFileEditor, useViewRegistry } from '../common/viewRegistry';
+import { type IFileEditor, useViewRegistry, ViewCategory } from '../common/viewRegistry';
 import * as vueCommon from '../common/vueCommon';
 import * as locApi from '../libopencor/locApi';
 
@@ -227,7 +227,13 @@ const view = (fileTab: IFileTab): IView => {
       component: UnsupportedFileTypeView,
       props: {
         viewName: viewDescriptor.label,
-        viewCategory: viewDescriptor.category
+        viewCategory: viewDescriptor.category,
+        supportingViews: Object.values(ViewCategory)
+          .flatMap((viewCategory) => viewRegistry.descriptors(viewCategory))
+          .filter((descriptor) => viewRegistry.isApplicable(descriptor, fileTab.file)),
+        onSelectView: (viewId: string) => {
+          onSelectView(fileTab, viewId);
+        }
       }
     };
   }
