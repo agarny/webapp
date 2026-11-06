@@ -69,13 +69,13 @@ const tooltipSuppressed = vue.ref<boolean>(false);
 }
 
 .toolbar-button-warning {
-  --toolbar-button-color: var(--p-orange-500);
-  --toolbar-button-hover-color: var(--p-orange-500);
+  --toolbar-button-color: var(--opencor-warn-color);
+  --toolbar-button-hover-color: var(--opencor-warn-color);
 }
 
 .toolbar-button-danger {
-  --toolbar-button-color: var(--p-red-500);
-  --toolbar-button-hover-color: var(--p-red-500);
+  --toolbar-button-color: var(--opencor-error-color);
+  --toolbar-button-hover-color: var(--opencor-error-color);
 }
 
 .toolbar-button-icon {
