@@ -1,6 +1,6 @@
 import type { OpenCORTheme } from '../../index';
 
-import type { ISettings } from './common';
+import type { ISettings, ISystemDetails } from './common';
 
 interface IElectronApi {
   // Note: this must be in sync with src/preload/index.ts.
@@ -8,6 +8,7 @@ interface IElectronApi {
   // Some general methods.
 
   operatingSystem: () => string;
+  systemDetails: () => ISystemDetails;
 
   // Renderer process asking the main process to do something for it.
 

@@ -9,6 +9,8 @@ export const LONG_DELAY: number = 369;
 
 export const TOAST_LIFE: number = 3000;
 
+export const COPY_FEEDBACK_LIFE: number = 2000;
+
 export const MAX_RECENT_FILES: number = 10;
 
 export const HINT_DELAY: number = 500;

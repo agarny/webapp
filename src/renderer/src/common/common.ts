@@ -14,13 +14,21 @@ export interface ISettings {
   general: ISettingsGeneral;
 }
 
+export interface ISystemDetails {
+  cpuModel: string;
+  logicalCoreCount: number;
+  totalMemory: number;
+  electronVersion: string;
+  chromiumVersion: string;
+}
+
 // Some methods to determine the operating system, whether the application is running on a mobile device, etc.
 // Note: the order of the checks in osName() is important. For instance, we need to check for "iPhone" before checking
 //       for "Mac" since the user agent of iPhones contains both "iPhone" and "Mac".
 
 let _osName: string | null = null;
 
-const osName = (): string => {
+export const osName = (): string => {
   if (_osName) {
     return _osName;
   }
