@@ -93,7 +93,11 @@
         @close="updateAvailableVisible = false"
       />
       <UpdateDownloadProgressDialog v-model:visible="updateDownloadProgressVisible"
+        :version="updateVersion"
         :percent="updateDownloadPercent"
+        :transferred="updateDownloadTransferred"
+        :total="updateDownloadTotal"
+        :installing="updateInstalling"
       />
       <OkMessageDialog v-model:visible="updateNotAvailableVisible"
         title="Check for Updates"
@@ -971,6 +975,9 @@ const updateAvailableVisible = vue.ref<boolean>(false);
 const updateDownloadProgressVisible = vue.ref<boolean>(false);
 const updateVersion = vue.ref<string>('');
 const updateDownloadPercent = vue.ref<number>(0);
+const updateDownloadTransferred = vue.ref<number>(0);
+const updateDownloadTotal = vue.ref<number>(0);
+const updateInstalling = vue.ref<boolean>(false);
 
 trackCleanup(
   electronApi?.onUpdateAvailable((version: string) => {
@@ -981,6 +988,9 @@ trackCleanup(
 
 const onDownloadAndInstall = (): void => {
   updateDownloadPercent.value = 0; // Just to be on the safe side.
+  updateDownloadTransferred.value = 0;
+  updateDownloadTotal.value = 0;
+  updateInstalling.value = false;
   updateDownloadProgressVisible.value = true;
   updateAvailableVisible.value = false;
 
@@ -1010,8 +1020,10 @@ trackCleanup(
 //       MainWindow.ts).
 
 trackCleanup(
-  electronApi?.onUpdateDownloadProgress((percent: number) => {
+  electronApi?.onUpdateDownloadProgress((percent: number, transferred: number, total: number) => {
     updateDownloadPercent.value = percent;
+    updateDownloadTransferred.value = transferred;
+    updateDownloadTotal.value = total;
     updateDownloadProgressVisible.value = true;
   })
 );
@@ -1026,9 +1038,11 @@ trackCleanup(
 
     if ((await saveModifiedFiles('Install Update')) !== null) {
       userInputBlocked.value = true;
+      updateInstalling.value = true;
 
       if (!(await electronApi?.installUpdateAndRestart())) {
         userInputBlocked.value = false;
+        updateInstalling.value = false;
         updateDownloadProgressVisible.value = false;
       }
     } else {
