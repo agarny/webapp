@@ -234,8 +234,8 @@ const gpuDescription = (): string => {
 };
 
 // A human-readable description of the browser in which our Web app is running (e.g., "Chrome 142").
-// Note: we use the browser's User-Agent Client Hints, if available (i.e. in Chromium-based browsers), and its user agent
-//       string otherwise.
+// Note: we use the browser's User-Agent Client Hints, if available (i.e. in Chromium-based browsers), and its user
+//       agent string otherwise.
 
 const browserDescription = (): string => {
   const userAgentData = (
@@ -248,8 +248,8 @@ const browserDescription = (): string => {
   let version = '';
 
   if (userAgentData) {
-    // Use the most specific brand (e.g., "Google Chrome"), i.e. neither Chromium itself nor a "GREASE" brand, which is a
-    // fake brand with some random punctuation (e.g., "Not)A;Brand" or "Not_A Brand") that Chromium-based browsers add
+    // Use the most specific brand (e.g., "Google Chrome"), i.e. neither Chromium itself nor a "GREASE" brand, which is
+    // a fake brand with some random punctuation (e.g., "Not)A;Brand" or "Not_A Brand") that Chromium-based browsers add
     // on purpose so that websites don't rely on an exact list of brands.
 
     const brand =

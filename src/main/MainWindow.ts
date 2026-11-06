@@ -39,7 +39,8 @@ export const canCheckForUpdates = (): boolean => {
   return _canCheckForUpdates;
 };
 
-// Keep track of the state of an update, i.e. whether it is being downloaded, has been downloaded, or is being installed.
+// Keep track of the state of an update, i.e. whether it is being downloaded, has been downloaded, or is being
+// installed.
 // Note: our renderer process may be reloaded while an update is being downloaded or installed (e.g., after it crashed),
 //       in which case we must not check for updates (e.g., at startup) since an issue with checking for updates could
 //       get forwarded as an issue with installing the update (see below) and the update could be offered (and
@@ -379,8 +380,8 @@ const removeRecentFilePaths = (filePath: string, canonicalFilePath: string): voi
 export const fileIssue = (filePath: string, canonicalFilePath: string): void => {
   removeRecentFilePaths(filePath, canonicalFilePath);
 
-  // A file couldn't be opened, possibly while reopening files during OpenCOR startup, in which case we need to make sure
-  // that it doesn't get selected and reopen the next file.
+  // A file couldn't be opened, possibly while reopening files during OpenCOR startup, in which case we need to make
+  // sure that it doesn't get selected and reopen the next file.
 
   MainWindow.instance?.fileOpenedOrNot(filePath, false);
 };
@@ -1139,8 +1140,8 @@ export class MainWindow extends ApplicationWindow {
     forgetDataUrlRecentFilePaths();
 
     // Ignore our renderer being gone if we are being closed (e.g., because OpenCOR is being quit), whatever the reason.
-    // Indeed, our renderer will normally exit cleanly in that case, but it may also be killed (e.g., when logging off or
-    // shutting down the system) or crash while being torn down. Either way, there is nothing to recover since we are
+    // Indeed, our renderer will normally exit cleanly in that case, but it may also be killed (e.g., when logging off
+    // or shutting down the system) or crash while being torn down. Either way, there is nothing to recover since we are
     // going away, so we must not offer to reload OpenCOR.
     // Note: our renderer may also exit cleanly on its own (e.g., if the native libOpenCOR module calls exit(0)), in
     //       which case it is gone just as if it had crashed, so we handle it as such.
@@ -1219,9 +1220,9 @@ export class MainWindow extends ApplicationWindow {
     //          should OpenCOR be quit before any file gets opened, i.e. reopen the files that might have caused the
     //          crash the next time OpenCOR is started.
     // Note #2: similarly, our reloaded renderer has no files to start with, so our File|Save, File|Save As, File|Close,
-    //          and File|Close All menu items must be disabled (they will get enabled again once a file gets (re)opened).
-    //          Also, the changes that were made to the files that were open are lost, so there is no point in asking
-    //          our reloaded renderer to save them when we get closed (see the constructor).
+    //          and File|Close All menu items must be disabled (they will get enabled again once a file gets
+    //          (re)opened). Also, the changes that were made to the files that were open are lost, so there is no point
+    //          in asking our reloaded renderer to save them when we get closed (see the constructor).
 
     filesOpened([]);
     filesModified([]);
@@ -1285,9 +1286,9 @@ export class MainWindow extends ApplicationWindow {
       fileClosed(filesNotToReopen.selected);
     }
 
-    // Discard the files that we were going to reopen and the arguments that we were asked to handle, so that neither our
-    // reloaded renderer nor OpenCOR, the next time it is started, reopens the files that might have caused the crash
-    // or handles the arguments that our (crashed) renderer never handled.
+    // Discard the files that we were going to reopen and the arguments that we were asked to handle, so that neither
+    // our reloaded renderer nor OpenCOR, the next time it is started, reopens the files that might have caused the
+    // crash or handles the arguments that our (crashed) renderer never handled.
 
     this._filesToReopen = { opened: [], selected: '' };
     this._pendingArguments = [];
@@ -1590,8 +1591,8 @@ export class MainWindow extends ApplicationWindow {
   //          twice in a row).
   // Note #2: our message box gets closed if our renderer receives our request after all, since it then asks the user
   //          whether to save those files.
-  // Note #3: closing ourselves normally would require our renderer to respond (e.g., to handle beforeunload), so we kill
-  //          it first, making sure that we ignore it being gone (see onRenderProcessGone()).
+  // Note #3: closing ourselves normally would require our renderer to respond (e.g., to handle beforeunload), so we
+  //          kill it first, making sure that we ignore it being gone (see onRenderProcessGone()).
 
   private waitForCloseRequestReceived(): void {
     if (this._closeRequestTimeoutId !== null || this._notRespondingAbortController) {

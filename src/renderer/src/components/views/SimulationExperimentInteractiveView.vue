@@ -31,8 +31,10 @@
             <p class="empty-view-title">The view needs to be configured.</p>
             <template v-if="!simulationOnly">
               <p class="empty-view-text">Its simulation inputs, simulation data, and plots can be configured in its settings.</p>
-              <!-- Note: like our toolbar buttons (see ToolbarButtonWidget.vue), this button doesn't get the focus when it is
-                         clicked, so that it doesn't look focused once our settings dialog has been closed. -->
+              <!--
+              Note: like our toolbar buttons (see ToolbarButtonWidget.vue), this button doesn't get the focus when it is
+                    clicked, so that it doesn't look focused once our settings dialog has been closed.
+              -->
               <Button icon="pi pi-cog" label="Open settings" size="small" @mousedown.prevent @click="settingsVisible = true" />
             </template>
           </div>
@@ -254,10 +256,10 @@ const { simulationOnly } = useOpenCORContext();
 
 const opencorElement = vue.shallowRef<HTMLElement | null>(null);
 const fileTabElement = vue.shallowRef<HTMLElement | null>(null);
-// Note: our settings dialog is rendered in our OpenCOR element (rather than in our file tab) so that, like all the other
-//       dialogs, it covers the whole of OpenCOR, including our main menu and file tabs. It still gets our styles since
-//       it is given our simulation-experiment-view class, and it is still centred over our file tab, i.e. the element
-//       in which we are laid out (our nearest positioned ancestor).
+// Note: our settings dialog is rendered in our OpenCOR element (rather than in our file tab) so that, like all the
+//       other dialogs, it covers the whole of OpenCOR, including our main menu and file tabs. It still gets our styles
+//       since it is given our simulation-experiment-view class, and it is still centred over our file tab, i.e. the
+//       element in which we are laid out (our nearest positioned ancestor).
 const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const settingsVisible = vue.ref<boolean>(false);
 const document = props.file.document();
@@ -1426,8 +1428,8 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
     return;
   }
 
-  // Use our instance as is if it has yet to be run and was instantiated with the same model changes (e.g., for our first
-  // simulation run), otherwise apply the model changes and create a fresh instance for the new simulation run.
+  // Use our instance as is if it has yet to be run and was instantiated with the same model changes (e.g., for our
+  // first simulation run), otherwise apply the model changes and create a fresh instance for the new simulation run.
   // Note: using a fresh instance ensures that it picks up the latest model changes and avoids reusing an instance which
   //       internal state may have been corrupted by a previous cancellation.
 
@@ -2153,15 +2155,15 @@ const onSettingsOk = (updatedSettings: ISimulationExperimentInteractiveViewSetti
 
   // Make sure that our next simulation run doesn't use our current instance since it was instantiated using our old
   // settings.
-  // Note: this is only relevant if our current instance has yet to be run (e.g., if our previous simulation run couldn't
-  //       be started because of some issues).
+  // Note: this is only relevant if our current instance has yet to be run (e.g., if our previous simulation run
+  //       couldn't be started because of some issues).
 
   instanceIsPristine = false;
 
   // Remove the model changes from our previous simulation run if our new UI JSON is invalid.
   // Note: we don't run any simulation with an invalid UI JSON, so those model changes would otherwise be left in our
-  //       document and, therefore, be exported with it (see onDownloadCombineArchive()) even though they don't match our
-  //       new UI JSON.
+  //       document and, therefore, be exported with it (see onDownloadCombineArchive()) even though they don't match
+  //       our new UI JSON.
 
   if (uiJsonIssues.value.length > 0) {
     applyModelChanges([]);

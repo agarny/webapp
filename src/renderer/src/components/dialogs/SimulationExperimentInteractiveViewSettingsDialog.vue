@@ -592,7 +592,10 @@
         </div>
       </div>
 
-      <!-- Footer, i.e. the validation status of the active section's settings (or of our interactive settings as a whole) and our OK/Cancel buttons -->
+      <!--
+      Footer, i.e. the validation status of the active section's settings (or of our interactive settings as a whole)
+      and our OK/Cancel buttons.
+      -->
 
       <template #footer>
         <div class="w-full flex items-center gap-4">

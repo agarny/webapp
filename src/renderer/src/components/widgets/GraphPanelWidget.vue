@@ -198,7 +198,7 @@ const LEGEND_RIGHT_MARGIN = 8; // Margin between our legend (or last X tick labe
 const DEFAULT_LEGEND_RANK = 1000; // Like Plotly's default legend rank.
 const X_TICK_LABEL_BASELINE = TICK_FONT_SIZE + 1; // Like Plotly, the distance to the baseline of our X tick labels.
 const Y_TICK_LABEL_GAP = 1; // Like Plotly, the gap between our plotting area and our Y tick labels.
-const Y_TICK_LABEL_BASELINE = 0.35 * TICK_FONT_SIZE; // Like Plotly, the distance between a tick and its label's baseline.
+const Y_TICK_LABEL_BASELINE = 0.35 * TICK_FONT_SIZE; // Like Plotly, the distance from a tick to its label's baseline.
 const TICK_LABEL_HALF_HEIGHT = 6; // Used to hide a Y tick label that would (partly) be above our container.
 const X_AXIS_SIZE_WITH_TITLE = 18; // Size of our X axis (without its title) if it has a title.
 const X_AXIS_SIZE_WITHOUT_TITLE = 20; // Size of our X axis if it doesn't have a title.
@@ -545,8 +545,8 @@ const setTraceVisibilities = (visibilities: boolean[]): void => {
 
   traceVisibilities.value = visibilities;
 
-  // Highlight the trace which legend item is hovered, if any, if it is now visible, or stop highlighting it if it is now
-  // hidden (see highlightTrace()).
+  // Highlight the trace which legend item is hovered, if any, if it is now visible, or stop highlighting it if it is
+  // now hidden (see highlightTrace()).
 
   highlightTrace(hoveredTrace);
 
@@ -558,8 +558,8 @@ const setTraceVisibilities = (visibilities: boolean[]): void => {
     return;
   }
 
-  // Determine the traces which visibility has changed in our plot, if any, and leave if there are none (so that we don't
-  // animate our axes for nothing).
+  // Determine the traces which visibility has changed in our plot, if any, and leave if there are none (so that we
+  // don't animate our axes for nothing).
 
   const seriesIndices: number[] = [];
 
@@ -812,7 +812,8 @@ const svgPath = (): ISvgPath => {
       data.push(`L${svgNumber(x)} ${svgNumber(y)}`);
     },
     arc: (x: number, y: number, radius: number) => {
-      // Note: we only ever draw full circles from their rightmost point (see markerPath()), so we draw two half circles.
+      // Note: we only ever draw full circles from their rightmost point (see markerPath()), so we draw two half
+      //       circles.
 
       const r = svgNumber(radius);
 
@@ -830,8 +831,8 @@ const svgPathElement = (path: ISvgPath, attributes: string): string => {
 };
 
 const svgHtmlText = (element: HTMLElement | null, origin: DOMRect, vertical: boolean): string => {
-  // Return the text of the given (rendered) element as SVG text elements (one per text node), positioned relative to the
-  // given origin.
+  // Return the text of the given (rendered) element as SVG text elements (one per text node), positioned relative to
+  // the given origin.
   // Note: the client rectangle of a text node is the content area of its font, i.e. its alphabetic baseline is the
   //       font's ascent below its top. However, if our text is vertical (i.e. our Y axis title, which reads from bottom
   //       to top), then its baseline is the font's ascent to the right of its left.
@@ -930,8 +931,8 @@ const svgLegend = (origin: DOMRect, scale: number): string => {
     '<g clip-path="url(#legend)">'
   ];
 
-  // Like the browser, we snap the swatch and marker of our legend items to whole (scaled) pixels, so that they are crisp
-  // and where the browser renders them.
+  // Like the browser, we snap the swatch and marker of our legend items to whole (scaled) pixels, so that they are
+  // crisp and where the browser renders them.
 
   const snap = (value: number): number => Math.round(scale * value) / scale;
 
@@ -1223,8 +1224,8 @@ const exportToCsv = async (): Promise<void> => {
     await common.waitForNextPaint();
 
     // Perform the export itself.
-    // Note: to efficiently export to CSV, we build an array of CSV lines and only join them together at the end. This is
-    //       much more efficient than concatenating strings together repeatedly.
+    // Note: to efficiently export to CSV, we build an array of CSV lines and only join them together at the end. This
+    //       is much more efficient than concatenating strings together repeatedly.
 
     const csvLines: string[] = [];
 
@@ -2191,8 +2192,8 @@ const onDragMove = (event: MouseEvent): void => {
 
   // Update our zoom box, which is shown on top of our plot (unless we haven't dragged far enough to zoom yet).
   // Note: like our grid and zero lines (see linesPath()), our zoom box is snapped to whole device pixels and its border
-  //       is a whole number of device pixels wide (see lineWidth()), so that it is crisp whatever our pixel ratio (e.g.,
-  //       125%). Its border is also drawn inside our zoom box, which itself is kept within our plotting area.
+  //       is a whole number of device pixels wide (see lineWidth()), so that it is crisp whatever our pixel ratio
+  //       (e.g., 125%). Its border is also drawn inside our zoom box, which itself is kept within our plotting area.
 
   if (currentDrag.zoomMode) {
     const pxRatio = dependencies._uPlot.pxRatio as number;
@@ -2239,8 +2240,8 @@ const onDragEnd = (event: MouseEvent): void => {
   }
 
   // If we were dragging an axis (or a corner), then make sure that our axes reflect where we stopped dragging or, like
-  // Plotly, open our range editor if we clicked one end of an axis (but not if it is the second click of a double-click,
-  // see onDoubleClick()).
+  // Plotly, open our range editor if we clicked one end of an axis (but not if it is the second click of a
+  // double-click, see onDoubleClick()).
 
   if (currentDrag.type !== 'nsew') {
     if (dragged) {
@@ -2805,13 +2806,13 @@ const axisSplits = (axisKey: AxisKey): uPlot.Axis.Splits => {
     let ticks = ticksBetween(min, max, dtick);
     let format = numberFormat(dtick, maxEnd);
 
-    // Make sure that our tick labels don't overlap by increasing our tick spacing (to the next "nice" value) for as long
-    // as they would.
+    // Make sure that our tick labels don't overlap by increasing our tick spacing (to the next "nice" value) for as
+    // long as they would.
     // Note: this always ends since we end up with at most one tick once our tick spacing is bigger than our range.
 
     const tickLabelSize = (): number => {
-      // Return the size of our biggest tick label along our axis, i.e. its width for our X axis and its height for our Y
-      // axis.
+      // Return the size of our biggest tick label along our axis, i.e. its width for our X axis and its height for our
+      // Y axis.
 
       if (axisKey === 'y') {
         return TICK_FONT_SIZE;
@@ -4052,7 +4053,8 @@ const createPlot = (width: number, height: number): void => {
   ) as uPlot;
 
   // Handle mouse interaction with our plotting area.
-  // Note: uPlot's plotting area (i.e. its "over" element) gets destroyed with our plot, and its event listeners with it.
+  // Note: uPlot's plotting area (i.e. its "over" element) gets destroyed with our plot, and its event listeners with
+  //       it.
 
   plot.over.addEventListener('mousedown', (event: MouseEvent) => onDragStart(event, 'nsew'));
   plot.over.addEventListener('dblclick', () => onDoubleClick('nsew'));
@@ -4113,8 +4115,8 @@ const updatePlot = (): void => {
     createPlot(width, height);
   } else {
     // We already have a plot and its signature hasn't changed, so update the visibility of its series (since our traces
-    // may be different ones, e.g., when runs get tracked in interactive mode), its data, and its size (or layout, if the
-    // width of our legend has changed since it is part of our right margin), if needed.
+    // may be different ones, e.g., when runs get tracked in interactive mode), its data, and its size (or layout, if
+    // the width of our legend has changed since it is part of our right margin), if needed.
 
     const currentPlot = plot;
 
