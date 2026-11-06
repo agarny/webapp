@@ -26,132 +26,126 @@
       </Toolbar>
       <div class="grow min-h-0">
         <div class="flex h-full">
-          <div v-if="uiJsonEmpty" class="flex flex-col items-center justify-center grow">
-            <i class="pi pi-info-circle text-[1.5rem]! text-muted-color mb-3"></i>
-            <p class="text-muted-color text-center">
-              The view needs to be configured.
-              <template v-if="!simulationOnly">
-                <br />
-                Please click on the <i class="pi pi-cog"></i> icon in the top-right corner.
-              </template>
-            </p>
+          <div v-if="uiJsonEmpty" class="empty-view">
+            <i class="pi pi-sliders-h empty-view-icon"></i>
+            <p class="empty-view-title">The view needs to be configured.</p>
+            <template v-if="!simulationOnly">
+              <p class="empty-view-text">Its simulation inputs, simulation data, and plots can be configured in its settings.</p>
+              <!-- Note: like our toolbar buttons (see ToolbarButtonWidget.vue), this button doesn't get the focus when it is
+                         clicked, so that it doesn't look focused once our settings dialog has been closed. -->
+              <Button icon="pi pi-cog" label="Open settings" size="small" @mousedown.prevent @click="settingsVisible = true" />
+            </template>
           </div>
           <IssuesView v-else-if="uiJsonIssues.length" class="w-full m-4" :issues="uiJsonIssues" />
           <div v-else class="flex grow min-h-0">
-            <div class="ml-4 mr-4 mb-4">
+            <div class="side-panel-column">
               <ScrollPanel class="h-full">
-                <Fieldset :id="inputsFieldsetId" class="inputs-fieldset">
-                  <template #legend>
-                    <div class="relative flex items-center">
-                      <span :id="`${inputsFieldsetId}_header`" class="p-fieldset-legend-label">Simulation inputs</span>
-                      <span class="inputs-fieldset-line grow ms-3"></span>
-                      <div class="inputs-fieldset-reset"
-                        :class="{ 'inputs-fieldset-reset-hidden': allSimulationInputsAtDefaultValues }"
-                      >
-                        <Button class="p-0! w-5! h-5! reset-inputs-button"
-                          icon="pi pi-undo"
-                          text severity="secondary"
-                          size="small"
-                          title="Reset all simulation inputs to their default values"
-                          :disabled="allSimulationInputsAtDefaultValues"
-                          @mousedown.prevent
-                          @click="onResetInputs"
-                        />
-                      </div>
-                    </div>
-                  </template>
-                  <InputWidget ref="inputWidgetsRef"
-                    v-for="(input, index) in actualUiJson.input"
-                    v-model="inputValues[index]!"
-                    v-show="showInput[index]"
-                    :key="`input_${index}`"
-                    :name="input.name"
-                    :defaultValue="input.defaultValue"
-                    :maximumValue="locApi.isScalarInput(input) ? input.maximumValue : undefined"
-                    :minimumValue="locApi.isScalarInput(input) ? input.minimumValue : undefined"
-                    :possibleValues="locApi.isDiscreteInput(input) ? input.possibleValues : undefined"
-                    :stepValue="locApi.isScalarInput(input) ? input.stepValue : undefined"
-                    :class="index !== 0 ? 'mt-6' : ''"
-                    @change="onInputChange()"
-                    @changeEnd="onInputChangeEnd()"
-                    @atDefaultValueChange="(_name: string, atDefaultValue: boolean) => onInputAtDefaultValueChange(index, atDefaultValue)"
-                  />
-                </Fieldset>
-                <Fieldset legend="Runs">
-                  <div class="flex flex-col gap-4">
-                    <div class="flex gap-2">
-                      <Button class="grow"
-                        icon="pi pi-plus"
-                        label="Track run"
-                        outlined
-                        size="small"
-                        title="Track current run"
-                        :disabled="isSimulating || simulationIssues.length > 0"
-                        @click="onTrackRun"
+                <div class="side-panel">
+                  <!-- Simulation inputs -->
+
+                  <section class="side-panel-section">
+                    <div class="side-panel-header">
+                      <h3 class="opencor-section-title opencor-section-title-small">Simulation inputs</h3>
+                      <ToolbarButtonWidget :class="{ invisible: allSimulationInputsAtDefaultValues }"
+                        icon="pi pi-undo"
+                        label="Reset all simulation inputs"
+                        small
+                        tooltipAlign="end"
+                        :disabled="allSimulationInputsAtDefaultValues"
+                        @click="onResetInputs"
                       />
-                      <Button class="w-9!"
+                    </div>
+                    <div class="side-panel-fields">
+                      <InputWidget ref="inputWidgetsRef"
+                        v-for="(input, index) in actualUiJson.input"
+                        v-model="inputValues[index]!"
+                        v-show="showInput[index]"
+                        :key="`input_${index}`"
+                        :name="input.name"
+                        :defaultValue="input.defaultValue"
+                        :maximumValue="locApi.isScalarInput(input) ? input.maximumValue : undefined"
+                        :minimumValue="locApi.isScalarInput(input) ? input.minimumValue : undefined"
+                        :possibleValues="locApi.isDiscreteInput(input) ? input.possibleValues : undefined"
+                        :stepValue="locApi.isScalarInput(input) ? input.stepValue : undefined"
+                        @change="onInputChange()"
+                        @changeEnd="onInputChangeEnd()"
+                        @atDefaultValueChange="(_name: string, atDefaultValue: boolean) => onInputAtDefaultValueChange(index, atDefaultValue)"
+                      />
+                    </div>
+                  </section>
+
+                  <!-- Runs -->
+
+                  <section class="side-panel-section">
+                    <div class="side-panel-header">
+                      <h3 class="opencor-section-title opencor-section-title-small">Runs</h3>
+                      <ToolbarButtonWidget :class="{ invisible: runs.length === 1 }"
                         icon="pi pi-trash"
-                        outlined severity="danger"
-                        size="small"
-                        title="Remove all tracked runs"
-                        @click="onRemoveAllRuns"
+                        label="Remove all tracked runs"
+                        small
+                        tooltipAlign="end"
                         :disabled="runs.length === 1"
+                        @click="onRemoveAllRuns"
                       />
                     </div>
-                    <div class="flex flex-col gap-2">
+                    <Button class="w-full"
+                      icon="pi pi-plus"
+                      label="Track run"
+                      outlined
+                      size="small"
+                      :disabled="isSimulating || simulationIssues.length > 0"
+                      @click="onTrackRun"
+                    />
+                    <div class="runs-list">
                       <div v-for="(run, index) in runs"
                         :key="run.id"
-                        class="run-card rounded-lg p-1 pl-2 opacity-75 hover:opacity-100"
-                        :class="{ 'run-card-live': run.isLiveRun, 'opacity-50': !run.isVisible }"
+                        class="run-row"
+                        :class="{ 'run-row-hidden': !run.isVisible }"
                       >
-                        <div class="flex items-center">
-                          <div class="w-1 h-6 rounded-xs mr-2" :style="`background-color: ${run.color};`"></div>
-                          <div v-hint.html="run.isLiveRun ? '' : run.tooltip"
-                            class="grow text-sm"
-                            :class="{ 'cursor-help': !run.isLiveRun, 'opacity-50': !run.isVisible }"
-                          >
-                            {{ run.isLiveRun ? 'Live run' : `Run #${index}` }}
-                          </div>
-                          <div class="flex items-center">
-                            <Button class="p-0! w-5! h-5! run-action-button"
-                              icon="pi pi-palette"
-                              text
-                              size="small"
-                              :style="`color: ${run.color};`"
-                              :title="`Change ${run.isLiveRun ? 'live run' : 'run'} colour`"
-                              @click="onToggleRunColorPopover(index, $event)"
-                            />
-                            <Button class="p-0! w-5! h-5! run-action-button"
-                              :icon="run.isVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"
-                              text :severity="run.isVisible ? 'info' : 'secondary'"
-                              size="small"
-                              :title="`${run.isVisible ? 'Hide' : 'Show'} ${run.isLiveRun ? 'live run' : 'run'}`"
-                              @click="onToggleRun(index)"
-                            />
-                            <Button v-if="!run.isLiveRun" class="p-0! w-5! h-5! run-action-button"
-                              icon="pi pi-times"
-                              text severity="danger"
-                              size="small"
-                              title="Remove run"
-                              @click="onRemoveRun(index)"
-                            />
-                            <div v-else class="w-5 h-5"></div>
-                          </div>
+                        <ToolbarButtonWidget class="run-color-button"
+                          icon="pi pi-circle-fill"
+                          :label="`Change ${run.isLiveRun ? 'live run' : 'run'} colour`"
+                          small
+                          :style="{ '--toolbar-button-color': run.color, '--toolbar-button-hover-color': run.color }"
+                          @click="onToggleRunColorPopover(index, $event)"
+                        />
+                        <div v-hint.html="run.isLiveRun ? '' : run.tooltip"
+                          class="run-name grow min-w-0"
+                          :class="{ 'cursor-help': !run.isLiveRun }"
+                        >
+                          {{ run.isLiveRun ? 'Live run' : `Run #${index}` }}
+                        </div>
+                        <div class="run-actions">
+                          <ToolbarButtonWidget class="run-visibility-button"
+                            :icon="run.isVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"
+                            :label="`${run.isVisible ? 'Hide' : 'Show'} ${run.isLiveRun ? 'live run' : 'run'}`"
+                            small
+                            tooltipAlign="end"
+                            @click="onToggleRun(index)"
+                          />
+                          <ToolbarButtonWidget v-if="!run.isLiveRun" class="run-remove-button"
+                            icon="pi pi-times"
+                            label="Remove run"
+                            small
+                            tooltipAlign="end"
+                            @click="onRemoveRun(index)"
+                          />
+                          <div v-else class="w-6 h-6"></div>
                         </div>
                       </div>
                     </div>
-                    <div v-if="runs.length === 1" class="empty-state p-2 text-center rounded-lg">
-                      <i class="pi pi-info-circle empty-state-icon mb-1.5 opacity-50"></i>
-                      <p class="text-xs">
-                        No runs are being tracked.
-                      </p>
+                    <div v-if="runs.length === 1" class="empty-state">
+                      No runs are being tracked.
                     </div>
-                  </div>
-                </Fieldset>
-                <Fieldset v-if="preSimulationDuration" legend="Note" class="note">
-                  The simulation was run for <br/>
-                  <strong>{{ preSimulationDuration }} {{ voiUnit }}</strong> prior to plotting.
-                </Fieldset>
+                  </section>
+
+                  <!-- Note -->
+
+                  <p v-if="preSimulationDuration" class="side-panel-hint">
+                    <i class="pi pi-info-circle"></i>
+                    <span>The simulation was run for <strong>{{ preSimulationDuration }} {{ voiUnit }}</strong> prior to plotting.</span>
+                  </p>
+                </div>
               </ScrollPanel>
             </div>
             <div class="relative flex flex-col grow h-full min-h-0">
@@ -187,7 +181,7 @@
       </Teleport>
       <Popover ref="runColorPopoverRef" :appendTo="appendTarget">
         <div class="flex p-1.5 gap-2">
-          <button class="color-swatch cursor-pointer w-6 h-6 outline-2 outline-transparent rounded-md hover:scale-[1.15]"
+          <button class="color-swatch cursor-pointer w-6 h-6 outline-2 outline-transparent rounded-md"
             v-for="(name, color) in colors.PALETTE" :key="color"
             :style="`background-color: ${color};`"
             :class="{ 'color-swatch-selected': color === runs[runColorPopoverIndex].color }"
@@ -273,12 +267,6 @@ const uniformTimeCourse = isDocumentValid ? (document.simulation(0) as locApi.Se
 const cvode = uniformTimeCourse?.cvode() ?? null;
 const mathEval = new math.Float64ArrayMath();
 const model = isDocumentValid ? document.model(0) : null;
-
-// The ID of our simulation inputs' fieldset.
-// Note: we customise the legend of our simulation inputs' fieldset, so we need to give its label the ID that the
-//       fieldset expects (i.e. `<fieldset id>_header`) for its contents to still be labelled by it.
-
-const inputsFieldsetId = `simulationInputs${vue.getCurrentInstance()?.uid}`;
 
 // Some helper functions to evaluate and apply the model changes resulting from the given parameters and scope.
 
@@ -2377,112 +2365,162 @@ vue.onMounted(() => {
   outline: 2px solid var(--p-text-color) !important;
 }
 
-.empty-state {
-  color: var(--p-text-muted-color);
-  border: 1px dashed var(--p-content-border-color);
+/**
+ * Empty view, i.e. when our view has not been configured yet.
+ */
+
+.empty-view {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  text-align: center;
 }
 
-.empty-state-icon {
-  font-size: 1.25rem;
+.empty-view-icon {
+  margin-bottom: 0.25rem;
+  color: var(--p-text-muted-color);
+  font-size: 1.5rem;
+}
+
+.empty-view-title {
+  margin: 0;
+  color: var(--p-text-color);
+  font-weight: 600;
+}
+
+.empty-view-text {
+  margin: 0 0 0.5rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
 }
 
 /**
- * Our inputs' reset button is only shown when there is something to reset, in which case it hides the part of our line
- * where it is (using our legend's background). Our line always goes all the way to the end of our legend (i.e. our
- * legend has no end padding or border), so that it looks like our fieldset's top border is uninterrupted when our reset
- * button is hidden.
- * Note #1: our line is drawn as a whole (rather than, say, using a separate element for the part where our reset button
- *          is) since Chrome may otherwise render that part one device pixel off our line (e.g., with a device pixel
- *          ratio of 1.25 or 1.75).
- * Note #2: the minimum width of our line accounts for our reset button and the space around it (i.e. our legend's end
- *          padding and border, which are now part of our line), so that our legend (and therefore our fieldset) is as
- *          wide as it would be if our reset button was part of our legend's layout, i.e. it doesn't change width when
- *          our reset button gets shown or hidden.
+ * Side panel, i.e. our simulation inputs and runs.
+ * Note: an input field has an intrinsic width (of about 20 characters), which would otherwise make our side panel wider
+ *       than we want, so we let our number fields shrink to the width of our side panel. This means that a number field
+ *       with a reset button doesn't need the negative margin that keeps its intrinsic width the same (see
+ *       InputScientificNumberWidget.vue), and which would otherwise make it overflow our side panel.
  */
 
-.inputs-fieldset :deep(.p-fieldset-legend) {
-  width: 100%;
-  padding-inline-end: 0;
-  border-inline-end-width: 0;
+.side-panel-column {
+  flex-shrink: 0;
+  width: 16rem;
+  border-right: 1px solid var(--p-content-border-color);
 }
 
-.inputs-fieldset-line {
-  min-width: calc(0.75rem + 1.25rem + 0.75rem + 1px);
-  border-top: 1px solid var(--p-fieldset-border-color);
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
 }
 
-.inputs-fieldset-reset {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 1px;
+.side-panel :deep(.p-inputnumber .p-inputnumber-input) {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  margin-right: 0;
+}
+
+.side-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.side-panel-header {
   display: flex;
   align-items: center;
-  padding-inline: 0.75rem;
-  background: var(--p-fieldset-legend-background);
-  transition: opacity 0.15s;
+  justify-content: space-between;
+  min-height: 1.5rem;
 }
 
-.inputs-fieldset-reset-hidden {
-  opacity: 0;
+.side-panel-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: 0.375rem;
 }
 
-.note {
+.side-panel-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
   color: var(--p-text-muted-color);
-  margin-top: 0.5rem;
-  border: 1px dashed var(--p-content-border-color);
-  padding: 0 0.5rem 0.5rem 0.5rem !important;
-  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.side-panel-hint .pi {
+  line-height: inherit;
+}
+
+/**
+ * Runs, which actions are only shown when hovered (if possible) or focused, except for the visibility button of a
+ * hidden run, so that it can easily be shown again.
+ */
+
+.runs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.25rem 0.125rem 0.125rem;
+  border-radius: 0.375rem;
+  transition: background-color 0.15s ease;
+}
+
+.run-row:hover {
+  background-color: var(--p-content-hover-background);
+}
+
+.run-name {
+  overflow: hidden;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-row-hidden .run-name,
+.run-row-hidden .run-color-button {
+  opacity: 0.45;
+}
+
+.run-color-button :deep(.toolbar-button-icon) {
   font-size: 0.75rem;
 }
 
-.note :deep(.p-fieldset-legend) {
-  font-size: 0.875rem;
-  padding-top: 0;
-  padding-bottom: 0;
+.run-actions {
+  display: flex;
+  align-items: center;
 }
 
-.reset-inputs-button {
-  transition:
-    opacity 0.15s,
-    transform 0.15s;
-}
+@media (hover: hover) {
+  .run-row:not(:hover, :focus-within) .run-actions .toolbar-button {
+    opacity: 0;
+  }
 
-.reset-inputs-button:not(:disabled) {
-  opacity: 0.75;
-}
-
-.reset-inputs-button:not(:disabled):hover {
-  opacity: 1;
-  transform: scale(1.15);
-}
-
-.reset-inputs-button:disabled {
-  opacity: 0;
-  transform: scale(0.5);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .inputs-fieldset-reset,
-  .reset-inputs-button {
-    transition: none;
+  .run-row-hidden:not(:hover, :focus-within) .run-actions .run-visibility-button {
+    opacity: 1;
   }
 }
 
-.run-action-button {
-  opacity: 0.75;
-}
-
-.run-action-button:hover {
-  opacity: 1;
-  transform: scale(1.15);
-}
-
-.run-card {
-  border: 1px solid var(--p-content-border-color);
-}
-
-.run-card-live {
-  border-style: dashed;
-  border-color: var(--p-primary-color);
+.empty-state {
+  padding: 0.5rem;
+  border: 1px dashed var(--p-content-border-color);
+  border-radius: 0.5rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  text-align: center;
 }
 </style>
