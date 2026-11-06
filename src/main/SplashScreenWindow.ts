@@ -9,9 +9,13 @@ import { formatError } from '../renderer/src/common/common';
 export class SplashScreenWindow extends ApplicationWindow {
   constructor() {
     // Initialise ourselves.
+    // Note: our window is transparent and has no shadow nor rounded corners, so that our splash screen can draw its own
+    //       rounded corners, border, and background, and therefore look the same on Windows, Linux, and macOS (see
+    //       splashscreen.css). Otherwise, our window would, for instance, have rounded corners and a border on macOS
+    //       and Windows 11, but not on Linux.
 
-    const width = 413 + 24;
-    const height = 351 + 42;
+    const width = 360;
+    const height = 300;
     const state: IElectronConfState = electronConf.get('app.state');
 
     super(
@@ -25,6 +29,9 @@ export class SplashScreenWindow extends ApplicationWindow {
         maxWidth: width,
         maxHeight: height,
         frame: false,
+        transparent: true,
+        hasShadow: false,
+        roundedCorners: false,
         show: false,
         alwaysOnTop: true
       },
