@@ -2461,8 +2461,8 @@ vue.onMounted(() => {
 }
 
 /**
- * Runs, which actions are only shown when hovered (if possible) or focused, except for the visibility button of a
- * hidden run, so that it can easily be shown again.
+ * Runs, which actions are always shown (so that they can easily be discovered), but with small icons (the same size as
+ * that of our colour button), so that they don't stand out.
  */
 
 .runs-list {
@@ -2496,23 +2496,14 @@ vue.onMounted(() => {
   opacity: 0.45;
 }
 
-.run-color-button :deep(.toolbar-button-icon) {
+.run-color-button :deep(.toolbar-button-icon),
+.run-actions :deep(.toolbar-button-icon) {
   font-size: 0.75rem;
 }
 
 .run-actions {
   display: flex;
   align-items: center;
-}
-
-@media (hover: hover) {
-  .run-row:not(:hover, :focus-within) .run-actions .toolbar-button {
-    opacity: 0;
-  }
-
-  .run-row-hidden:not(:hover, :focus-within) .run-actions .run-visibility-button {
-    opacity: 1;
-  }
 }
 
 .empty-state {
