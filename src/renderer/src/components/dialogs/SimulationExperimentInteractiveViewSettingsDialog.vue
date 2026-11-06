@@ -1,14 +1,14 @@
 <template>
   <div ref="rootRef">
-    <BaseDialog v-bind="$attrs" header="Settings" class="settings-dialog w-270 h-210"
+    <BaseDialog v-bind="$attrs" header="Settings" class="w-270 h-210"
       :centreOn="centreOn"
-      @keydown.prevent.enter="onOk"
+      @keydown.enter="onKeydownEnter"
       @cancel="onCancel"
     >
       <div class="settings-body h-full flex min-h-0">
         <!-- Navigation -->
 
-        <nav class="settings-nav">
+        <nav class="settings-nav" aria-label="Settings sections">
           <div v-for="navGroup in navGroups" :key="navGroup.label" class="settings-nav-group">
             <div class="settings-nav-group-label opencor-section-title opencor-section-title-small">
               <span>{{ navGroup.label }}</span>
@@ -18,6 +18,7 @@
               type="button"
               class="settings-nav-item"
               :class="{ 'settings-nav-item-active': isActiveSection(navItem) }"
+              :aria-current="isActiveSection(navItem) ? 'true' : undefined"
               @click="selectSection(navItem)"
             >
               <i :class="navItem.icon" class="settings-nav-item-icon" />
@@ -591,7 +592,7 @@
         </div>
       </div>
 
-      <!-- Footer, i.e. the validation status of the active section's settings and our OK/Cancel buttons -->
+      <!-- Footer, i.e. the validation status of the active section's settings (or of our interactive settings as a whole) and our OK/Cancel buttons -->
 
       <template #footer>
         <div class="w-full flex items-center gap-4">
@@ -1019,7 +1020,7 @@ const isActiveSection = (navItem: INavItem): boolean => {
 };
 
 const selectSection = (navItem: INavItem): void => {
-  // Hide the issues popover since it is about the issues of the section we are leaving.
+  // Hide the issues popover since it may be about the issues of another section.
 
   issuesPopoverRef.value?.hide();
 
@@ -1114,10 +1115,14 @@ const removeInput = (index: number) => {
   localSettings.value.interactive.uiJson.input.splice(index, 1);
 };
 
+// Change the type of the given simulation input, which means recreating it (with some default values).
+// Note: a select lets us know about the selected value even if it was already selected, in which case there is nothing
+//       to do (otherwise, we would, for instance, lose the possible values of a discrete simulation input).
+
 const toggleInputType = (index: number, type: string) => {
   const input = localSettings.value.interactive.uiJson.input[index];
 
-  if (!input) {
+  if (!input || (type === 'discrete') === locApi.isDiscreteInput(input)) {
     return;
   }
 
@@ -1411,6 +1416,29 @@ const resetUxSettings = () => {
   issuesPopoverRef.value?.hide();
 };
 
+// Accept our settings when the user presses Enter in a text field (as in a native form), but not when, say, a button or
+// a select has the keyboard focus since Enter is then for it (e.g., to click a button, such as our Cancel button, or to
+// open a select), nor when Enter is used to confirm some text that is being composed (e.g., using an input method).
+
+const TEXT_FIELDS =
+  'input:not([type="button"], [type="checkbox"], [type="color"], [type="file"], [type="radio"], [type="range"], [type="reset"], [type="submit"])';
+
+const onKeydownEnter = (event: KeyboardEvent): void => {
+  if (
+    event.defaultPrevented ||
+    event.isComposing ||
+    !(event.target instanceof HTMLInputElement) ||
+    !event.target.matches(TEXT_FIELDS) ||
+    event.target.closest('.p-select, .p-autocomplete')
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+
+  onOk();
+};
+
 const onOk = () => {
   // Reset our UX settings.
 
@@ -1461,14 +1489,6 @@ const toggleIssues = (event: Event) => {
 <style scoped>
 .settings-body {
   gap: 1.25rem;
-}
-
-.settings-body :deep(.p-button-sm.p-button-icon-only) {
-  width: var(--p-button-icon-only-width);
-}
-
-.settings-body :deep(.p-button-sm.p-button-icon-only.p-button-rounded) {
-  height: var(--p-button-icon-only-width);
 }
 
 /**
@@ -1636,7 +1656,7 @@ const toggleIssues = (event: Event) => {
 }
 
 /**
- * Hint, which is vertically centred next to the field it is about, and which icon is aligned with its first line (in
+ * Hint, which is vertically centred next to the field it is about, and whose icon is aligned with its first line (in
  * case it spans several lines).
  */
 
@@ -1733,10 +1753,12 @@ const toggleIssues = (event: Event) => {
 }
 
 /**
- * Note: our remove buttons are toolbar buttons (see ToolbarButtonWidget.vue) that turn red when hovered.
+ * Note: our remove buttons are toolbar buttons (see ToolbarButtonWidget.vue) that turn red when hovered. They are
+ *       qualified with .toolbar-button so that our rule is more specific than the one that sets
+ *       --toolbar-button-hover-color in ToolbarButtonWidget.vue, rather than rely on the order of our stylesheets.
  */
 
-.remove-button {
+.toolbar-button.remove-button {
   --toolbar-button-hover-color: var(--opencor-error-color);
   --p-content-hover-background: color-mix(in srgb, var(--opencor-error-color) 10%, transparent);
 }

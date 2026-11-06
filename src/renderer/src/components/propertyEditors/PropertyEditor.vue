@@ -2,7 +2,8 @@
   <section class="property-editor">
     <h3 class="opencor-section-title opencor-section-title-small">{{ name }}</h3>
     <div class="property-editor-fields">
-      <InputScientificNumberWidget v-for="(property, index) in properties" :key="`${property.property}_${revisions[index] ?? 0}`"
+      <InputScientificNumberWidget v-for="(property, index) in properties" :key="property.property"
+        :ref="(element: unknown) => (fieldRefs[index] = element as IInputScientificNumberWidget | null)"
         :modelValue="property.value"
         :label="hasUnits && property.unit ? `${property.property} (${property.unit})` : property.property"
         :disabled="disabled"
@@ -14,8 +15,6 @@
 </template>
 
 <script setup lang="ts">
-import * as vue from 'vue';
-
 const props = withDefaults(
   defineProps<{
     name: string;
@@ -37,12 +36,17 @@ const emit = defineEmits<{
   propertyUpdated: [index: number, newValue: number];
 }>();
 
-// The revision of each of our properties, which we use to have a property's input field show its current value again
-// when its new value is invalid.
-// Note: an input field shows the value that was entered, even if it doesn't get accepted, so we need to recreate it to
-//       have it show the current value of its property again.
+// The input fields of our properties, which we use to have a property's input field show its current value again when
+// its new value is invalid.
+// Note: an input field shows the value that was entered (or spun to), even if it doesn't get accepted, so we need to
+//       ask it to show the current value of its property again, which it does without losing the keyboard focus (so
+//       that, for instance, the user can keep spinning its value).
 
-const revisions = vue.ref<number[]>([]);
+interface IInputScientificNumberWidget {
+  discardEdit: () => void;
+}
+
+const fieldRefs: (IInputScientificNumberWidget | null)[] = [];
 
 const onValueUpdated = (index: number, newValue: number | undefined): void => {
   // Ignore an invalid new value for the property, i.e. keep its current value. A new value is invalid if it is not a
@@ -59,7 +63,7 @@ const onValueUpdated = (index: number, newValue: number | undefined): void => {
     !Number.isFinite(newValue) ||
     (props.isValid && !props.isValid(index, newValue))
   ) {
-    revisions.value[index] = (revisions.value[index] ?? 0) + 1;
+    fieldRefs[index]?.discardEdit();
 
     return;
   }

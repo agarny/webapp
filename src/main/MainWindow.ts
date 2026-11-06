@@ -247,7 +247,7 @@ let recentFilePaths: string[] = [];
 
 const recentFilePathsUpdated = (): void => {
   // Let our Reopen menu and our renderer (which lists our most recent files on its start screen, see
-  // BackgroundComponent.vue) know about our (updated) recent file paths.
+  // mainProcessRecentFilePaths in OpenCOR.vue) know about our (updated) recent file paths.
 
   updateReopenMenu(recentFilePaths);
 
@@ -256,7 +256,7 @@ const recentFilePathsUpdated = (): void => {
 
 const removeRecentFilePath = (filePath: string): boolean => {
   // Remove the given file path from our recent file paths and return whether it was removed (in which case our Reopen
-  // menu needs to be updated).
+  // menu and our renderer need to be updated, see recentFilePathsUpdated()).
 
   let res = false;
 
@@ -315,7 +315,8 @@ export const fileClosed = (filePath: string): void => {
 
 // Reopen the given recent file, i.e. as if it was reopened using our Reopen menu.
 // Note: we only reopen a file that is one of our recent files since our renderer (which asks us to reopen it, see
-//       BackgroundComponent.vue) could otherwise use this to be allowed to save any file (see openFile()).
+//       onOpenRecentFileAction() in OpenCOR.vue) could otherwise use this to be allowed to save any file (see
+//       openFile()).
 
 export const reopenRecentFile = (filePath: string): void => {
   if (recentFilePaths.includes(filePath)) {
@@ -723,6 +724,7 @@ export class MainWindow extends ApplicationWindow {
   private _notRespondingAbortController: AbortController | null = null;
   private _rendererGone = false;
   private _rendererGoneCount = 0;
+  private _openDialogShown = false;
   private _pendingArguments: string[] = [];
   private _recentFilePathsToCanonicalise: string[] = [];
   private _filesToReopen: IFilesToReopen | null = null;
@@ -1294,7 +1296,7 @@ export class MainWindow extends ApplicationWindow {
   // Our renderer is ready, so reopen previously opened files, if any, select the previously selected file, and handle
   // any arguments that we were asked to handle until now (e.g., our command line).
   // Note: our renderer may get reloaded (e.g., during development), in which case it will let us know again that it is
-  //       ready, but there is nothing more for us to do then.
+  //       ready, but there is nothing more for us to do then, except let it know about our recent file paths.
 
   rendererReady(): void {
     // Let our (possibly reloaded) renderer know about our recent file paths (see recentFilePathsUpdated()).
@@ -1474,13 +1476,23 @@ export class MainWindow extends ApplicationWindow {
   //       handleArguments()). Similarly, we must not enable our UI in that case since our reloaded renderer will enable
   //       it once it is ready (see onRenderProcessGone()). Otherwise, we must enable our UI, even if our renderer isn't
   //       ready, i.e. if its initialisation failed (in which case it never tells us that it is ready), or our UI would
-  //       remain disabled.
+  //       remain disabled. Also, our renderer may ask us to show our open dialog (see onOpenAction() in OpenCOR.vue)
+  //       while it is already shown (e.g., if the user double clicks on the Open... action of our start screen before
+  //       our UI gets disabled), in which case we ignore the request.
 
   open(): void {
+    if (this._openDialogShown) {
+      return;
+    }
+
+    this._openDialogShown = true;
+
     this.enableDisableUi(false);
 
     const rendererGoneCount = this._rendererGoneCount;
-    const enableUiIfRendererNotGone = (): void => {
+    const openDialogClosed = (): void => {
+      this._openDialogShown = false;
+
       if (this._rendererGoneCount === rendererGoneCount) {
         this.enableDisableUi(true);
       }
@@ -1493,12 +1505,12 @@ export class MainWindow extends ApplicationWindow {
       .then(({ filePaths }) => {
         this.handleArguments(filePaths);
 
-        enableUiIfRendererNotGone();
+        openDialogClosed();
       })
       .catch((error: unknown) => {
         console.warn('OpenCOR: failed to open file(s):', formatError(error));
 
-        enableUiIfRendererNotGone();
+        openDialogClosed();
       });
   }
 

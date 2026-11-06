@@ -243,23 +243,35 @@ export interface IToolbarButtonProps {
   small?: boolean;
   tooltipAlign?: 'start' | 'end';
   feedback?: boolean;
+  keepFocus?: boolean;
 }
 
 // A composable to copy some text to the clipboard and to let people know, for a short while, whether it was copied,
 // through the icon, label, and accent of the (toolbar) button that was used to copy it (see ToolbarButtonWidget.vue).
+// Note: copying is asynchronous, so we may get reset (e.g., if our dialog gets closed) or unmounted in the meantime, in
+//       which case we don't let people know whether the text was copied (since it would be out of context).
 
 export const useCopyToClipboard = () => {
   const status = vue.ref<'idle' | 'copied' | 'failed'>('idle');
   let statusTimer: number | undefined;
+  let copyNumber = 0;
+  let unmounted = false;
 
   const copy = async (text: string): Promise<void> => {
+    const crtCopyNumber = ++copyNumber;
+    let copied = true;
+
     try {
       await navigator.clipboard.writeText(text);
-
-      status.value = 'copied';
     } catch {
-      status.value = 'failed';
+      copied = false;
     }
+
+    if (unmounted || crtCopyNumber !== copyNumber) {
+      return;
+    }
+
+    status.value = copied ? 'copied' : 'failed';
 
     window.clearTimeout(statusTimer);
 
@@ -269,6 +281,8 @@ export const useCopyToClipboard = () => {
   };
 
   const reset = (): void => {
+    ++copyNumber;
+
     window.clearTimeout(statusTimer);
 
     status.value = 'idle';
@@ -290,6 +304,8 @@ export const useCopyToClipboard = () => {
   };
 
   vue.onBeforeUnmount(() => {
+    unmounted = true;
+
     window.clearTimeout(statusTimer);
   });
 

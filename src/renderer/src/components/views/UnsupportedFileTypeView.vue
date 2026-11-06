@@ -50,8 +50,9 @@ const emit = defineEmits<{
 
 <style scoped>
 /**
- * Note: we look like the empty state of our interactive simulation experiment view (see
- *       SimulationExperimentInteractiveView.vue).
+ * Note: we are laid out like the empty state of our interactive simulation experiment view (see
+ *       SimulationExperimentInteractiveView.vue), except that our icon is in a circle that is tinted with the colour of
+ *       the category of our view.
  */
 
 .unsupported-view {

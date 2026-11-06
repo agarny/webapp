@@ -99,7 +99,8 @@ defineEmits<{
 // GPU), each of them being listed in the order in which it is shown.
 // Note #1: we are mounted when OpenCOR starts, i.e. possibly before libOpenCOR is initialised, so we must not retrieve
 //          libOpenCOR's version straightaway, hence we use computed properties, which are only evaluated when our
-//          contents get rendered, i.e. when we are shown.
+//          contents first get rendered, i.e. when we are first shown (which can only be once OpenCOR is initialised).
+//          None of our details can change while OpenCOR is running, so they are then cached.
 // Note #2: a hardware detail that cannot be retrieved (e.g., the amount of memory in a browser that doesn't provide it,
 //          such as Safari or Firefox, see memoryDescription()) is not shown at all.
 
@@ -108,13 +109,20 @@ interface IDetail {
   value: string;
 }
 
-const softwareDetails = vue.computed<IDetail[]>(() => {
-  const systemDetails = electronApi?.systemDetails();
+// Our system details, which are only available in OpenCOR (i.e. not in OpenCOR's Web app).
 
+const systemDetails = vue.computed<common.ISystemDetails | undefined>(() => {
+  return electronApi?.systemDetails();
+});
+
+const softwareDetails = vue.computed<IDetail[]>(() => {
   return [
     { label: 'Platform', value: electronApi ? electronApi.operatingSystem() : common.osName() },
-    systemDetails
-      ? { label: 'Electron', value: `${systemDetails.electronVersion} (Chromium ${systemDetails.chromiumVersion})` }
+    systemDetails.value
+      ? {
+          label: 'Electron',
+          value: `${systemDetails.value.electronVersion} (Chromium ${systemDetails.value.chromiumVersion})`
+        }
       : { label: 'Browser', value: browserDescription() },
     { label: 'OpenCOR', value: currentVersion },
     { label: 'libOpenCOR', value: locApi.version() }
@@ -142,9 +150,10 @@ const withoutTrademarks = (name: string): string => {
 // cores"), and only its number of logical cores in OpenCOR's Web app (since a browser doesn't tell us its model).
 
 const cpuDescription = (): string => {
-  const systemDetails = electronApi?.systemDetails();
-  const cpuModel = systemDetails ? withoutTrademarks(systemDetails.cpuModel) : '';
-  const logicalCoreCount = systemDetails ? systemDetails.logicalCoreCount : navigator.hardwareConcurrency || 0;
+  const cpuModel = systemDetails.value ? withoutTrademarks(systemDetails.value.cpuModel) : '';
+  const logicalCoreCount = systemDetails.value
+    ? systemDetails.value.logicalCoreCount
+    : navigator.hardwareConcurrency || 0;
   const logicalCores = logicalCoreCount ? `${logicalCoreCount} logical core${logicalCoreCount === 1 ? '' : 's'}` : '';
 
   return [cpuModel, logicalCores].filter(Boolean).join(', ');
@@ -152,34 +161,42 @@ const cpuDescription = (): string => {
 
 // A description of our amount of memory.
 // Note: in OpenCOR's Web app, we can only rely on navigator.deviceMemory, which is only available in Chromium-based
-//       browsers, and which is rounded down to a power of two and capped by the browser, hence we say "at least".
+//       browsers, and which is approximate (i.e. a power of two, hence we say "about") and capped (at 8 GB, hence we
+//       say "or more" when we reach that cap).
+
+const DEVICE_MEMORY_CAP = 8;
 
 const memoryDescription = (): string => {
-  const systemDetails = electronApi?.systemDetails();
-
-  if (systemDetails) {
-    return systemDetails.totalMemory ? `${Math.round(systemDetails.totalMemory / 1024 ** 3)} GB` : '';
+  if (systemDetails.value) {
+    return systemDetails.value.totalMemory ? `${Math.round(systemDetails.value.totalMemory / 1024 ** 3)} GB` : '';
   }
 
   const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
 
-  return deviceMemory ? `At least ${deviceMemory} GB` : '';
+  if (!deviceMemory) {
+    return '';
+  }
+
+  return deviceMemory >= DEVICE_MEMORY_CAP ? `${DEVICE_MEMORY_CAP} GB or more` : `About ${deviceMemory} GB`;
 };
 
 // A description of our GPU, i.e. the name of the renderer used by WebGL (which is the same in OpenCOR and in OpenCOR's
 // Web app since OpenCOR's renderer is Chromium-based).
 // Note #1: Chromium-based browsers and Safari report a generic renderer (i.e. "WebKit WebGL"), unless asked for the
-//          unmasked one, while Firefox reports a (sanitised) real one, and deprecates asking for the unmasked one.
+//          unmasked one, while Firefox reports a (sanitised) real one, followed by ", or similar", and deprecates
+//          asking for the unmasked one.
 // Note #2: Chromium-based browsers report a renderer through ANGLE, i.e. "ANGLE (<vendor>, <device>, <driver>)", from
-//          which we only keep the device, without its id or graphics API (e.g., "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070
-//          (0x00002484) Direct3D11 vs_5_0 ps_5_0, D3D11)" becomes "NVIDIA GeForce RTX 3070").
-// Note #3: we release our WebGL context straightaway since browsers limit the number of active WebGL contexts.
+//          which we only keep the device, without its id or, on Windows, its Direct3D details (e.g., "ANGLE (NVIDIA,
+//          NVIDIA GeForce RTX 3070 (0x00002484) Direct3D11 vs_5_0 ps_5_0, D3D11)" becomes "NVIDIA GeForce RTX 3070").
+// Note #3: we release our WebGL context straightaway (even if we fail to retrieve our renderer) since browsers limit
+//          the number of active WebGL contexts.
 
 const gpuDescription = (): string => {
   let renderer = '';
+  let webglContext: WebGLRenderingContext | null = null;
 
   try {
-    const webglContext = document.createElement('canvas').getContext('webgl');
+    webglContext = document.createElement('canvas').getContext('webgl');
 
     if (!webglContext) {
       return '';
@@ -194,11 +211,13 @@ const gpuDescription = (): string => {
         ? String(webglContext.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL) ?? '')
         : '';
     }
-
-    webglContext.getExtension('WEBGL_lose_context')?.loseContext();
   } catch {
     return '';
+  } finally {
+    webglContext?.getExtension('WEBGL_lose_context')?.loseContext();
   }
+
+  renderer = renderer.replace(/,\s*or similar$/i, '');
 
   const angleMatch = renderer.match(/^ANGLE \((.*)\)$/);
 
@@ -387,7 +406,7 @@ const copyDetails = (): void => {
 }
 
 /**
- * The versions of [lib]OpenCOR.
+ * The two versions of OpenCOR (i.e. its desktop version and its Web app).
  */
 
 .flavour {

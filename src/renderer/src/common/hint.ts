@@ -6,8 +6,9 @@ import { HINT_DELAY } from './constants';
 // an element (which we can't style and which is shown after a long delay), which looks like the tooltip of our toolbar
 // buttons (see ToolbarButtonWidget.vue).
 // Note #1: our hint is shown, without any animation, after a short delay when our element is hovered, and straightaway
-//          when our element is focused using the keyboard. It is hidden as soon as our element is left, pressed, or
-//          blurred.
+//          when our element (or an element within it, see Note #7) gets a focus ring (i.e. when it is focused using the
+//          keyboard or, for a text field, when it is focused in any way). It is hidden as soon as our element is left,
+//          pressed, or blurred, and it isn't shown if our element is no longer visible by the time it is to be shown.
 // Note #2: our hint is shown below our element (or above it if there is not enough room below it) and is kept within
 //          the window. It has a fixed position and is appended to our OpenCOR instance (rather than to our element) so
 //          that it doesn't get clipped by an ancestor of our element (e.g., a scroll panel), while still being styled
@@ -18,7 +19,16 @@ import { HINT_DELAY } from './constants';
 // Note #5: our hint can contain some HTML (e.g., v-hint.html="'<em>Some</em> help'"), in which case it is a "rich" hint
 //          (e.g., some help about an input field or a table of values). A rich hint is wider and, unlike a plain hint,
 //          it isn't hidden when our element is pressed (so that, for instance, some help about an input field remains
-//          visible while the user types in it).
+//          visible while the user types in it). The HTML of a rich hint is used as is, so any untrusted text in it
+//          (e.g., the name of a simulation input) must be escaped (see common.escapeHtml()).
+// Note #6: our element may contain an element that has its own hint (e.g., the close button of a file tab), in which
+//          case the hint of the inner element replaces ours while it is hovered, and ours is shown again (after the
+//          usual delay) when the inner element is left for our element. Similarly, only the hint of the inner element
+//          is shown when it (or an element within it) is focused using the keyboard.
+// Note #7: we listen to focusin/focusout (rather than focus/blur, which don't bubble) so that our hint is also shown
+//          when our element contains the focused element (e.g., a float label that contains an input field).
+// Note #8: our hint is not visible to assistive technologies, so a plain hint is also used as the accessible name of
+//          our element if our element has no text of its own and no accessible name (e.g., an icon-only button).
 
 const HINT_OFFSET = 6; // Distance between our element and our hint.
 const HINT_MARGIN = 4; // Minimum distance between our hint and the edges of the window.
@@ -27,8 +37,11 @@ interface IHintState {
   text: string;
   html: boolean;
   timer: number | undefined;
+  ariaLabel: boolean;
   onPointerEnter: () => void;
-  onFocus: () => void;
+  onPointerLeave: (event: PointerEvent) => void;
+  onFocusIn: (event: FocusEvent) => void;
+  onFocusOut: (event: FocusEvent) => void;
   onHide: () => void;
 }
 
@@ -52,12 +65,63 @@ const hideHint = (): void => {
   hintOwner = null;
 };
 
+// The closest ancestor of the given element that has a hint, if any.
+
+const hintedAncestor = (element: HTMLElement): HTMLElement | null => {
+  for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+    if (states.has(ancestor)) {
+      return ancestor;
+    }
+  }
+
+  return null;
+};
+
+// The closest element that has a hint and that is, or contains, the given node, if any.
+
+const closestHintedElement = (node: Node): HTMLElement | null => {
+  for (
+    let element = node instanceof HTMLElement ? node : node.parentElement;
+    element;
+    element = element.parentElement
+  ) {
+    if (states.has(element)) {
+      return element;
+    }
+  }
+
+  return null;
+};
+
+// Use our hint as the accessible name of our element, if needed (see Note #8 above).
+
+const updateAriaLabel = (element: HTMLElement, state: IHintState): void => {
+  if (!state.ariaLabel && (state.html || element.textContent?.trim() || element.hasAttribute('aria-label'))) {
+    return;
+  }
+
+  state.ariaLabel = !!state.text;
+
+  if (state.ariaLabel) {
+    element.setAttribute('aria-label', state.text);
+  } else {
+    element.removeAttribute('aria-label');
+  }
+};
+
 const showHint = (element: HTMLElement, text: string, html: boolean): void => {
-  // Make sure that we have something to show and that our element is still in the DOM.
+  // Make sure that we have something to show and that our element is still in the DOM and visible.
+  // Note: our element may, for instance, be in a file tab that was hidden (using visibility: hidden) while our hint
+  //       was pending (e.g., if the user switched to another file tab using the keyboard).
 
   hideHint();
 
-  if (!text || !element.isConnected) {
+  if (
+    !text ||
+    !element.isConnected ||
+    !element.getClientRects().length ||
+    element.checkVisibility?.({ visibilityProperty: true }) === false
+  ) {
     return;
   }
 
@@ -72,6 +136,13 @@ const showHint = (element: HTMLElement, text: string, html: boolean): void => {
     hintElement.className = 'opencor-hint';
     hintElement.textContent = displayedText(text);
   }
+
+  // Note: we measure our hint at the top-left corner of the window, so that its width doesn't depend on where it would
+  //       otherwise be laid out (e.g., if our OpenCOR instance is embedded in a page, away from the left edge of the
+  //       window).
+
+  hintElement.style.left = '0px';
+  hintElement.style.top = '0px';
 
   (element.closest('.opencor') ?? document.body).appendChild(hintElement);
 
@@ -100,18 +171,54 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
       text: binding.value ?? '',
       html: !!binding.modifiers.html,
       timer: undefined,
+      ariaLabel: false,
       onPointerEnter: () => {
+        // Cancel or hide the hint of our hinted ancestors, if any, since ours is to replace it (see Note #6 above).
+
+        for (let ancestor = hintedAncestor(element); ancestor; ancestor = hintedAncestor(ancestor)) {
+          window.clearTimeout(states.get(ancestor)?.timer);
+
+          if (hintOwner === ancestor) {
+            hideHint();
+          }
+        }
+
         window.clearTimeout(state.timer);
 
         state.timer = window.setTimeout(() => {
           showHint(element, state.text, state.html);
         }, HINT_DELAY);
       },
-      onFocus: () => {
-        if (element.matches(':focus-visible')) {
+      onPointerLeave: (event: PointerEvent) => {
+        state.onHide();
+
+        // Show the hint of our hinted ancestor again if we are left for it (see Note #6 above).
+
+        const ancestor = hintedAncestor(element);
+
+        if (ancestor && event.relatedTarget instanceof Node && ancestor.contains(event.relatedTarget)) {
+          states.get(ancestor)?.onPointerEnter();
+        }
+      },
+      onFocusIn: (event: FocusEvent) => {
+        // Show our hint if the focus was set using the keyboard, unless the focused element is within an element that
+        // has its own hint (see Note #6 above).
+
+        if (
+          event.target instanceof Element &&
+          event.target.matches(':focus-visible') &&
+          closestHintedElement(event.target) === element
+        ) {
           window.clearTimeout(state.timer);
 
           showHint(element, state.text, state.html);
+        }
+      },
+      onFocusOut: (event: FocusEvent) => {
+        // Hide our hint, unless the focus remains within our element.
+
+        if (!(event.relatedTarget instanceof Node && element.contains(event.relatedTarget))) {
+          state.onHide();
         }
       },
       onHide: () => {
@@ -125,21 +232,25 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
 
     states.set(element, state);
 
+    updateAriaLabel(element, state);
+
     element.addEventListener('pointerenter', state.onPointerEnter);
-    element.addEventListener('pointerleave', state.onHide);
+    element.addEventListener('pointerleave', state.onPointerLeave);
 
     if (!state.html) {
       element.addEventListener('pointerdown', state.onHide);
     }
 
-    element.addEventListener('focus', state.onFocus);
-    element.addEventListener('blur', state.onHide);
+    element.addEventListener('focusin', state.onFocusIn);
+    element.addEventListener('focusout', state.onFocusOut);
   },
   updated(element, binding) {
     const state = states.get(element);
 
     if (state) {
       state.text = binding.value ?? '';
+
+      updateAriaLabel(element, state);
 
       if (hintOwner === element && hintElement) {
         if (state.text && state.html) {
@@ -159,10 +270,14 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
       state.onHide();
 
       element.removeEventListener('pointerenter', state.onPointerEnter);
-      element.removeEventListener('pointerleave', state.onHide);
+      element.removeEventListener('pointerleave', state.onPointerLeave);
       element.removeEventListener('pointerdown', state.onHide);
-      element.removeEventListener('focus', state.onFocus);
-      element.removeEventListener('blur', state.onHide);
+      element.removeEventListener('focusin', state.onFocusIn);
+      element.removeEventListener('focusout', state.onFocusOut);
+
+      if (state.ariaLabel) {
+        element.removeAttribute('aria-label');
+      }
 
       states.delete(element);
     }

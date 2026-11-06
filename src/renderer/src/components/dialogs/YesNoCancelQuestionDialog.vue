@@ -7,7 +7,7 @@
       <div class="message-dialog-text" v-html="question"></div>
     </div>
     <template #footer>
-      <Button autofocus :label="yesLabel" :severity="severity" @click="$emit('yes')" />
+      <Button autofocus :label="yesLabel" :severity="BUTTON_SEVERITIES[severity]" @click="$emit('yes')" />
       <Button :label="noLabel" severity="secondary" @click="$emit('no')" />
       <Button :label="cancelLabel" severity="secondary" @click="$emit('cancel')" />
     </template>
@@ -43,6 +43,14 @@ defineEmits<{
   no: [];
   cancel: [];
 }>();
+
+// Note: PrimeVue's Button component uses "warn" rather than "warning" as a severity.
+
+const BUTTON_SEVERITIES: Record<Severity, string> = {
+  danger: 'danger',
+  warning: 'warn',
+  info: 'info'
+};
 
 const ICONS: Record<Severity, string> = {
   danger: 'pi pi-exclamation-triangle',

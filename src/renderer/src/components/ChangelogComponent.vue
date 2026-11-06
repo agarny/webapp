@@ -8,7 +8,7 @@
       </div>
       <ul class="changelog-changes">
         <li v-for="(change, index) in entry.changes" :key="index" class="changelog-change">
-          <span class="change-type" :class="`change-type-${change.type}`" v-hint="CHANGE_TYPE_LABELS[change.type]">
+          <span class="change-type" :class="`change-type-${change.type}`" role="img" v-hint="CHANGE_TYPE_LABELS[change.type]">
             <i :class="`pi ${CHANGE_TYPE_ICONS[change.type]}`" />
           </span>
           <span class="changelog-change-description">{{ change.description }}</span>

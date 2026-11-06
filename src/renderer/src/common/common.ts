@@ -80,6 +80,20 @@ export const isCtrlOrCmd = (event: KeyboardEvent): boolean => {
   return isMacOs() ? event.metaKey : event.ctrlKey;
 };
 
+// Some methods to let OpenCOR own the title of its document (e.g., to show the name of the selected file in it, see
+// ContentsComponent.vue), which is only the case when OpenCOR is not used as a library (see main.ts) since the title
+// of a page that embeds OpenCOR is not ours to change.
+
+let _documentTitleOwned = false;
+
+export const ownDocumentTitle = (): void => {
+  _documentTitleOwned = true;
+};
+
+export const isDocumentTitleOwned = (): boolean => {
+  return _documentTitleOwned;
+};
+
 // A method to enable/disable the main menu.
 
 export const enableDisableMainMenu = (enable: boolean): void => {

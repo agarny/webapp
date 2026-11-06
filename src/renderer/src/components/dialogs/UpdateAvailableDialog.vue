@@ -36,7 +36,7 @@
       <div class="update-note">
         <i class="pi pi-info-circle update-note-icon" />
         <span v-if="electronApi">
-          OpenCOR will download and install the update, and then restart. You will first be asked whether to save the files that have been modified, if any.
+          OpenCOR will download and install the update, and then restart. Once the update has been downloaded, you will be asked whether to save the files that have been modified, if any.
         </span>
         <span v-else>
           Reloading OpenCOR will apply the update. You will first be asked whether to save the files that have been modified, if any.

@@ -10,6 +10,7 @@
               :accent="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'primary' : 'warning'"
               :label="(simulationStatus === locSedApi.ESedInstanceStatus.IDLE ? 'Run' : simulationStatus === locSedApi.ESedInstanceStatus.RUNNING ? 'Pause' : 'Resume') + ' simulation'"
               shortcut="F9"
+              :disabled="isFinishing"
               @click="onRunPause"
             />
             <ToolbarButtonWidget
@@ -19,9 +20,15 @@
               :disabled="simulationStatus === locSedApi.ESedInstanceStatus.IDLE"
               @click="onStop"
             />
-            <span v-if="runStatus" class="run-status" :class="`run-status-${runStatus.type}`">
-              <i :class="runStatus.icon"></i>
-              <span>{{ runStatus.label }}</span>
+            <!--
+            Note: our run status is in a live region (which must exist before its contents change for them to get
+                  announced by assistive technologies), which doesn't affect our layout.
+            -->
+            <span class="contents" role="status">
+              <span v-if="runStatus" class="run-status" :class="`run-status-${runStatus.type}`">
+                <i :class="runStatus.icon"></i>
+                <span>{{ runStatus.label }}</span>
+              </span>
             </span>
           </div>
         </template>
@@ -50,6 +57,7 @@
                         <FloatLabel variant="on">
                           <Select
                             v-model="xParameter"
+                            ariaLabel="X axis"
                             editable
                             filter
                             filterMode="lenient"
@@ -64,6 +72,7 @@
                         <FloatLabel variant="on">
                           <Select
                             v-model="yParameter"
+                            ariaLabel="Y axis"
                             editable
                             filter
                             filterMode="lenient"
@@ -176,9 +185,17 @@ interface ILastRun {
 
 const lastRun = vue.ref<ILastRun | null>(null);
 
-// Whether our simulation run is finishing, i.e. whether its run is over, but its results have yet to be plotted.
+// Whether our simulation run is finishing, i.e. whether its run is over, but its results have yet to be plotted and our
+// UI to be painted with them (see onRunPause()), during which a new run cannot be started.
 
 const isFinishing = vue.ref<boolean>(false);
+
+// The status of our simulation run.
+// Note: our console is not shown when we are in simulation-only mode, so we only refer to it when it is shown.
+
+const seeConsole = vue.computed<string>(() => {
+  return simulationOnly.value ? '' : ' (see console)';
+});
 
 const runStatus = vue.computed<{ type: string; icon: string; label: string } | null>(() => {
   const percentage = Math.round(progress.value);
@@ -199,11 +216,15 @@ const runStatus = vue.computed<{ type: string; icon: string; label: string } | n
         label: `Completed in ${common.formatTime(lastRun.value.time ?? 0)}`
       };
     case 'issues':
-      return { type: 'issues', icon: 'pi pi-exclamation-triangle', label: 'Completed with issues (see console)' };
+      return {
+        type: 'issues',
+        icon: 'pi pi-exclamation-triangle',
+        label: `Completed with issues${seeConsole.value}`
+      };
     case 'stopped':
       return { type: 'stopped', icon: 'pi pi-stop-circle', label: 'Stopped' };
     case 'failed':
-      return { type: 'failed', icon: 'pi pi-times-circle', label: 'Failed (see console)' };
+      return { type: 'failed', icon: 'pi pi-times-circle', label: `Failed${seeConsole.value}` };
     default:
       return null;
   }
@@ -426,13 +447,19 @@ const copyToClipboard = vueCommon.useCopyToClipboard();
 
 const copyConsole = (): void => {
   // biome-ignore lint/performance/useDomNodeTextContent: we need the rendered text (e.g., <br /> as a line break)
-  void copyToClipboard.copy((editorRef.value?.innerText ?? '').replace(/ /g, ' '));
+  void copyToClipboard.copy((editorRef.value?.innerText ?? '').replace(/\u00a0/g, ' '));
 };
 
 // Clear our console, i.e. only keep its initial contents (i.e. the path of our file).
+// Note: the status of our last run may refer to our console (i.e. if our simulation has issues or has failed), in which
+//       case we also hide it since our console doesn't contain the details of our last run anymore.
 
 const clearConsole = (): void => {
   consoleContents.value = initialConsoleContents;
+
+  if (lastRun.value?.outcome === 'issues' || lastRun.value?.outcome === 'failed') {
+    lastRun.value = null;
+  }
 };
 
 // A helper function to scroll our console to the bottom.
@@ -502,6 +529,13 @@ const onRunPause = async (): Promise<void> => {
       liveData = null;
       lastRun.value = null;
 
+      // Cancel the reset of our progress bar by our previous run, if any, so that it doesn't reset the progress bar of
+      // our new run.
+
+      clearTimeout(progressResetTimer);
+
+      progressResetTimer = undefined;
+
       // Start the simulation.
 
       if (!instance?.startRun()) {
@@ -512,17 +546,21 @@ const onRunPause = async (): Promise<void> => {
 
       simulationStatus.value = instance?.status() ?? locSedApi.ESedInstanceStatus.IDLE;
 
-      // Wait for the simulation to finish, handling pause/resume cycles asynchronously so that the UI remains responsive.
+      // Wait for the simulation to finish, handling pause/resume cycles asynchronously so that the UI remains
+      // responsive.
 
       const numberOfSteps = uniformTimeCourse?.numberOfSteps() ?? 0;
       let lastPlottingAreaUpdateTime = Date.now();
+      let runIsOver = false;
 
       const { promise: runPromise, cancel: runCancel } = vueCommon.waitWhileRunning(
         instance,
         (newProgress: number) => {
-          // Update the progress bar, unless our run is finishing, in which case we take care of it (see below).
+          // Update the progress bar, unless our run is over, in which case we take care of it (see below), i.e. we
+          // ignore the (delayed) reset of the progress bar by waitWhileRunning(), which could otherwise reset the
+          // progress bar of our next run.
 
-          if (isFinishing.value) {
+          if (runIsOver) {
             return;
           }
 
@@ -563,6 +601,7 @@ const onRunPause = async (): Promise<void> => {
       } catch (error: unknown) {
         runError = error;
       } finally {
+        runIsOver = true;
         isWaitingOnRun = false;
 
         progressResetCancel = undefined;
@@ -635,41 +674,51 @@ const onRunPause = async (): Promise<void> => {
         }
       }
 
-      // Update the console with any issues that occurred during the simulation, or display the simulation time if it
-      // completed successfully.
+      // Retrieve and report the outcome of our simulation, and plot its results.
+      // Note: this may fail (e.g., if libOpenCOR throws an exception), in which case we report the error, and still
+      //       finish our run (see below), so that a new run can be started.
 
-      if (instance.hasIssues()) {
-        const instanceIssues = instance.issues();
+      try {
+        // Update the console with any issues that occurred during the simulation, or display the simulation time if it
+        // completed successfully.
+        // Note: a simulation that was stopped may also have issues, in which case it is considered as having failed if
+        //       one of them is an error, and as having been stopped otherwise.
 
-        lastRun.value = {
-          outcome: instanceIssues.some((issue: locApi.IIssue) => issue.type === locApi.EIssueType.ERROR)
-            ? 'failed'
-            : 'issues'
-        };
+        if (instance.hasIssues()) {
+          const instanceIssues = instance.issues();
 
-        instanceIssues.forEach((issue: locApi.IIssue) => {
-          const color =
-            issue.type === locApi.EIssueType.ERROR
-              ? colors.REVERTED_PALETTE.Red
-              : issue.type === locApi.EIssueType.WARNING
-                ? colors.REVERTED_PALETTE.Orange
-                : colors.REVERTED_PALETTE.Blue;
-          const issueType =
-            issue.type === locApi.EIssueType.ERROR
-              ? 'Error'
-              : issue.type === locApi.EIssueType.WARNING
-                ? 'Warning'
-                : 'Info';
-          const issueDescription = issue.description.replace('Task | ', '');
+          lastRun.value = {
+            outcome: instanceIssues.some((issue: locApi.IIssue) => issue.type === locApi.EIssueType.ERROR)
+              ? 'failed'
+              : runAborted.value
+                ? 'stopped'
+                : 'issues'
+          };
 
-          consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${color};"><strong>${issueType}:</strong> ${issueDescription}</span>`;
-        });
-      } else {
-        const simulationTime = instance.waitForRun();
+          instanceIssues.forEach((issue: locApi.IIssue) => {
+            const color =
+              issue.type === locApi.EIssueType.ERROR
+                ? colors.REVERTED_PALETTE.Red
+                : issue.type === locApi.EIssueType.WARNING
+                  ? colors.REVERTED_PALETTE.Orange
+                  : colors.REVERTED_PALETTE.Blue;
+            const issueType =
+              issue.type === locApi.EIssueType.ERROR
+                ? 'Error'
+                : issue.type === locApi.EIssueType.WARNING
+                  ? 'Warning'
+                  : 'Info';
+            const issueDescription = issue.description.replace('Task | ', '');
 
-        lastRun.value = runAborted.value ? { outcome: 'stopped' } : { outcome: 'completed', time: simulationTime };
+            consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${color};"><strong>${issueType}:</strong> ${issueDescription}</span>`;
+          });
+        } else {
+          const simulationTime = instance.waitForRun();
 
-        consoleContents.value += `<br />&nbsp;&nbsp;<strong>Simulation time:</strong> <span style="color: ${colors.REVERTED_PALETTE.Blue};">${common.formatTime(simulationTime)}</span>`;
+          lastRun.value = runAborted.value ? { outcome: 'stopped' } : { outcome: 'completed', time: simulationTime };
+
+          consoleContents.value += `<br />&nbsp;&nbsp;<strong>Simulation time:</strong> <span style="color: ${colors.REVERTED_PALETTE.Blue};">${common.formatTime(simulationTime)}</span>`;
+        }
 
         if (runAborted.value) {
           // Reset the progress bar after a short delay (mimicking the normal end of a simulation).
@@ -679,11 +728,22 @@ const onRunPause = async (): Promise<void> => {
 
             progress.value = 0;
           }, MEDIUM_DELAY);
+        } else {
+          updatePlot();
         }
-      }
+      } catch (error: unknown) {
+        // Reset our live data and, if our run was aborted (i.e. it is not finishing), our progress bar (otherwise, it
+        // gets reset below).
 
-      if (!runAborted.value) {
-        updatePlot();
+        liveData = null;
+
+        if (!isFinishing.value) {
+          progress.value = 0;
+        }
+
+        lastRun.value = { outcome: 'failed' };
+
+        addConsoleError(error);
       }
 
       // Our run is over and its results have been plotted, so reset our progress bar after a short delay, so that

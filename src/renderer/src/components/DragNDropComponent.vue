@@ -16,9 +16,10 @@
 import * as vue from 'vue';
 
 // The drop zone that is shown when some files are being dragged over OpenCOR.
-// Note #1: our contents ignore pointer events, so that we are the only target of drag events (see the drag and drop
-//          section in OpenCOR.vue), which means that we only get left when the files being dragged leave OpenCOR or
-//          when the drag gets cancelled.
+// Note #1: we cover the whole of OpenCOR, including any overlay that is open (e.g., a popover), and our contents ignore
+//          pointer events, so that we are the only target of drag events (see the drag and drop section in
+//          OpenCOR.vue), which means that we only get left when the files being dragged leave OpenCOR or when the drag
+//          gets cancelled.
 // Note #2: the number of files being dragged may not be known (e.g., some browsers don't tell us until the files are
 //          dropped), in which case it is zero and we show a generic message.
 
@@ -49,25 +50,29 @@ const text = vue.computed<string>(() => {
 
 <style scoped>
 /**
- * Note: we may be shown in a small container (e.g., when OpenCOR is embedded in a page alongside other OpenCOR
- *       instances), so we adapt our message to the size of our container.
+ * Note #1: we may be shown in a small container (e.g., when OpenCOR is embedded in a page alongside other OpenCOR
+ *          instances), so we adapt our frame and our message to our size, i.e. we are our own size container. Since a
+ *          container query cannot style its container, the space around our frame comes from our frame being inset
+ *          (which our container query can reduce) rather than from our padding.
+ * Note #2: we are above our overlay container (which has a z-index of 99999, see vueCommon.ts), so that we also cover
+ *          any overlay that is open (e.g., a popover or a context menu).
  */
 
 .drop-zone {
   position: absolute;
   inset: 0;
-  z-index: 99999;
-  padding: 0.5rem;
+  z-index: 100000;
   background-color: color-mix(in srgb, var(--p-content-background) 70%, transparent);
   backdrop-filter: blur(2px);
   container-type: size;
 }
 
 .drop-zone-frame {
+  position: absolute;
+  inset: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
   overflow: hidden;
   border: 2px dashed var(--p-primary-color);
   border-radius: 0.75rem;
@@ -122,8 +127,8 @@ const text = vue.computed<string>(() => {
 }
 
 @container (height < 6rem) {
-  .drop-zone {
-    padding: 0.25rem;
+  .drop-zone-frame {
+    inset: 0.25rem;
   }
 
   .drop-zone-message {

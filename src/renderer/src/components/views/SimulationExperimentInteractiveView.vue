@@ -51,6 +51,7 @@
                         label="Reset all simulation inputs"
                         small
                         tooltipAlign="end"
+                        keepFocus
                         :disabled="allSimulationInputsAtDefaultValues"
                         @click="onResetInputs"
                       />
@@ -116,14 +117,13 @@
                           {{ run.isLiveRun ? 'Live run' : `Run #${index}` }}
                         </div>
                         <div class="run-actions">
-                          <ToolbarButtonWidget class="run-visibility-button"
-                            :icon="run.isVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"
+                          <ToolbarButtonWidget :icon="run.isVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"
                             :label="`${run.isVisible ? 'Hide' : 'Show'} ${run.isLiveRun ? 'live run' : 'run'}`"
                             small
                             tooltipAlign="end"
                             @click="onToggleRun(index)"
                           />
-                          <ToolbarButtonWidget v-if="!run.isLiveRun" class="run-remove-button"
+                          <ToolbarButtonWidget v-if="!run.isLiveRun"
                             icon="pi pi-times"
                             label="Remove run"
                             small
@@ -160,7 +160,7 @@
                   @marginsUpdated="(newMargins: IGraphPanelMargins) => onMarginsUpdated(`plot_${index}`, newMargins)"
                 />
               </div>
-              <IssuesView v-show="simulationIssues.length" class="absolute inset-0 m-4 ml-0" :issues="simulationIssues" />
+              <IssuesView v-show="simulationIssues.length" class="absolute inset-0 m-4" :issues="simulationIssues" />
             </div>
           </div>
         </div>
@@ -1918,6 +1918,8 @@ const onTrackRun = (): void => {
   }
 
   // Compute the tooltip for this run, keeping in mind that some simulation inputs may not be visible.
+  // Note: our tooltip is a rich hint (see common/hint.ts), so we escape the name and value of our simulation inputs,
+  //       which come from our UI JSON (i.e. from our file) and are shown as plain text elsewhere (see InputWidget.vue).
 
   const tooltipRows: string[] = [];
 
@@ -1946,14 +1948,9 @@ const onTrackRun = (): void => {
       }
     }
 
-    tooltipRows.push(`<tr style="vertical-align: top;">
-      <td style="font-weight: bold;">
-        ${input.name}:
-      </td>
-      <td style="padding-left: 8px;">
-        ${inputValue}
-      </td>
-    </tr>`);
+    tooltipRows.push(
+      `<tr><th>${common.escapeHtml(input.name)}:</th><td>${common.escapeHtml(String(inputValue ?? ''))}</td></tr>`
+    );
   }
 
   const tooltip = `<table>
@@ -2270,8 +2267,8 @@ const allSimulationInputsAtDefaultValues = vue.computed<boolean>(() => {
 const onResetInputs = (): void => {
   // Discard any value that is being edited, so that it doesn't get committed (and simulated) once its input loses the
   // focus.
-  // Note: our reset button doesn't take the focus when clicked, so that the input that has the focus (if any) doesn't
-  //       commit its value before we get here.
+  // Note: our reset button keeps the focus where it is when clicked (see its keepFocus property), so that the input
+  //       that has the focus (if any) doesn't commit its value before we get here.
 
   for (const inputWidget of inputWidgetsRef.value) {
     inputWidget.discardEdit();
@@ -2491,8 +2488,13 @@ vue.onMounted(() => {
   white-space: nowrap;
 }
 
+/**
+ * Note: we only fade the icon of the colour button of a hidden run since fading the button itself would also fade its
+ *       tooltip (see ToolbarButtonWidget.vue).
+ */
+
 .run-row-hidden .run-name,
-.run-row-hidden .run-color-button {
+.run-row-hidden .run-color-button :deep(.toolbar-button-icon) {
   opacity: 0.45;
 }
 

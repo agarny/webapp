@@ -2,6 +2,7 @@
   <FloatLabel variant="on" :class="rootAttrs.class" :style="rootAttrs.style">
     <span :class="rootClass">
       <InputText ref="inputElement" :model-value="internalValue" class="p-inputnumber-input w-full"
+        :aria-label="label"
         v-bind="inputAttrs"
         v-keyfilter="{ pattern: /^[+-]?(\d*(\.\d*)?|\.\d*)([eE][+-]?\d*)?$/ }"
         @update:model-value="onUpdateModelValue"
@@ -70,6 +71,9 @@ import { vHint } from '../../common/hint';
 defineOptions({
   inheritAttrs: false
 });
+
+// Note: our label is not associated with our input field (i.e. it has no `for` attribute), so it is also used as the
+//       accessible name of our input field (unless our owner gives it one).
 
 const props = defineProps<{
   modelValue: number | undefined;
@@ -580,9 +584,9 @@ vue.onBeforeUnmount(() => {
 }
 
 /**
- * Note: we use some of the class names of PrimeVue's InputNumber component, whose (global) styles get injected as soon
- *       as it is used somewhere (e.g., in our property editors), so we make sure that the properties that it sets and
- *       that matter to us are set here too.
+ * Note: we use some of the class names of PrimeVue's InputNumber component, whose (global) styles only get injected if
+ *       it is used somewhere (e.g., by a host application, if we are used as a library), so we make sure that the
+ *       properties that it sets and that matter to us are set here too.
  */
 
 .p-inputnumber-button {
