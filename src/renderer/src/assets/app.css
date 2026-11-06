@@ -43,21 +43,23 @@ body {
     --opencor-scrollbar-color: var(--p-surface-300);
 
     /**
-     * The shadows of our overlays (e.g., the menus of our main menu, our context menus, or our popovers) and of our
-     * cards (e.g., our blocking message or our toasts).
+     * The shadows of our overlays (e.g., the menus of our main menu, our context menus, our popovers, or our hints) and
+     * of our cards (e.g., our blocking message or our toasts).
      */
 
     --opencor-overlay-shadow: 0 8px 24px -4px rgb(0 0 0 / 12%), 0 2px 6px -2px rgb(0 0 0 / 8%);
     --opencor-card-shadow: 0 0.25rem 1rem rgb(0 0 0 / 12%);
 
     /**
-     * The colours of our hints (e.g., the tooltip of our toolbar buttons), which are dark in both light and dark modes.
+     * The colours of our hints (e.g., the tooltip of our toolbar buttons), which are those of PrimeVue's popovers, so
+     * that our hints look like our other overlays (e.g., our menus and popovers) in both light and dark modes.
      */
 
-    --opencor-hint-background: var(--p-surface-800);
-    --opencor-hint-border-color: transparent;
-    --opencor-hint-color: var(--p-surface-0);
-    --opencor-hint-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+    --opencor-hint-background: var(--p-overlay-popover-background);
+    --opencor-hint-border-color: var(--p-overlay-popover-border-color);
+    --opencor-hint-color: var(--p-overlay-popover-color);
+    --opencor-hint-muted-color: var(--p-text-muted-color);
+    --opencor-hint-code-background: var(--p-content-hover-background);
 
     /**
      * Our severity colours, which are those of PrimeVue's Message component (Aura theme).
@@ -258,8 +260,8 @@ body {
 .opencor-dark-mode .opencor {
   --px-mask-background: rgb(0 0 0 / 50%);
   --opencor-scrollbar-color: var(--p-surface-600);
-  --opencor-hint-background: var(--p-surface-700);
-  --opencor-hint-border-color: var(--p-surface-600);
+  --opencor-overlay-shadow: 0 8px 24px -4px rgb(0 0 0 / 50%), 0 2px 6px -2px rgb(0 0 0 / 40%);
+  --opencor-card-shadow: 0 0.25rem 1rem rgb(0 0 0 / 50%);
   --opencor-success-background: color-mix(in sRGB, var(--p-green-500), transparent 84%);
   --opencor-success-border-color: color-mix(in sRGB, var(--p-green-700), transparent 64%);
   --opencor-success-color: var(--p-green-500);
@@ -336,7 +338,7 @@ body {
   border: 1px solid var(--opencor-hint-border-color);
   border-radius: 0.375rem;
   background-color: var(--opencor-hint-background);
-  box-shadow: var(--opencor-hint-shadow);
+  box-shadow: var(--opencor-overlay-shadow);
   color: var(--opencor-hint-color);
   font-size: 0.75rem;
   font-weight: 500;
@@ -360,7 +362,7 @@ body {
   code {
     padding: 0 0.1875rem;
     border-radius: 0.25rem;
-    background-color: rgb(255 255 255 / 12%);
+    background-color: var(--opencor-hint-code-background);
     font-size: 0.6875rem;
   }
 

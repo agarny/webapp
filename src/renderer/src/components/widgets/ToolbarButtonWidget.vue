@@ -131,7 +131,7 @@ const tooltipSuppressed = vue.ref<boolean>(false);
   z-index: 1000;
   border: 1px solid var(--opencor-hint-border-color);
   background-color: var(--opencor-hint-background);
-  box-shadow: var(--opencor-hint-shadow);
+  box-shadow: var(--opencor-overlay-shadow);
   color: var(--opencor-hint-color);
   font-weight: 500;
   visibility: hidden;
@@ -166,7 +166,7 @@ const tooltipSuppressed = vue.ref<boolean>(false);
 }
 
 .toolbar-button-shortcut {
-  color: var(--p-surface-400);
+  color: var(--opencor-hint-muted-color);
   font-size: inherit;
 }
 </style>
