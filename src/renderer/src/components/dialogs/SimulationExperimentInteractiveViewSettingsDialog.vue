@@ -595,7 +595,7 @@
 
       <template #footer>
         <div class="w-full flex items-center gap-4">
-          <Popover ref="issuesPopoverRef" class="issues-popover" :appendTo="appendTarget"
+          <Popover ref="issuesPopoverRef" :appendTo="appendTarget"
             @show="issuesPopoverVisible = true"
             @hide="issuesPopoverVisible = false"
           >
@@ -1841,14 +1841,6 @@ const toggleIssues = (event: Event) => {
 
 .text-muted-color {
   color: var(--p-text-muted-color);
-}
-
-/**
- * Note: our issues view has its own padding, so our popover doesn't need any.
- */
-
-:global(.issues-popover .p-popover-content) {
-  padding: 0;
 }
 
 :global(.p-popover .issues-popover-content) {

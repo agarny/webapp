@@ -180,7 +180,7 @@
         />
       </Teleport>
       <Popover ref="runColorPopoverRef" :appendTo="appendTarget">
-        <div class="flex p-1.5 gap-2">
+        <div class="flex p-2 gap-2">
           <button class="color-swatch cursor-pointer w-6 h-6 outline-2 outline-transparent rounded-md"
             v-for="(name, color) in colors.PALETTE" :key="color"
             :style="`background-color: ${color};`"
