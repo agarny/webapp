@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" class="simulation-experiment-view toolbar-based-view h-full flex flex-col">
+  <div ref="rootRef" class="simulation-experiment-view standard-view toolbar-based-view h-full flex flex-col">
     <IssuesView v-if="issues.length" class="m-4 mb-0" style="height: calc(100% - 2rem);" :issues="issues" />
     <template v-else>
       <Toolbar class="shrink-0">
@@ -19,6 +19,10 @@
               :disabled="simulationStatus === locSedApi.ESedInstanceStatus.IDLE"
               @click="onStop"
             />
+            <span v-if="runStatus" class="run-status" :class="`run-status-${runStatus.type}`">
+              <i :class="runStatus.icon"></i>
+              <span>{{ runStatus.label }}</span>
+            </span>
           </div>
         </template>
         <template #end>
@@ -28,45 +32,55 @@
           </div>
         </template>
       </Toolbar>
+      <ProgressBar class="run-progress" :class="{ 'run-progress-visible': progress > 0 }" :showValue="false" :value="progress" />
       <div class="grow flex flex-col min-h-0">
         <Splitter class="border-none! flex-1 m-0 min-h-0" layout="vertical">
           <SplitterPanel :size="simulationOnly ? 100 : 89">
             <Splitter>
-              <SplitterPanel class="ml-4 mr-4 mb-4 min-w-fit" :size="25">
+              <SplitterPanel class="min-w-56" :size="17">
                 <ScrollPanel class="h-full">
-                  <SimulationPropertyEditor v-if="instanceTask && uniformTimeCourse" :uniformTimeCourse="uniformTimeCourse" :instanceTask="instanceTask" :disabled="simulationSettingsDisabled" />
-                  <!-- <SolversPropertyEditor />
-                  <GraphsPropertyEditor />
-                  <ParametersPropertyEditor /> -->
-                  <Fieldset legend="X Axis">
-                    <Select
-                      v-model="xParameter"
-                      editable
-                      filter
-                      filterMode="lenient"
-                      :options="parameters"
-                      size="small"
-                      class="w-full"
-                      :appendTo="appendTarget"
-                      @change="onParameterChange"
-                    />
-                  </Fieldset>
-                  <Fieldset legend="Y Axis">
-                    <Select
-                      v-model="yParameter"
-                      editable
-                      filter
-                      filterMode="lenient"
-                      :options="parameters"
-                      size="small"
-                      class="w-full"
-                      :appendTo="appendTarget"
-                      @change="onParameterChange"
-                    />
-                  </Fieldset>
+                  <div class="side-panel">
+                    <SimulationPropertyEditor v-if="instanceTask && uniformTimeCourse" :uniformTimeCourse="uniformTimeCourse" :instanceTask="instanceTask" :disabled="simulationSettingsDisabled" />
+                    <!-- <SolversPropertyEditor />
+                    <GraphsPropertyEditor />
+                    <ParametersPropertyEditor /> -->
+                    <section class="side-panel-section">
+                      <h3 class="opencor-section-title opencor-section-title-small">Plot</h3>
+                      <div class="side-panel-fields">
+                        <FloatLabel variant="on">
+                          <Select
+                            v-model="xParameter"
+                            editable
+                            filter
+                            filterMode="lenient"
+                            :options="parameters"
+                            size="small"
+                            class="w-full"
+                            :appendTo="appendTarget"
+                            @change="onParameterChange"
+                          />
+                          <label>X axis</label>
+                        </FloatLabel>
+                        <FloatLabel variant="on">
+                          <Select
+                            v-model="yParameter"
+                            editable
+                            filter
+                            filterMode="lenient"
+                            :options="parameters"
+                            size="small"
+                            class="w-full"
+                            :appendTo="appendTarget"
+                            @change="onParameterChange"
+                          />
+                          <label>Y axis</label>
+                        </FloatLabel>
+                      </div>
+                    </section>
+                  </div>
                 </ScrollPanel>
               </SplitterPanel>
-              <SplitterPanel :size="75">
+              <SplitterPanel :size="83">
                 <GraphPanelWidget
                   :key="'standard-graph-panel'"
                   :data="data"
@@ -75,11 +89,28 @@
               </SplitterPanel>
             </Splitter>
           </SplitterPanel>
-          <SplitterPanel v-if="!simulationOnly" :size="11">
-            <div ref="editorRef" class="h-full console overflow-y-auto px-2 py-1 leading-[1.42] text-[13px]" v-html="consoleContents"></div>
+          <SplitterPanel v-if="!simulationOnly" class="flex flex-col min-h-0" :size="11">
+            <div class="console-header">
+              <span class="opencor-section-title opencor-section-title-small">Console</span>
+              <div class="flex gap-0.5">
+                <ToolbarButtonWidget
+                  v-bind="copyToClipboard.buttonProps('Copy console')"
+                  small
+                  tooltipAlign="end"
+                  @click="copyConsole"
+                />
+                <ToolbarButtonWidget
+                  icon="pi pi-eraser"
+                  label="Clear console"
+                  small
+                  tooltipAlign="end"
+                  @click="clearConsole"
+                />
+              </div>
+            </div>
+            <div ref="editorRef" class="grow min-h-0 console overflow-y-auto px-3 pb-1.5 leading-[1.42] text-[13px] select-text" v-html="consoleContents"></div>
           </SplitterPanel>
         </Splitter>
-        <ProgressBar class="h-0.75!" :showValue="false" :value="progress" />
       </div>
     </template>
   </div>
@@ -90,7 +121,7 @@ import * as vue from 'vue';
 
 import * as colors from '../../common/colors';
 import * as common from '../../common/common';
-import { MEDIUM_DELAY } from '../../common/constants';
+import { MEDIUM_DELAY, TOAST_LIFE } from '../../common/constants';
 import * as locCommon from '../../common/locCommon';
 import * as vueCommon from '../../common/vueCommon';
 import * as locApi from '../../libopencor/locApi';
@@ -131,9 +162,73 @@ const data = vue.ref<IGraphPanelData>({
   traces: []
 });
 
-const consoleContents = vue.ref<string>(`<b>${props.file.path()}</b>`);
+const initialConsoleContents = `<b>${props.file.path()}</b>`;
+const consoleContents = vue.ref<string>(initialConsoleContents);
 const progress = vue.ref<number>(0);
 const simulationStatus = vue.ref<locSedApi.ESedInstanceStatus>(instance?.status() ?? locSedApi.ESedInstanceStatus.IDLE);
+
+// The outcome of our last simulation run, if any, and the status of our simulation, which we show in our toolbar.
+
+interface ILastRun {
+  outcome: 'completed' | 'issues' | 'stopped' | 'failed';
+  time?: number;
+}
+
+const lastRun = vue.ref<ILastRun | null>(null);
+
+// Whether our simulation run is finishing, i.e. whether its run is over, but its results have yet to be plotted.
+
+const isFinishing = vue.ref<boolean>(false);
+
+const runStatus = vue.computed<{ type: string; icon: string; label: string } | null>(() => {
+  const percentage = Math.round(progress.value);
+
+  if (simulationStatus.value === locSedApi.ESedInstanceStatus.RUNNING || isFinishing.value) {
+    return { type: 'running', icon: 'pi pi-hourglass', label: `Running… ${percentage}%` };
+  }
+
+  if (simulationStatus.value === locSedApi.ESedInstanceStatus.PAUSED) {
+    return { type: 'paused', icon: 'pi pi-pause', label: `Paused at ${percentage}%` };
+  }
+
+  switch (lastRun.value?.outcome) {
+    case 'completed':
+      return {
+        type: 'completed',
+        icon: 'pi pi-check-circle',
+        label: `Completed in ${common.formatTime(lastRun.value.time ?? 0)}`
+      };
+    case 'issues':
+      return { type: 'issues', icon: 'pi pi-exclamation-triangle', label: 'Completed with issues (see console)' };
+    case 'stopped':
+      return { type: 'stopped', icon: 'pi pi-stop-circle', label: 'Stopped' };
+    case 'failed':
+      return { type: 'failed', icon: 'pi pi-times-circle', label: 'Failed (see console)' };
+    default:
+      return null;
+  }
+});
+
+// Hide the status of our last run after a while (i.e. as long as a toast would be shown) if it is only a confirmation
+// (i.e. our simulation has either completed or been stopped), but keep it if it requires people's attention (i.e. our
+// simulation has issues or has failed).
+
+let runStatusTimer: ReturnType<typeof setTimeout> | undefined;
+
+vue.watch(
+  () => runStatus.value?.type,
+  (type) => {
+    clearTimeout(runStatusTimer);
+
+    if (type === 'completed' || type === 'stopped') {
+      runStatusTimer = setTimeout(() => {
+        runStatusTimer = undefined;
+
+        lastRun.value = null;
+      }, TOAST_LIFE);
+    }
+  }
+);
 
 const simulationSettingsDisabled = vue.computed<boolean>(() => {
   return simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE;
@@ -141,7 +236,7 @@ const simulationSettingsDisabled = vue.computed<boolean>(() => {
 
 const runAborted = vue.ref(false);
 let progressResetCancel: (() => void) | undefined;
-let abortProgressTimer: ReturnType<typeof setTimeout> | undefined;
+let progressResetTimer: ReturnType<typeof setTimeout> | undefined;
 const appendTarget = vueCommon.useAppendTarget(rootRef as unknown as vue.Ref<HTMLElement | null>);
 
 if (instanceTask) {
@@ -323,6 +418,23 @@ const releaseResources = async (): Promise<void> => {
   }
 };
 
+// Copy the contents of our console, as plain text, to the clipboard, so that they can easily be included in an issue
+// report, for instance.
+// Note: our console uses non-breaking spaces to indent its messages, so we replace them with normal spaces.
+
+const copyToClipboard = vueCommon.useCopyToClipboard();
+
+const copyConsole = (): void => {
+  // biome-ignore lint/performance/useDomNodeTextContent: we need the rendered text (e.g., <br /> as a line break)
+  void copyToClipboard.copy((editorRef.value?.innerText ?? '').replace(/ /g, ' '));
+};
+
+// Clear our console, i.e. only keep its initial contents (i.e. the path of our file).
+
+const clearConsole = (): void => {
+  consoleContents.value = initialConsoleContents;
+};
+
 // A helper function to scroll our console to the bottom.
 
 const scrollConsoleToBottom = (): void => {
@@ -342,9 +454,10 @@ const addConsoleError = (error: unknown): void => {
 // Event handlers.
 
 const onRunPause = async (): Promise<void> => {
-  // Make sure that we have an instance (we don't if our document has issues).
+  // Make sure that we have an instance (we don't if our document has issues) and that our previous run, if any, is not
+  // finishing (i.e. that its results have been plotted).
 
-  if (!instance) {
+  if (!instance || isFinishing.value) {
     return;
   }
 
@@ -387,6 +500,7 @@ const onRunPause = async (): Promise<void> => {
 
       runAborted.value = false;
       liveData = null;
+      lastRun.value = null;
 
       // Start the simulation.
 
@@ -406,7 +520,11 @@ const onRunPause = async (): Promise<void> => {
       const { promise: runPromise, cancel: runCancel } = vueCommon.waitWhileRunning(
         instance,
         (newProgress: number) => {
-          // Update the progress bar.
+          // Update the progress bar, unless our run is finishing, in which case we take care of it (see below).
+
+          if (isFinishing.value) {
+            return;
+          }
 
           progress.value = newProgress;
 
@@ -489,17 +607,47 @@ const onRunPause = async (): Promise<void> => {
         simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
         progress.value = 0;
         liveData = null;
+        lastRun.value = { outcome: 'failed' };
 
         addConsoleError(runError);
 
         return;
       }
 
+      // Let people see that our simulation has completed (i.e. that its progress is 100%) before we retrieve and plot
+      // its results, which may take a while (e.g., for a long simulation) and during which our UI cannot be updated.
+      // Note: we wait for our UI to be painted with a progress of 100%. We also need to be told if we get unmounted in
+      //       the meantime, in which case our resources have to be released by us (see onUnmounted() below).
+
+      if (!runAborted.value) {
+        isFinishing.value = true;
+        progress.value = 100;
+        isWaitingOnRun = true;
+
+        await common.waitForNextPaint();
+
+        isWaitingOnRun = false;
+
+        if (isUnmounted) {
+          await releaseResources();
+
+          return;
+        }
+      }
+
       // Update the console with any issues that occurred during the simulation, or display the simulation time if it
       // completed successfully.
 
       if (instance.hasIssues()) {
-        instance.issues().forEach((issue: locApi.IIssue) => {
+        const instanceIssues = instance.issues();
+
+        lastRun.value = {
+          outcome: instanceIssues.some((issue: locApi.IIssue) => issue.type === locApi.EIssueType.ERROR)
+            ? 'failed'
+            : 'issues'
+        };
+
+        instanceIssues.forEach((issue: locApi.IIssue) => {
           const color =
             issue.type === locApi.EIssueType.ERROR
               ? colors.REVERTED_PALETTE.Red
@@ -519,13 +667,15 @@ const onRunPause = async (): Promise<void> => {
       } else {
         const simulationTime = instance.waitForRun();
 
+        lastRun.value = runAborted.value ? { outcome: 'stopped' } : { outcome: 'completed', time: simulationTime };
+
         consoleContents.value += `<br />&nbsp;&nbsp;<strong>Simulation time:</strong> <span style="color: ${colors.REVERTED_PALETTE.Blue};">${common.formatTime(simulationTime)}</span>`;
 
         if (runAborted.value) {
           // Reset the progress bar after a short delay (mimicking the normal end of a simulation).
 
-          abortProgressTimer = setTimeout(() => {
-            abortProgressTimer = undefined;
+          progressResetTimer = setTimeout(() => {
+            progressResetTimer = undefined;
 
             progress.value = 0;
           }, MEDIUM_DELAY);
@@ -534,6 +684,28 @@ const onRunPause = async (): Promise<void> => {
 
       if (!runAborted.value) {
         updatePlot();
+      }
+
+      // Our run is over and its results have been plotted, so reset our progress bar after a short delay, so that
+      // people can see that our simulation has completed.
+      // Note: our plot gets rendered after our UI has been updated, which may also take a while, so we wait for it to
+      //       be rendered before starting our delay (otherwise our delay may be over before our UI gets rendered
+      //       again).
+
+      if (isFinishing.value) {
+        await common.waitForNextPaint();
+
+        if (isUnmounted) {
+          return;
+        }
+
+        isFinishing.value = false;
+
+        progressResetTimer = setTimeout(() => {
+          progressResetTimer = undefined;
+
+          progress.value = 0;
+        }, MEDIUM_DELAY);
       }
 
       scrollConsoleToBottom();
@@ -564,7 +736,8 @@ vue.onUnmounted(() => {
 
   progressResetCancel?.();
 
-  clearTimeout(abortProgressTimer);
+  clearTimeout(progressResetTimer);
+  clearTimeout(runStatusTimer);
 
   // Release our resources, unless a simulation run is still waiting on our instance, in which case they will be released
   // by that simulation run once it is done with our instance.
@@ -607,3 +780,140 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
   }
 });
 </script>
+
+<style scoped>
+/**
+ * Side panel, i.e. our simulation settings and the parameters to plot.
+ * Note: an input field has an intrinsic width (of about 20 characters), which would otherwise prevent our side panel
+ *       from being narrower than that, so we let our number fields shrink to the width of our side panel.
+ */
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.side-panel :deep(.p-inputnumber-input) {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+}
+
+.side-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.side-panel-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 0.375rem;
+}
+
+/**
+ * Status of our simulation, which is shown next to our run/pause and stop buttons.
+ */
+
+.run-status {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: 0.5rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.run-status .pi {
+  font-size: 0.8125rem;
+}
+
+.run-status-running .pi,
+.run-status-completed .pi {
+  color: var(--p-primary-color);
+}
+
+.run-status-paused .pi,
+.run-status-issues .pi {
+  color: var(--opencor-warn-color);
+}
+
+.run-status-stopped .pi,
+.run-status-failed .pi {
+  color: var(--opencor-error-color);
+}
+
+/**
+ * Progress of our simulation, which is shown as a thin line over the bottom border of our toolbar.
+ */
+
+.run-progress {
+  position: relative;
+  z-index: 11;
+  flex-shrink: 0;
+  height: 2px !important;
+  margin-top: -2px;
+  border-radius: 0;
+  background: transparent;
+  visibility: hidden;
+}
+
+.run-progress-visible {
+  visibility: visible;
+}
+
+/**
+ * Console.
+ */
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 0.25rem 0.375rem 0.125rem 0.75rem;
+}
+
+/**
+ * Splitters, which gutters are shown as thin lines that get highlighted when hovered or dragged.
+ */
+
+.standard-view :deep(.p-splitter-gutter) {
+  position: relative;
+  background-color: var(--p-content-border-color);
+  transition: background-color 0.15s ease;
+}
+
+.standard-view :deep(.p-splitter-horizontal > .p-splitter-gutter) {
+  width: 1px !important;
+}
+
+.standard-view :deep(.p-splitter-vertical > .p-splitter-gutter) {
+  height: 1px !important;
+}
+
+.standard-view :deep(.p-splitter-gutter-handle) {
+  opacity: 0;
+}
+
+/**
+ * Note: a gutter is only 1px wide/high, so we make it easier to grab by extending its hit area.
+ */
+
+.standard-view :deep(.p-splitter-gutter)::after {
+  position: absolute;
+  inset: -3px;
+  z-index: 1;
+  content: "";
+}
+
+.standard-view :deep(.p-splitter-gutter:hover),
+.standard-view :deep(.p-splitter-gutter[data-p-gutter-resizing="true"]) {
+  background-color: var(--p-primary-color);
+}
+</style>

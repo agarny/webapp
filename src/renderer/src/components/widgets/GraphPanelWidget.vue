@@ -1219,11 +1219,8 @@ const exportToCsv = async (): Promise<void> => {
 
   try {
     // Allow the UI to update before actually starting the export to CSV.
-    // Note: we do this by waiting for two animation frames. The first wait lands just before the next paint while the
-    //       second wait lands just after the next paint.
 
-    await common.waitForNextAnimationFrame();
-    await common.waitForNextAnimationFrame();
+    await common.waitForNextPaint();
 
     // Perform the export itself.
     // Note: to efficiently export to CSV, we build an array of CSV lines and only join them together at the end. This is

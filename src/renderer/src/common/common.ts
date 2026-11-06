@@ -351,6 +351,17 @@ export const waitForNextAnimationFrame = (): Promise<number> => {
   });
 };
 
+// A method to wait for our UI to be painted.
+// Note #1: we wait for two animation frames since the first one is just before the next paint while the second one is
+//          just after it.
+// Note #2: there is no need to wait for vue.nextTick() first since Vue updates the DOM in a microtask, i.e. before the
+//          next animation frame.
+
+export const waitForNextPaint = async (): Promise<void> => {
+  await waitForNextAnimationFrame();
+  await waitForNextAnimationFrame();
+};
+
 // Some constants related to simulation data values.
 
 export const EMPTY_FLOAT64_ARRAY = Object.freeze(new Float64Array(0));
