@@ -246,9 +246,15 @@ body {
       }
     }
 
+    /**
+     * Note: the contents of our popovers (e.g., our issues view) have their own padding, so our popovers don't need
+     *       any.
+     */
+
     .p-popover {
       --p-popover-border-radius: 0.5rem;
       --p-popover-shadow: var(--opencor-overlay-shadow);
+      --p-popover-content-padding: 0;
     }
   }
 }
