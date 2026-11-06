@@ -799,8 +799,8 @@ vue.onUnmounted(() => {
   clearTimeout(progressResetTimer);
   clearTimeout(runStatusTimer);
 
-  // Release our resources, unless a simulation run is still waiting on our instance, in which case they will be released
-  // by that simulation run once it is done with our instance.
+  // Release our resources, unless a simulation run is still waiting on our instance, in which case they will be
+  // released by that simulation run once it is done with our instance.
 
   if (!isWaitingOnRun) {
     releaseResources();

@@ -140,8 +140,8 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
   // ContentsComponent.isModified()), clear that mark once those contents have been saved, and determine whether a file
   // has unsaved contents.
   // Note #1: same as for registerFileEditor() when it comes to using the raw file.
-  // Note #2: a WeakSet cannot be reactive, so we keep track of its changes so that whoever determines whether a file has
-  //          unsaved contents (e.g., a template) gets updated when that changes.
+  // Note #2: a WeakSet cannot be reactive, so we keep track of its changes so that whoever determines whether a file
+  //          has unsaved contents (e.g., a template) gets updated when that changes.
 
   const _unsavedContentsFilesVersion = vue.ref<number>(0);
 

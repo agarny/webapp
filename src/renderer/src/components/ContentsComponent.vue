@@ -375,9 +375,9 @@ const openFile = async (file: locApi.File, wait: boolean = false, fileHandle?: F
 
   // Select the file and let people know that it has been opened.
   // Note: we let people know before waiting for our file tabs to be updated (see selectFile()) since the file may get
-  //       closed in the meantime (e.g., using File|Close), in which case people would otherwise be told that it has been
-  //       opened after having been told that it has been closed (and, in the case of Electron, it wouldn't be listed in
-  //       our recent files).
+  //       closed in the meantime (e.g., using File|Close), in which case people would otherwise be told that it has
+  //       been opened after having been told that it has been closed (and, in the case of Electron, it wouldn't be
+  //       listed in our recent files).
 
   const fileSelected = selectFile(filePath, wait);
 
@@ -917,10 +917,10 @@ const doSaveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
     return doSaveFileAs(fileTab);
   }
 
-  // Note: we make sure that we can write to the file before retrieving its contents since a Web browser only lets us ask
-  //       the user for permission to write to it while handling one of their actions (e.g., a menu item being clicked),
-  //       i.e. not too long after it. The file may get an editor in the meantime (see isModified()), hence we retrieve
-  //       its editor again.
+  // Note: we make sure that we can write to the file before retrieving its contents since a Web browser only lets us
+  //       ask the user for permission to write to it while handling one of their actions (e.g., a menu item being
+  //       clicked), i.e. not too long after it. The file may get an editor in the meantime (see isModified()), hence we
+  //       retrieve its editor again.
 
   let contents: Uint8Array;
 
