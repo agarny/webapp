@@ -1829,9 +1829,7 @@ if (!simulationOnly.value) {
   font-size: 0.625rem;
   cursor: pointer;
   opacity: 0;
-  transition:
-    background-color 0.15s ease,
-    opacity 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .file-tab:hover .file-tab-close-button,
@@ -1847,6 +1845,29 @@ if (!simulationOnly.value) {
 
 .file-tab-close-button:focus-visible {
   box-shadow: 0 0 0 2px var(--p-primary-color);
+}
+
+/**
+ * Note: on a device without hover (e.g., a tablet), our close button couldn't be revealed before being tapped, yet it
+ *       would still be tappable (since it is only transparent), i.e. tapping the end of a file tab could close its file
+ *       without our close button ever being seen. So, we always show our close button and, if our file is modified,
+ *       our modified indicator next to it (rather than in its place).
+ */
+
+@media (hover: none) {
+  .file-tab-modified-indicator {
+    position: static;
+    width: 0.75rem;
+  }
+
+  .file-tab:hover .file-tab-modified-indicator,
+  .file-tab-end:has(.file-tab-close-button:focus-visible) .file-tab-modified-indicator {
+    visibility: visible;
+  }
+
+  .file-tab-close-button {
+    opacity: 1;
+  }
 }
 
 .file-tab-dragging {
