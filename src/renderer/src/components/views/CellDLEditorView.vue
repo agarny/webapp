@@ -30,18 +30,27 @@
       <div v-show="!issues.length" ref="containerRef" class="celldl-editor-container h-full" />
       <BlockingMessageComponent v-if="!client.loaded && !issues.length" message="Loading CellDL Editor..." />
     </div>
-    <BaseDialog v-model:visible="exportIssuesVisible" header="Generating CellML" style="width: 39rem">
-      <IssuesView :issues="exportIssues" />
+    <BaseDialog v-model:visible="exportIssuesVisible" :header="exportIssuesTitle" class="w-156">
+      <p class="export-issues-text">The diagram couldn't be converted to CellML, so it couldn't be {{ exportIssuesKind === EXPORT_KIND_SIMULATE ? 'simulated' : 'exported' }}.</p>
+      <IssuesView class="export-issues" :issues="exportIssues" :extraSpace="false" />
       <template #footer>
         <Button autofocus label="OK" @click="exportIssuesVisible = false" />
       </template>
     </BaseDialog>
-    <BaseDialog v-model:visible="limitationsVisible" header="Limitations" style="width: 39rem">
-      <div class="mt-2 mb-4 space-y-2">
-        <div>The <strong>CellDL Editor view</strong> currently has the following limitations inherent to the <a href="https://github.com/CellDL/CellDLEditorComponent" target="_blank" rel="noopener noreferrer">CellDL Editor component</a>:</div>
-        <ul class="list-disc ml-6 space-y-1">
-          <li v-for="(limitation, index) in LIMITATIONS" :key="index">{{ limitation }}</li>
-        </ul>
+    <BaseDialog v-model:visible="limitationsVisible" header="Limitations" class="w-120">
+      <div class="message-dialog message-dialog-info">
+        <span class="message-dialog-icon">
+          <i class="pi pi-info-circle" />
+        </span>
+        <div class="message-dialog-text">
+          <p class="m-0">
+            The CellDL Editor view has the following limitations, which come from the
+            <a href="https://github.com/CellDL/CellDLEditorComponent" target="_blank" rel="noopener noreferrer">CellDL Editor component</a>:
+          </p>
+          <ul class="limitations-list">
+            <li v-for="(limitation, index) in LIMITATIONS" :key="index">{{ limitation }}</li>
+          </ul>
+        </div>
       </div>
       <template #footer>
         <Button autofocus label="OK" @click="limitationsVisible = false" />
@@ -66,6 +75,7 @@ import * as locApi from '../../libopencor/locApi';
 import { useOpenCORContext } from '../OpenCORContext';
 import { useOpenCORMessage } from '../OpenCORMessage';
 
+import '../dialogs/message-dialog.css';
 import './toolbar-based-view.css';
 
 const EXPORT_KIND_DOWNLOAD = 'download';
@@ -93,6 +103,10 @@ const containerRef = vue.shallowRef<HTMLElement | null>(null);
 const issues = vue.ref<locApi.IIssue[]>([]);
 const editCount = vue.ref<number>(0);
 const exportIssues = vue.ref<locApi.IIssue[]>([]);
+const exportIssuesKind = vue.ref<string>(EXPORT_KIND_DOWNLOAD);
+const exportIssuesTitle = vue.computed<string>(() => {
+  return exportIssuesKind.value === EXPORT_KIND_SIMULATE ? 'Standard Simulation' : 'Export COMBINE Archive';
+});
 const exportIssuesVisible = vue.ref<boolean>(false);
 const limitationsVisible = vue.ref<boolean>(false);
 const celldlFileName = common.fileName(props.file.canonicalPath());
@@ -306,6 +320,7 @@ const onExportCombineArchive = async (kind: string): Promise<void> => {
           description: issue
         };
       });
+      exportIssuesKind.value = kind;
       exportIssuesVisible.value = true;
 
       return;
@@ -331,3 +346,31 @@ const onExportCombineArchive = async (kind: string): Promise<void> => {
   }
 };
 </script>
+
+<style scoped>
+.export-issues-text {
+  margin: 0 0 0.75rem;
+  color: var(--p-text-color);
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+}
+
+/**
+ * Note: there may be many issues, in which case our issues view scrolls rather than making our dialog taller than our
+ *       window.
+ */
+
+.export-issues {
+  max-height: 20rem;
+}
+
+.limitations-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.limitations-list li + li {
+  margin-top: 0.25rem;
+}
+</style>
