@@ -49,6 +49,8 @@ type UpdateState = 'idle' | 'downloading' | 'downloaded' | 'installing';
 
 let updateState: UpdateState = 'idle';
 let updateDownloadPercent = 0;
+let updateDownloadTransferred = 0;
+let updateDownloadTotal = 0;
 
 export const checkForUpdates = (atStartup: boolean): void => {
   // An update has already been downloaded, but the user cancelled its installation (when asked whether to save the
@@ -93,8 +95,10 @@ export const checkForUpdates = (atStartup: boolean): void => {
 autoUpdater.on('download-progress', (info: ProgressInfo) => {
   if (updateState === 'downloading') {
     updateDownloadPercent = info.percent;
+    updateDownloadTransferred = info.transferred;
+    updateDownloadTotal = info.total;
 
-    MainWindow.instance?.send('update-download-progress', info.percent);
+    MainWindow.instance?.send('update-download-progress', info.percent, info.transferred, info.total);
   }
 });
 
@@ -125,12 +129,15 @@ autoUpdater.on('error', (error: Error) => {
 export const downloadAndInstallUpdate = (): void => {
   updateState = 'downloading';
   updateDownloadPercent = 0;
+  updateDownloadTransferred = 0;
+  updateDownloadTotal = 0;
 
   autoUpdater
     .downloadUpdate()
     .then(() => {
       updateState = 'downloaded';
       updateDownloadPercent = 100;
+      updateDownloadTransferred = updateDownloadTotal;
 
       MainWindow.instance?.send('update-downloaded');
     })
@@ -179,7 +186,12 @@ const resendUpdateState = (): void => {
     return;
   }
 
-  MainWindow.instance?.send('update-download-progress', updateDownloadPercent);
+  MainWindow.instance?.send(
+    'update-download-progress',
+    updateDownloadPercent,
+    updateDownloadTransferred,
+    updateDownloadTotal
+  );
 
   if (updateState === 'downloaded') {
     MainWindow.instance?.send('update-downloaded');
