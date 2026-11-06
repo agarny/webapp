@@ -7,10 +7,11 @@
         <div class="opencor-section-title">Appearance</div>
         <div class="settings-row opencor-panel">
           <div class="settings-row-label">Theme</div>
-          <div class="theme-options">
+          <div class="theme-options" role="group" aria-label="Theme">
             <button v-for="themeOption in THEME_OPTIONS" :key="themeOption.theme" class="theme-option"
               :class="{ 'theme-option-selected': themeOption.theme === theme }"
               type="button"
+              :aria-pressed="themeOption.theme === theme"
               @mousedown.prevent
               @click="onThemeSwitch(themeOption.theme)"
             >
@@ -70,8 +71,8 @@ const theme = vue.ref<OpenCORTheme>(vueCommon.useTheme().theme());
 
 const initialiseDialog = () => {
   // Note #1: we can come here as a result of hiding the dialog and this in case the dialog gets opened multiple times.
-  //          We could do this when showing the dialog, but it might result in the UI flashing (e.g., a checkbox was
-  //          checked and then it gets unchecked), hence we do it when hiding the dialog.
+  //          We could do this when showing the dialog, but it might result in the UI flashing (e.g., a toggle switch
+  //          was on and then it gets turned off), hence we do it when hiding the dialog.
   // Note #2: we use our current theme rather than the one from our settings since the latter may not be valid (e.g., if
   //          our settings were edited by hand).
 
@@ -83,9 +84,19 @@ settings.onInitialised(() => {
   initialiseDialog();
 });
 
+// Keep track of our current theme, since it can also be changed using our theme button (see ThemeWidget.vue), in which
+// case we would otherwise show (and, if OK'ed, restore) the theme that was current when the dialog was last hidden.
+
+vue.watch(
+  () => vueCommon.useTheme().theme(),
+  (newTheme: OpenCORTheme) => {
+    theme.value = newTheme;
+  }
+);
+
 const onThemeSwitch = (newTheme: OpenCORTheme) => {
-  // Switch to the given theme and apply it straight away, so that the user can see what it looks like. It will be either
-  // confirmed (if the user clicks on OK) or reverted (otherwise) when the dialog gets hidden.
+  // Switch to the given theme and apply it straight away, so that the user can see what it looks like. It will be
+  // either confirmed (if the user clicks on OK) or reverted (otherwise) when the dialog gets hidden.
 
   theme.value = newTheme;
 

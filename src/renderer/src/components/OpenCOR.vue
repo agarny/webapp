@@ -902,15 +902,22 @@ if (!electronApi) {
 }
 
 // Remove the keyboard focus when the user presses the Escape key, so that whatever has it no longer looks focused
-// (e.g., with a focus ring), unless something is open (e.g., a dialog, a menu, or a popover), in which case the Escape
-// key is for closing it.
-// Note #1: we only do this for our instance of OpenCOR, and only if it is active and its UI is enabled.
-// Note #2: we listen to the Escape key before anything else does since some PrimeVue components (e.g., our main menu or
-//          a select) prevent its default action even when they have nothing to close.
-// Note #3: CellDL Editor may use the Escape key itself (e.g., to cancel what the user is doing), so we leave the
-//          keyboard focus alone if it is within it.
+// (e.g., with a focus ring), unless something is open (e.g., a menu or a popover), in which case the Escape key is for
+// closing it.
+// Note #1: we only do this for our instance of OpenCOR, and only if it is active and its UI is enabled (i.e. no dialog
+//          is open, see compUiEnabled).
+// Note #2: we listen to the Escape key before anything else does since some PrimeVue components (e.g., a select) stop
+//          its propagation even when they have nothing to close.
+// Note #3: a text entry (e.g., the input of an input widget or the range editor of a graph panel) and CellDL Editor may
+//          use the Escape key themselves (e.g., to discard a value being edited or to cancel what the user is doing),
+//          so we leave the keyboard focus alone if it is within one of them. Otherwise, blurring a text entry could,
+//          for instance, commit the value being edited rather than discard it.
+// Note #4: an open element may have a fixed position (in which case its offsetParent is null), so we check whether it
+//          is rendered using its client rects.
 
-const ESCAPE_KEY_OPEN_ELEMENTS = '.p-dialog-mask, .p-popover, .p-select-overlay, .p-contextmenu, .p-menubar-submenu';
+const ESCAPE_KEY_OPEN_ELEMENTS = '.p-popover, .p-select-overlay, .p-contextmenu, .p-menubar-submenu';
+const ESCAPE_KEY_TEXT_ENTRIES =
+  'textarea, input:not([type="button"], [type="checkbox"], [type="color"], [type="file"], [type="radio"], [type="range"], [type="reset"], [type="submit"])';
 
 const onEscapeKeyDown = (event: KeyboardEvent): void => {
   if (
@@ -933,8 +940,12 @@ const onEscapeKeyDown = (event: KeyboardEvent): void => {
     !(focusedElement instanceof HTMLElement) ||
     !root.contains(focusedElement) ||
     !focusedElement.matches(':focus-visible') ||
+    focusedElement.isContentEditable ||
+    focusedElement.matches(ESCAPE_KEY_TEXT_ENTRIES) ||
     focusedElement.closest('.celldl-editor-container') ||
-    Array.from(root.querySelectorAll<HTMLElement>(ESCAPE_KEY_OPEN_ELEMENTS)).some((element) => element.offsetParent)
+    Array.from(root.querySelectorAll<HTMLElement>(ESCAPE_KEY_OPEN_ELEMENTS)).some(
+      (element) => element.getClientRects().length
+    )
   ) {
     return;
   }
@@ -999,6 +1010,10 @@ const onDownloadAndInstall = (): void => {
 
 trackCleanup(
   electronApi?.onUpdateDownloadError((issue: string) => {
+    // Note: our update download progress dialog can't be closed by the user, so we must close it ourselves.
+
+    updateDownloadProgressVisible.value = false;
+
     updateErrorTitle.value = 'Downloading Update';
     updateErrorIssue.value = `An error occurred while downloading the update (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
@@ -1008,6 +1023,8 @@ trackCleanup(
 trackCleanup(
   electronApi?.onUpdateInstallError((issue: string) => {
     userInputBlocked.value = false;
+    updateInstalling.value = false;
+    updateDownloadProgressVisible.value = false;
 
     updateErrorTitle.value = 'Installing Update';
     updateErrorIssue.value = `An error occurred while installing the update (${common.formatMessage(issue, false)}).`;
@@ -1030,7 +1047,10 @@ trackCleanup(
 
 trackCleanup(
   electronApi?.onUpdateDownloaded(async () => {
-    updateDownloadPercent.value = 100; // Just to be on the safe side.
+    // Just to be on the safe side, since the last download progress we were told about may not be for 100%.
+
+    updateDownloadPercent.value = 100;
+    updateDownloadTransferred.value = updateDownloadTotal.value;
 
     // Installing the update restarts OpenCOR, so ask the user whether to save the files that have been modified first.
     // If the user cancels, then the update will be installed when OpenCOR gets quit (see autoInstallOnAppQuit in
@@ -1585,13 +1605,23 @@ const onChange = (event: Event): void => {
 };
 
 // Drag and drop.
-// Note: once our drop zone is shown, it covers the whole of OpenCOR and its contents ignore pointer events (see
-//       DragNDropComponent.vue), so it is the only target of our drag events. This means that we know that the files
-//       being dragged have left OpenCOR (or that the drag has been cancelled) as soon as our drop zone gets left,
-//       without having to keep track of the (nested) elements that are being entered and left.
+// Note: once our drop zone is shown, it covers the whole of OpenCOR (including any overlay that is open) and its
+//       contents ignore pointer events (see DragNDropComponent.vue), so it is the only target of our drag events. This
+//       means that we know that the files being dragged have left OpenCOR (or that the drag has been cancelled) as soon
+//       as our drop zone gets left, without having to keep track of the (nested) elements that are being entered and
+//       left.
 
 const dragAndDropVisible = vue.ref<boolean>(false);
 const dragAndDropFileCount = vue.ref<number>(0);
+
+// Hide our drop zone if our UI gets disabled while files are being dragged (e.g., if a dialog gets opened), so that
+// they don't get opened if they are then dropped.
+
+vue.watch(compUiEnabled, (uiEnabled: boolean) => {
+  if (!uiEnabled) {
+    dragAndDropVisible.value = false;
+  }
+});
 
 const onDragEnter = (event: DragEvent): void => {
   if (dragAndDropVisible.value || !compUiEnabled.value || props.omex) {

@@ -32,7 +32,9 @@
     </div>
     <BaseDialog v-model:visible="exportIssuesVisible" :header="exportIssuesTitle" class="w-156">
       <p class="export-issues-text">The diagram couldn't be converted to CellML, so it couldn't be {{ exportIssuesKind === EXPORT_KIND_SIMULATE ? 'simulated' : 'exported' }}.</p>
-      <IssuesView class="export-issues" :issues="exportIssues" :extraSpace="false" />
+      <div class="export-issues">
+        <IssuesView :issues="exportIssues" :extraSpace="false" />
+      </div>
       <template #footer>
         <Button autofocus label="OK" @click="exportIssuesVisible = false" />
       </template>
@@ -356,12 +358,15 @@ const onExportCombineArchive = async (kind: string): Promise<void> => {
 }
 
 /**
- * Note: there may be many issues, in which case our issues view scrolls rather than making our dialog taller than our
- *       window.
+ * Note: there may be many issues, in which case they scroll rather than making our dialog taller than our window. Our
+ *       issues view scrolls its issues when it is given a height, but not when it is only given a maximum height, so we
+ *       let a container scroll it instead (as for the issues popover of our settings dialog, see
+ *       SimulationExperimentInteractiveViewSettingsDialog.vue).
  */
 
 .export-issues {
-  max-height: 20rem;
+  max-height: min(20rem, 40vh);
+  overflow-y: auto;
 }
 
 .limitations-list {

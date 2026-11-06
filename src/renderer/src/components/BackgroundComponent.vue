@@ -133,9 +133,9 @@ const ACTIONS: { label: string; icon: string; shortcut?: string; command: () => 
 <style scoped>
 /**
  * Note: we may be shown in a small container (e.g., when OpenCOR is embedded in a page alongside other OpenCOR
- *       instances), so we adapt our contents to the size of our container: our logo gets smaller and then gets hidden,
- *       followed by our footer and drop hint, and then our actions get shown on one row. If our container is still too
- *       small, then our contents can be scrolled (rather than be clipped).
+ *       instances), so we adapt our contents to the size of our container: our recent files get hidden, our logo gets
+ *       smaller and then gets hidden, followed by our footer and drop hint, and then our actions get shown on one row.
+ *       If our container is still too small, then our contents can be scrolled (rather than be clipped).
  */
 
 .background {

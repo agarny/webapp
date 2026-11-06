@@ -42,7 +42,7 @@
           :draggable="true"
           @click="selectFile(fileTab.file.path())"
           @mousedown.middle.prevent
-          @mouseup.middle="closeFile(fileTab.file.path())"
+          @auxclick.middle.prevent="closeFile(fileTab.file.path())"
           @contextmenu.prevent="onFileTabContextMenu($event, fileTab.file.path())"
           @dragstart="onDragStart($event, fileTab.file.path())"
           @dragend="onDragEnd"
@@ -50,7 +50,7 @@
           <i :class="fileTabIcon(fileTab)" class="file-tab-icon" />
           <span class="file-tab-label">{{ common.fileName(fileTab.file.canonicalPath()) }}</span>
           <span class="file-tab-end">
-            <span v-if="isModified(fileTab)" class="file-tab-modified-indicator pi pi-circle-fill" />
+            <span v-if="isModified(fileTab)" class="file-tab-modified-indicator pi pi-circle-fill" role="img" aria-label="Modified" />
             <button class="file-tab-close-button pi pi-times"
               type="button"
               v-hint="'Close'"
@@ -490,7 +490,13 @@ const closeAllFiles = async (): Promise<void> => {
 
 const closeOtherFiles = async (filePath: string): Promise<void> => {
   // Select the given file and then close the other files (from a snapshot of our file paths, see closeAllFiles()).
-  // Note: we stop as soon as the user cancels the closing of a (modified) file.
+  // Note #1: the given file may have been closed in the meantime (e.g., using a keyboard shortcut while our file tab
+  //          context menu was shown), in which case we do nothing (rather than close all our files).
+  // Note #2: we stop as soon as the user cancels the closing of a (modified) file.
+
+  if (!findFileTab(filePath)) {
+    return;
+  }
 
   await selectFile(filePath);
 
@@ -542,9 +548,18 @@ const fileTabContextMenuItems = vue.computed<MenuItem[]>(() => {
       command: () => {
         const canonicalPath = findFileTab(filePath)?.file.canonicalPath();
 
+        // Note: navigator.clipboard is undefined in an insecure context (e.g., if we are embedded in a page served over
+        //       HTTP), in which case calling navigator.clipboard.writeText() would throw synchronously, hence we call
+        //       it from an async function.
+
         if (canonicalPath) {
-          navigator.clipboard.writeText(canonicalPath).catch((error: unknown) => {
-            emit('error', `The path of the file could not be copied (${common.formatError(error)}).`);
+          (async () => {
+            await navigator.clipboard.writeText(canonicalPath);
+          })().catch((error: unknown) => {
+            emit(
+              'error',
+              `The path of the file could not be copied (${common.formatMessage(common.formatError(error), false)}).`
+            );
           });
         }
       }
@@ -574,18 +589,20 @@ const updateFileTabBarOverflow = (): void => {
   fileTabBarOverflow.right = fileTabBar.scrollLeft + fileTabBar.clientWidth < fileTabBar.scrollWidth - 1;
 };
 
-let fileTabBarResizeObserver: ResizeObserver | null = null;
+// Note: we observe both our file tab bar and our file tabs (see setFileTabRef()), since the width of a file tab may
+//       change without the size of our file tab bar or the number of our file tabs changing (e.g., when a file is
+//       saved under a longer name).
+
+const fileTabBarResizeObserver = new ResizeObserver(updateFileTabBarOverflow);
 
 vue.onMounted(() => {
   if (fileTabBarRef.value) {
-    fileTabBarResizeObserver = new ResizeObserver(updateFileTabBarOverflow);
-
     fileTabBarResizeObserver.observe(fileTabBarRef.value);
   }
 });
 
 vue.onUnmounted(() => {
-  fileTabBarResizeObserver?.disconnect();
+  fileTabBarResizeObserver.disconnect();
 });
 
 vue.watch(
@@ -1123,7 +1140,8 @@ const saveFileTo = async (
   //          Electron, the old file gets added to our list of recent files).
   // Note #4: the reference to our file tab's element is keyed by the path of its file (see setFileTabRef()), which is
   //          only retrieved when Vue lets us know that the element has been unmounted, i.e. once our file tab has been
-  //          renamed. So, the reference for the old path would never be removed, hence we remove it ourselves.
+  //          renamed. So, the reference for the old path would never be removed (and its element would never stop being
+  //          observed by our file tab bar resize observer), hence we remove it (and stop observing it) ourselves.
 
   let newContents = contents;
 
@@ -1174,6 +1192,12 @@ const saveFileTo = async (
   const oldFileHandle = fileTab.fileHandle;
 
   locApi.fileManager.unmanage(oldFilePath);
+
+  const oldFileTabElement = fileTabRefs[oldFilePath];
+
+  if (oldFileTabElement) {
+    fileTabBarResizeObserver.unobserve(oldFileTabElement);
+  }
 
   delete fileTabRefs[oldFilePath];
 
@@ -1327,8 +1351,16 @@ const canSaveCurrentFileAs = (): boolean => {
 };
 
 const setFileTabRef = (filePath: string, element: HTMLElement | null): void => {
+  const oldElement = fileTabRefs[filePath];
+
+  if (oldElement && oldElement !== element) {
+    fileTabBarResizeObserver.unobserve(oldElement);
+  }
+
   if (element) {
     fileTabRefs[filePath] = element;
+
+    fileTabBarResizeObserver.observe(element);
   } else {
     // The file tab has been unmounted, so remove the reference to avoid keeping stale keys (and elements) around.
 
@@ -1643,11 +1675,11 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
 
 // Show the name of the selected file, if any, in our window's title (or our browser tab's title), so that the user can
 // tell which file is selected when switching between windows (or browser tabs).
-// Note #1: we only do this for full OpenCOR (i.e. not in simulation-only mode) since, otherwise, OpenCOR is likely to
-//          be embedded in a page which title is not ours to change.
+// Note #1: we only do this if the title of our document is ours to change (i.e. if OpenCOR is not used as a library,
+//          see common.ownDocumentTitle()), and only for full OpenCOR (i.e. not in simulation-only mode).
 // Note #2: OpenCOR's window title is that of its renderer's document (since our main process doesn't override it).
 
-if (!simulationOnly.value) {
+if (common.isDocumentTitleOwned() && !simulationOnly.value) {
   const originalTitle = document.title;
 
   vue.watchEffect(() => {
@@ -1765,7 +1797,8 @@ if (!simulationOnly.value) {
 
 /**
  * Active file tab, which top border is used as an accent (rather than, say, a pseudo-element on top of it) so that it
- * follows the rounded corners of the file tab and blends into its side borders. */
+ * follows the rounded corners of the file tab and blends into its side borders.
+ */
 
 .file-tab-active {
   border-color: var(--p-content-border-color);

@@ -1,9 +1,9 @@
 <template>
-  <div class="blocking-message">
+  <div class="blocking-message" role="status" aria-live="polite">
     <div class="blocking-message-header">
       <span class="opencor-spinner" />
       <span class="blocking-message-text">{{ message }}</span>
-      <span v-if="progress !== undefined" class="blocking-message-progress">{{ Math.round(progress) }}%</span>
+      <span v-if="progress !== undefined" class="blocking-message-progress" aria-hidden="true">{{ Math.round(progress) }}%</span>
     </div>
     <ProgressBar v-if="progress !== undefined" class="blocking-message-progress-bar"
       :value="progress"
@@ -20,6 +20,8 @@
 <script setup lang="ts">
 // A message that is shown while OpenCOR (or part of it) is blocked, e.g., while it is being initialised or while a
 // model is being loaded, with the progress made, if known.
+// Note: we are a live region, so that our message gets announced by assistive technologies, but not our progress
+//       (which would otherwise get announced each time it changes), which is available through our progress bar.
 
 defineProps<{
   message: string;

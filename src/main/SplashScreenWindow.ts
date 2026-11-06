@@ -12,7 +12,8 @@ export class SplashScreenWindow extends ApplicationWindow {
     // Note: our window is transparent and has no shadow nor rounded corners, so that our splash screen can draw its own
     //       rounded corners, border, and background, and therefore look the same on Windows, Linux, and macOS (see
     //       splashscreen.css). Otherwise, our window would, for instance, have rounded corners and a border on macOS
-    //       and Windows 11, but not on Linux.
+    //       and Windows 11, but not on Linux. That said, on Linux, a transparent window requires a compositing window
+    //       manager, without which the corners of our splash screen would be black rather than transparent.
 
     const width = 360;
     const height = 300;

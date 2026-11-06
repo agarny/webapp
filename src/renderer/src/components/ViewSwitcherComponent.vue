@@ -15,6 +15,8 @@
             { 'view-icon-active': view.id === activeViewId }
           ]"
           :style="{ '--view-category-color': category.color }"
+          :aria-label="view.label"
+          :aria-pressed="view.id === activeViewId"
           @mousedown.prevent
           @mouseenter="showTooltip(view.label, $event.currentTarget as HTMLElement, false)"
           @mouseleave="hideTooltip"
@@ -38,6 +40,7 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
+import { HINT_DELAY } from '../common/constants';
 import {
   type IViewDescriptor,
   useViewRegistry,
@@ -104,7 +107,6 @@ const setViewButtonRef = (viewId: string, element: unknown): void => {
 // Note: our tooltip is not part of our nav element since it would otherwise get clipped by it (since our nav element
 //       can be scrolled), hence it is positioned relative to our root element.
 
-const TOOLTIP_DELAY = 500;
 const TOOLTIP_WARM_DELAY = 300;
 
 const navRef = vue.shallowRef<HTMLElement | null>(null);
@@ -125,7 +127,7 @@ const showTooltip = (label: string, element: HTMLElement, immediately: boolean):
   if (immediately || tooltip.value || performance.now() - tooltipHiddenTime < TOOLTIP_WARM_DELAY) {
     doShowTooltip();
   } else {
-    tooltipTimer = window.setTimeout(doShowTooltip, TOOLTIP_DELAY);
+    tooltipTimer = window.setTimeout(doShowTooltip, HINT_DELAY);
   }
 };
 

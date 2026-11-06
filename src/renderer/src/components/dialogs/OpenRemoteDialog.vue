@@ -9,6 +9,8 @@
           placeholder="https://example.com/model.omex"
           spellcheck="false"
           autocomplete="off"
+          autocapitalize="off"
+          inputmode="url"
           @blur="checked = true"
           @keydown.enter.prevent="emitOpenRemote"
         />
@@ -51,8 +53,14 @@ const emit = defineEmits<{
 const url = vue.ref<string>('');
 const checked = vue.ref<boolean>(false);
 
-// The URL to open, if valid, i.e. the given URL without any leading/trailing whitespace and with an https:// scheme if
-// it has no scheme (e.g., "example.com/model.omex" becomes "https://example.com/model.omex").
+// The URL to open, if valid, i.e. the given URL without any leading/trailing whitespace, with a lowercase scheme (e.g.,
+// "Https://" becomes "https://", as some mobile keyboards capitalise the first letter of what is typed), and with an
+// https:// scheme if it has no scheme (e.g., "example.com/model.omex" becomes "https://example.com/model.omex").
+// Note #1: a scheme is followed by "//", so that, for instance, "localhost:8080/model.omex" is not considered as having
+//          a "localhost" scheme.
+// Note #2: a URL without a scheme must have a host that looks like one (i.e. a domain name, an IP address, or
+//          localhost), so that, for instance, some random text is not considered as a valid URL. A URL with a scheme
+//          can have any host (e.g., an intranet host, such as "http://modelserver/model.omex").
 
 const normalisedUrl = vue.computed<string>(() => {
   const trimmedUrl = url.value.trim();
@@ -61,14 +69,18 @@ const normalisedUrl = vue.computed<string>(() => {
     return '';
   }
 
-  const urlWithScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+  const scheme = /^([a-z][a-z\d+.-]*):\/\//i.exec(trimmedUrl)?.[1];
+  const urlWithScheme = scheme ? `${scheme.toLowerCase()}${trimmedUrl.slice(scheme.length)}` : `https://${trimmedUrl}`;
 
   try {
     const parsedUrl = new URL(urlWithScheme);
 
     if (
       (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') &&
-      (parsedUrl.hostname.includes('.') || parsedUrl.hostname === 'localhost')
+      (scheme ||
+        parsedUrl.hostname.includes('.') ||
+        parsedUrl.hostname.startsWith('[') ||
+        parsedUrl.hostname === 'localhost')
     ) {
       return urlWithScheme;
     }
