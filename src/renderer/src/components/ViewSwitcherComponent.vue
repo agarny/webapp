@@ -320,7 +320,7 @@ vue.watch(
   z-index: 1000;
   border: 1px solid var(--opencor-hint-border-color);
   background-color: var(--opencor-hint-background);
-  box-shadow: var(--opencor-hint-shadow);
+  box-shadow: var(--opencor-overlay-shadow);
   color: var(--opencor-hint-color);
   font-weight: 500;
   transform: translateY(-50%);
