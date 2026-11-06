@@ -5,7 +5,8 @@
       props.accent ? `toolbar-button-${props.accent}` : '',
       {
         'toolbar-button-tooltip-end': props.tooltipAlign === 'end',
-        'toolbar-button-tooltip-suppressed': tooltipSuppressed
+        'toolbar-button-tooltip-suppressed': tooltipSuppressed,
+        'toolbar-button-tooltip-feedback': props.feedback
       }
     ]"
     type="button"
@@ -24,6 +25,8 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
+import type { IToolbarButtonProps } from '../../common/vueCommon';
+
 // A toolbar button, which shows an icon and, when hovered or focused using the keyboard, a tooltip with the button's
 // label and, if any, keyboard shortcut.
 // Note #1: a button with no label has no tooltip, which is useful for placeholder buttons (i.e. invisible buttons that
@@ -31,23 +34,17 @@ import * as vue from 'vue';
 // Note #2: a small button is meant for places where space is tight, e.g. our main menu (see ThemeWidget.vue).
 // Note #3: a tooltip is aligned with the start of its button, unless the button is in the end part of a toolbar or of
 //          our main menu, or unless it is explicitly aligned with the end of its button (e.g., for a button that is on
-//          the right edge of a dialog).
+//          the right edge of a dialog, see AboutDialog.vue).
 // Note #4: a button doesn't get the focus when it is clicked (it still can using the keyboard). Otherwise, a dialog
 //          opened by clicking the button would give the focus back to the button when closed, and the browser may then
 //          consider that the button has the keyboard focus, making it look highlighted (i.e. with a focus ring and its
 //          tooltip shown).
 // Note #5: a button's tooltip is hidden once the button has been pressed, until the mouse leaves the button, so that it
-//          doesn't get in the way of what the button may have shown (e.g., a popover).
+//          doesn't get in the way of what the button may have shown (e.g., a popover). However, a button can give some
+//          feedback using its tooltip (e.g., "Copied" for a button that copies something, see useCopyToClipboard() in
+//          vueCommon.ts), in which case its tooltip is shown straightaway while the button is hovered.
 
-const props = defineProps<{
-  icon: string;
-  label?: string;
-  shortcut?: string;
-  accent?: 'primary' | 'warning' | 'danger';
-  disabled?: boolean;
-  small?: boolean;
-  tooltipAlign?: 'start' | 'end';
-}>();
+const props = defineProps<IToolbarButtonProps>();
 
 const tooltipSuppressed = vue.ref<boolean>(false);
 </script>
@@ -160,6 +157,11 @@ const tooltipSuppressed = vue.ref<boolean>(false);
 .toolbar-button:active .toolbar-button-tooltip,
 .toolbar-button.toolbar-button-tooltip-suppressed .toolbar-button-tooltip {
   visibility: hidden;
+  transition: none;
+}
+
+.toolbar-button.toolbar-button-tooltip-feedback:hover .toolbar-button-tooltip {
+  visibility: visible;
   transition: none;
 }
 

@@ -6,7 +6,7 @@ import type { OpenCORTheme } from '../../index';
 
 import * as locSedApi from '../libopencor/locSedApi';
 
-import { MEDIUM_DELAY, VERY_SHORT_DELAY } from './constants';
+import { COPY_FEEDBACK_LIFE, MEDIUM_DELAY, VERY_SHORT_DELAY } from './constants';
 import { electronApi } from './electronApi';
 
 // A constant to know the UID of the active instance of OpenCOR.
@@ -228,6 +228,72 @@ export const useAppendTarget = (ancestorRef: vue.Ref<HTMLElement | null>) => {
   });
 
   return appendTarget;
+};
+
+// The props of a toolbar button (see ToolbarButtonWidget.vue).
+// Note: they are defined here so that they can also be used by code that computes some of them (see
+//       useCopyToClipboard()).
+
+export interface IToolbarButtonProps {
+  icon: string;
+  label?: string;
+  shortcut?: string;
+  accent?: 'primary' | 'warning' | 'danger';
+  disabled?: boolean;
+  small?: boolean;
+  tooltipAlign?: 'start' | 'end';
+  feedback?: boolean;
+}
+
+// A composable to copy some text to the clipboard and to let people know, for a short while, whether it was copied,
+// through the icon, label, and accent of the (toolbar) button that was used to copy it (see ToolbarButtonWidget.vue).
+
+export const useCopyToClipboard = () => {
+  const status = vue.ref<'idle' | 'copied' | 'failed'>('idle');
+  let statusTimer: number | undefined;
+
+  const copy = async (text: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(text);
+
+      status.value = 'copied';
+    } catch {
+      status.value = 'failed';
+    }
+
+    window.clearTimeout(statusTimer);
+
+    statusTimer = window.setTimeout(() => {
+      status.value = 'idle';
+    }, COPY_FEEDBACK_LIFE);
+  };
+
+  const reset = (): void => {
+    window.clearTimeout(statusTimer);
+
+    status.value = 'idle';
+  };
+
+  // Note: our feedback (i.e. "Copied" or "Could not copy") is shown in the tooltip of our button, which must therefore
+  //       be shown even though our button has just been pressed (see ToolbarButtonWidget.vue).
+
+  const buttonProps = (label: string): Pick<IToolbarButtonProps, 'icon' | 'label' | 'accent' | 'feedback'> => {
+    if (status.value === 'copied') {
+      return { icon: 'pi pi-check', label: 'Copied', accent: 'primary', feedback: true };
+    }
+
+    if (status.value === 'failed') {
+      return { icon: 'pi pi-times', label: 'Could not copy', accent: 'danger', feedback: true };
+    }
+
+    return { icon: 'pi pi-copy', label };
+  };
+
+  vue.onBeforeUnmount(() => {
+    window.clearTimeout(statusTimer);
+  });
+
+  return { copy, reset, buttonProps };
 };
 
 // Populate the parameters of the given instance task.

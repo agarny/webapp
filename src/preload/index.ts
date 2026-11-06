@@ -1,10 +1,11 @@
 import electron from 'electron';
 import { promises as fs } from 'node:fs';
+import os from 'node:os';
 
 import loc from '../../dist/libOpenCOR/Release/libOpenCOR.node';
 
 import type { OpenCORTheme } from '../renderer/index';
-import type { ISettings } from '../renderer/src/common/common';
+import type { ISettings, ISystemDetails } from '../renderer/src/common/common';
 
 // A helper function to listen to a channel from the main process.
 // Note: it returns a function to stop listening to that channel so that a listener can be removed (e.g., when the
@@ -81,6 +82,20 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
     // Return a cached version of the operating system if we have it, otherwise return a default value.
 
     return _operatingSystem || defaultOperatingSystem;
+  },
+  systemDetails: (): ISystemDetails => {
+    // Return some details about our system (see AboutDialog.vue).
+    // Note: os.cpus() may return an empty array (e.g., on some Linux systems where /proc is not available).
+
+    const cpus = os.cpus();
+
+    return {
+      cpuModel: cpus[0]?.model.trim() ?? '',
+      logicalCoreCount: cpus.length,
+      totalMemory: os.totalmem(),
+      electronVersion: process.versions.electron,
+      chromiumVersion: process.versions.chrome
+    };
   },
 
   // Renderer process asking the main process to do something for it.
