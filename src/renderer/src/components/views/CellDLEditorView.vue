@@ -85,8 +85,7 @@ const emit = defineEmits<{
 
 const LIMITATIONS = [
   'Only adding, deleting, and moving can be undone.',
-  "Undoing all changes doesn't make a file unmodified.",
-  'Safari and Firefox draw diagrams differently.'
+  "Undoing all changes doesn't make a file unmodified."
 ];
 
 const opencorMessage = useOpenCORMessage();
