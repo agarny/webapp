@@ -72,6 +72,11 @@ const checked = vue.ref<boolean>(false);
 //          media type), since it can be opened like any other file (see OpenCOR.openFile()). It is used as is (so,
 //          unlike for other URLs, we don't let people know which URL will be opened since it would be the same and it
 //          can be very long).
+// Note #4: a URL without a scheme must also have no user name and no password, so that, for instance, an email address
+//          (e.g., "user@example.com") or a mailto link (e.g., "mailto:user@example.com", which has no "//" after its
+//          scheme) is not considered as a valid URL, i.e. as "https://user@example.com" or as
+//          "https://mailto:user@example.com" (where "mailto" would be a user name and "user" a password). A URL with a
+//          scheme can have a user name and a password (e.g., "https://user@example.com/model.omex").
 
 const DATA_URL_REGEX = /^data:[^,]*,/;
 
@@ -95,9 +100,11 @@ const normalisedUrl = vue.computed<string>(() => {
     if (
       (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') &&
       (scheme ||
-        parsedUrl.hostname.includes('.') ||
-        parsedUrl.hostname.startsWith('[') ||
-        parsedUrl.hostname === 'localhost')
+        (!parsedUrl.username &&
+          !parsedUrl.password &&
+          (parsedUrl.hostname.includes('.') ||
+            parsedUrl.hostname.startsWith('[') ||
+            parsedUrl.hostname === 'localhost')))
     ) {
       return urlWithScheme;
     }
