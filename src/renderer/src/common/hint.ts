@@ -172,6 +172,37 @@ const updateAriaLabel = (element: HTMLElement, state: IHintState): void => {
   }
 };
 
+// Position our hint below its owner (or above it if there is not enough room below it), within the window (see Note #2
+// above).
+// Note: we measure our hint at the top-left corner of the window, so that its width doesn't depend on where it would
+//       otherwise be laid out (e.g., if our OpenCOR instance is embedded in a page, away from the left edge of the
+//       window, or if our hint is being repositioned after its text has changed, see the updated() hook below).
+
+const positionHint = (): void => {
+  if (!hintElement || !hintOwner) {
+    return;
+  }
+
+  hintElement.style.left = '0px';
+  hintElement.style.top = '0px';
+
+  const elementRect = hintOwner.getBoundingClientRect();
+  const hintRect = hintElement.getBoundingClientRect();
+  let left = elementRect.left;
+  let top = elementRect.bottom + HINT_OFFSET;
+
+  if (left + hintRect.width > window.innerWidth - HINT_MARGIN) {
+    left = window.innerWidth - HINT_MARGIN - hintRect.width;
+  }
+
+  if (top + hintRect.height > window.innerHeight - HINT_MARGIN) {
+    top = elementRect.top - HINT_OFFSET - hintRect.height;
+  }
+
+  hintElement.style.left = `${Math.max(left, HINT_MARGIN)}px`;
+  hintElement.style.top = `${Math.max(top, HINT_MARGIN)}px`;
+};
+
 const showHint = (element: HTMLElement, text: string, html: boolean): void => {
   // Make sure that we have something to show and that our element is still in the DOM and visible.
   // Note: our element may, for instance, be in a file tab that was hidden (using visibility: hidden) while our hint
@@ -195,34 +226,12 @@ const showHint = (element: HTMLElement, text: string, html: boolean): void => {
     hintElement.textContent = displayedText(text);
   }
 
-  // Note: we measure our hint at the top-left corner of the window, so that its width doesn't depend on where it would
-  //       otherwise be laid out (e.g., if our OpenCOR instance is embedded in a page, away from the left edge of the
-  //       window).
-
-  hintElement.style.left = '0px';
-  hintElement.style.top = '0px';
-
   (element.closest('.opencor') ?? document.body).appendChild(hintElement);
 
   hintOwner = element;
 
   updateKeyDownListener();
-
-  const elementRect = element.getBoundingClientRect();
-  const hintRect = hintElement.getBoundingClientRect();
-  let left = elementRect.left;
-  let top = elementRect.bottom + HINT_OFFSET;
-
-  if (left + hintRect.width > window.innerWidth - HINT_MARGIN) {
-    left = window.innerWidth - HINT_MARGIN - hintRect.width;
-  }
-
-  if (top + hintRect.height > window.innerHeight - HINT_MARGIN) {
-    top = elementRect.top - HINT_OFFSET - hintRect.height;
-  }
-
-  hintElement.style.left = `${Math.max(left, HINT_MARGIN)}px`;
-  hintElement.style.top = `${Math.max(top, HINT_MARGIN)}px`;
+  positionHint();
 };
 
 export const vHint: vue.Directive<HTMLElement, string | undefined> = {
@@ -318,6 +327,10 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
 
       updateAriaLabel(element, state);
 
+      // Update our hint, if it is shown, and reposition it since its size may have changed (and our element may have
+      // moved).
+      // Note: our hint is repositioned before the next paint, so it doesn't flicker.
+
       if (hintOwner === element && hintElement) {
         if (state.text && state.html) {
           hintElement.innerHTML = state.text;
@@ -325,7 +338,11 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
           hintElement.textContent = displayedText(state.text);
         } else {
           hideHint();
+
+          return;
         }
+
+        positionHint();
       }
     }
   },
