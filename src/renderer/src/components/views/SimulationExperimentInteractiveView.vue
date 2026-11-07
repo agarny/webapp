@@ -107,7 +107,7 @@
                       >
                         <ToolbarButtonWidget class="run-color-button"
                           icon="pi pi-circle-fill"
-                          :label="`Change ${run.isLiveRun ? 'live run' : 'run'} colour`"
+                          :label="`Change ${runName(run, index)} colour`"
                           small
                           :style="{ '--toolbar-button-color': run.color, '--toolbar-button-hover-color': run.color }"
                           @click="onToggleRunColorPopover(index, $event)"
@@ -116,18 +116,18 @@
                           class="run-name grow min-w-0"
                           :class="{ 'cursor-help': !run.isLiveRun }"
                         >
-                          {{ run.isLiveRun ? 'Live run' : `Run #${index}` }}
+                          {{ runName(run, index, true) }}
                         </div>
                         <div class="run-actions">
                           <ToolbarButtonWidget :icon="run.isVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"
-                            :label="`${run.isVisible ? 'Hide' : 'Show'} ${run.isLiveRun ? 'live run' : 'run'}`"
+                            :label="`${run.isVisible ? 'Hide' : 'Show'} ${runName(run, index)}`"
                             small
                             tooltipAlign="end"
                             @click="onToggleRun(index)"
                           />
                           <ToolbarButtonWidget v-if="!run.isLiveRun"
                             icon="pi pi-times"
-                            label="Remove run"
+                            :label="`Remove ${runName(run, index)}`"
                             small
                             tooltipAlign="end"
                             @click="onRemoveRun(index)"
@@ -1995,6 +1995,16 @@ const onTrackRun = (): void => {
     tooltip,
     isLiveRun: false
   });
+};
+
+// The name of the given run (e.g., "live run" or "run #3"), which is used in the labels of the buttons of a run, so
+// that they say which run they are for (e.g., when read by a screen reader), and, capitalised, as the name of the run
+// itself.
+
+const runName = (run: ISimulationRun, index: number, capitalised = false): string => {
+  const res = run.isLiveRun ? 'live run' : `run #${index}`;
+
+  return capitalised ? res.charAt(0).toUpperCase() + res.slice(1) : res;
 };
 
 const onRemoveRun = (index: number): void => {
