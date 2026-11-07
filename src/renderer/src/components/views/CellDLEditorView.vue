@@ -39,25 +39,15 @@
         <Button autofocus label="OK" @click="exportIssuesVisible = false" />
       </template>
     </BaseDialog>
-    <BaseDialog v-model:visible="limitationsVisible" header="Limitations" class="w-120">
-      <div class="message-dialog message-dialog-info">
-        <span class="message-dialog-icon">
-          <i class="pi pi-info-circle" />
-        </span>
-        <div class="message-dialog-text">
-          <p class="m-0">
-            The CellDL Editor view has the following limitations, which come from the
-            <a href="https://github.com/CellDL/CellDLEditorComponent" target="_blank" rel="noopener noreferrer">CellDL Editor component</a>:
-          </p>
-          <ul class="limitations-list">
-            <li v-for="(limitation, index) in LIMITATIONS" :key="index">{{ limitation }}</li>
-          </ul>
-        </div>
-      </div>
-      <template #footer>
-        <Button autofocus label="OK" @click="limitationsVisible = false" />
-      </template>
-    </BaseDialog>
+    <OkMessageDialog v-model:visible="limitationsVisible" title="Limitations" @ok="limitationsVisible = false">
+      <p class="m-0">
+        The CellDL Editor view has the following limitations, which come from the
+        <a href="https://github.com/CellDL/CellDLEditorComponent" target="_blank" rel="noopener noreferrer">CellDL Editor component</a>:
+      </p>
+      <ul class="limitations-list">
+        <li v-for="(limitation, index) in LIMITATIONS" :key="index">{{ limitation }}</li>
+      </ul>
+    </OkMessageDialog>
   </div>
 </template>
 
@@ -77,7 +67,6 @@ import * as locApi from '../../libopencor/locApi';
 import { useOpenCORContext } from '../OpenCORContext';
 import { useOpenCORMessage } from '../OpenCORMessage';
 
-import '../dialogs/message-dialog.css';
 import './toolbar-based-view.css';
 
 const EXPORT_KIND_DOWNLOAD = 'download';
