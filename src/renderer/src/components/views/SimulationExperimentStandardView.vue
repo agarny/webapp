@@ -5,7 +5,7 @@
       <Toolbar class="shrink-0">
         <template #start>
           <div class="flex gap-1">
-            <ToolbarButtonWidget
+            <ToolbarButtonWidget ref="runPauseButtonRef"
               :icon="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'pi pi-play-circle' : 'pi pi-pause-circle'"
               :accent="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'primary' : 'warning'"
               :label="(simulationStatus === locSedApi.ESedInstanceStatus.IDLE ? 'Run' : simulationStatus === locSedApi.ESedInstanceStatus.RUNNING ? 'Pause' : 'Resume') + ' simulation'"
@@ -21,15 +21,16 @@
               @click="onStop"
             />
             <!--
-            Note: our run status is in a live region (which must exist before its contents change for them to get
-                  announced by assistive technologies), which doesn't affect our layout.
+            Note: our run status is announced by assistive technologies through a visually hidden live region (which
+                  must exist before its contents change for them to get announced, and which doesn't affect our
+                  layout). That live region doesn't include the progress of a running simulation since it would
+                  otherwise get announced every time it changes (our progress bar already exposes it).
             -->
-            <span class="contents" role="status">
-              <span v-if="runStatus" class="run-status" :class="`run-status-${runStatus.type}`">
-                <i :class="runStatus.icon"></i>
-                <span>{{ runStatus.label }}</span>
-              </span>
+            <span v-if="runStatus" class="run-status" :class="`run-status-${runStatus.type}`" aria-hidden="true">
+              <i :class="runStatus.icon"></i>
+              <span>{{ runStatus.label }}</span>
             </span>
+            <span class="sr-only" role="status">{{ runStatusAnnouncement }}</span>
           </div>
         </template>
         <template #end>
@@ -154,6 +155,7 @@ const { simulationOnly } = useOpenCORContext();
 
 const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const editorRef = vue.shallowRef<HTMLElement | null>(null);
+const runPauseButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('runPauseButtonRef');
 const document = props.file.document();
 const documentIssues = document.issues();
 const isDocumentValid = documentIssues.length === 0;
@@ -228,6 +230,10 @@ const runStatus = vue.computed<{ type: string; icon: string; label: string } | n
     default:
       return null;
   }
+});
+
+const runStatusAnnouncement = vue.computed<string>(() => {
+  return runStatus.value?.type === 'running' ? 'Running…' : (runStatus.value?.label ?? '');
 });
 
 // Hide the status of our last run after a while (i.e. as long as a toast would be shown) if it is only a confirmation
@@ -441,7 +447,10 @@ const releaseResources = async (): Promise<void> => {
 
 // Copy the contents of our console, as plain text, to the clipboard, so that they can easily be included in an issue
 // report, for instance.
-// Note: our console uses non-breaking spaces to indent its messages, so we replace them with normal spaces.
+// Note #1: our console uses non-breaking spaces to indent its messages, so we replace them with normal spaces.
+// Note #2: our console may change while our copy button lets people know whether it was copied (e.g., if it gets
+//          cleared or if a simulation run reports something), in which case we reset our copy button since its
+//          feedback would no longer be about our (current) console.
 
 const copyToClipboard = vueCommon.useCopyToClipboard();
 
@@ -449,6 +458,10 @@ const copyConsole = (): void => {
   // biome-ignore lint/performance/useDomNodeTextContent: we need the rendered text (e.g., <br /> as a line break)
   void copyToClipboard.copy((editorRef.value?.innerText ?? '').replace(/\u00a0/g, ' '));
 };
+
+vue.watch(consoleContents, () => {
+  copyToClipboard.reset();
+});
 
 // Clear our console, i.e. only keep its initial contents (i.e. the path of our file).
 // Note: the status of our last run may refer to our console (i.e. if our simulation has issues or has failed), in which
@@ -550,11 +563,12 @@ const onRunPause = async (): Promise<void> => {
       lastRun.value = null;
 
       // Cancel the reset of our progress bar by our previous run, if any, so that it doesn't reset the progress bar of
-      // our new run.
+      // our new run, and reset it ourselves (in case our new run fails to start).
 
       clearTimeout(progressResetTimer);
 
       progressResetTimer = undefined;
+      progress.value = 0;
 
       // Start the simulation.
       // Note: our simulation may fail to start (e.g., if its settings are not valid), in which case we consider our run
@@ -700,7 +714,10 @@ const onRunPause = async (): Promise<void> => {
       // Note: we wait for our UI to be painted with a progress of 100%. We also need to be told if we get unmounted in
       //       the meantime, in which case our resources have to be released by us (see onUnmounted() below).
 
+      let runPauseButtonHadFocus = false;
+
       if (!runAborted.value) {
+        runPauseButtonHadFocus = runPauseButtonRef.value?.$el === window.document.activeElement;
         isFinishing.value = true;
         progress.value = 100;
         isWaitingOnRun = true;
@@ -786,6 +803,23 @@ const onRunPause = async (): Promise<void> => {
         }
 
         isFinishing.value = false;
+
+        // Give the keyboard focus back to our Run/Pause button if it had it before it got disabled (and therefore lost
+        // it), unless the keyboard focus has gone somewhere else in the meantime.
+
+        if (runPauseButtonHadFocus) {
+          await vue.nextTick();
+
+          if (isUnmounted) {
+            return;
+          }
+
+          const activeElement = window.document.activeElement;
+
+          if (!activeElement || activeElement === window.document.body) {
+            runPauseButtonRef.value?.$el?.focus();
+          }
+        }
 
         progressResetTimer = setTimeout(() => {
           progressResetTimer = undefined;
