@@ -8,7 +8,8 @@ import { HINT_DELAY } from './constants';
 // Note #1: our hint is shown, without any animation, after a short delay when our element is hovered, and straightaway
 //          when our element (or an element within it, see Note #7) gets a focus ring (i.e. when it is focused using the
 //          keyboard or, for a text field, when it is focused in any way). It is hidden as soon as our element is left,
-//          pressed, or blurred, and it isn't shown if our element is no longer visible by the time it is to be shown.
+//          pressed, blurred, or hidden (see Note #9), and it isn't shown if our element is no longer visible by the
+//          time it is to be shown.
 // Note #2: our hint is shown below our element (or above it if there is not enough room below it) and is kept within
 //          the window. It has a fixed position and is appended to our OpenCOR instance (rather than to our element) so
 //          that it doesn't get clipped by an ancestor of our element (e.g., a scroll panel), while still being styled
@@ -29,6 +30,10 @@ import { HINT_DELAY } from './constants';
 //          when our element contains the focused element (e.g., a float label that contains an input field).
 // Note #8: our hint is not visible to assistive technologies, so a plain hint is also used as the accessible name of
 //          our element if our element has no text of its own and no accessible name (e.g., an icon-only button).
+// Note #9: our element may get hidden (or removed from the DOM) while our hint is shown, without being left or blurred
+//          (e.g., if the user switches to another file tab using the keyboard while our element is hovered or focused),
+//          so we check our element after each key press while our hint is shown, and hide our hint if our element is
+//          no longer visible.
 
 const HINT_OFFSET = 6; // Distance between our element and our hint.
 const HINT_MARGIN = 4; // Minimum distance between our hint and the edges of the window.
@@ -63,6 +68,30 @@ const hideHint = (): void => {
 
   hintElement = null;
   hintOwner = null;
+
+  window.removeEventListener('keydown', onKeyDown, true);
+};
+
+// Whether the given element is in the DOM and visible.
+
+const isVisible = (element: HTMLElement): boolean => {
+  return (
+    element.isConnected &&
+    element.getClientRects().length > 0 &&
+    element.checkVisibility?.({ visibilityProperty: true }) !== false
+  );
+};
+
+// Hide our hint if our element is no longer visible after a key press (see Note #9 above).
+// Note: a key press may hide our element (or remove it from the DOM), but only once the DOM has been updated, hence we
+//       check our element on the next animation frame.
+
+const onKeyDown = (): void => {
+  window.requestAnimationFrame(() => {
+    if (hintOwner && !isVisible(hintOwner)) {
+      hideHint();
+    }
+  });
 };
 
 // The closest ancestor of the given element that has a hint, if any.
@@ -116,12 +145,7 @@ const showHint = (element: HTMLElement, text: string, html: boolean): void => {
 
   hideHint();
 
-  if (
-    !text ||
-    !element.isConnected ||
-    !element.getClientRects().length ||
-    element.checkVisibility?.({ visibilityProperty: true }) === false
-  ) {
+  if (!text || !isVisible(element)) {
     return;
   }
 
@@ -147,6 +171,8 @@ const showHint = (element: HTMLElement, text: string, html: boolean): void => {
   (element.closest('.opencor') ?? document.body).appendChild(hintElement);
 
   hintOwner = element;
+
+  window.addEventListener('keydown', onKeyDown, true);
 
   const elementRect = element.getBoundingClientRect();
   const hintRect = hintElement.getBoundingClientRect();
