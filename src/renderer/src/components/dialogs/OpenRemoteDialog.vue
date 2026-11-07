@@ -61,12 +61,22 @@ const checked = vue.ref<boolean>(false);
 // Note #2: a URL without a scheme must have a host that looks like one (i.e. a domain name, an IP address, or
 //          localhost), so that, for instance, some random text is not considered as a valid URL. A URL with a scheme
 //          can have any host (e.g., an intranet host, such as "http://modelserver/model.omex").
+// Note #3: a data URL (e.g., "data:application/zip;base64,...") is also valid (as long as it has a comma after its
+//          media type), since it can be opened like any other file (see OpenCOR.openFile()). It is used as is (so,
+//          unlike for other URLs, we don't let people know which URL will be opened since it would be the same and it
+//          can be very long).
+
+const DATA_URL_REGEX = /^data:[^,]*,/;
 
 const normalisedUrl = vue.computed<string>(() => {
   const trimmedUrl = url.value.trim();
 
   if (!trimmedUrl) {
     return '';
+  }
+
+  if (DATA_URL_REGEX.test(trimmedUrl)) {
+    return trimmedUrl;
   }
 
   const scheme = /^([a-z][a-z\d+.-]*):\/\//i.exec(trimmedUrl)?.[1];
