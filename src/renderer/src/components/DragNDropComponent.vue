@@ -17,9 +17,9 @@ import * as vue from 'vue';
 
 // The drop zone that is shown when some files are being dragged over OpenCOR.
 // Note #1: we cover the whole of OpenCOR, including any overlay that is open (e.g., a popover), and our contents ignore
-//          pointer events, so that we are the only target of drag events (see the drag and drop section in
-//          OpenCOR.vue), which means that we only get left when the files being dragged leave OpenCOR or when the drag
-//          gets cancelled.
+//          pointer events, so that we are normally the only target of drag events (see the drag and drop section in
+//          OpenCOR.vue), which means that we normally only get left when the files being dragged leave OpenCOR or when
+//          the drag gets cancelled.
 // Note #2: the number of files being dragged may not be known (e.g., some browsers don't tell us until the files are
 //          dropped), in which case it is zero and we show a generic message.
 
