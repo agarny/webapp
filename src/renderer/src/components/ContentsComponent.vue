@@ -51,8 +51,14 @@
           <span class="file-tab-label">{{ common.fileName(fileTab.file.canonicalPath()) }}</span>
           <span class="file-tab-end">
             <span v-if="isModified(fileTab)" class="file-tab-modified-indicator pi pi-circle-fill" role="img" aria-label="Modified" />
+            <!--
+            Note: our close button's hint is only "Close" (since it is shown next to the name of our file), but its
+                  accessible name says which file it closes, so that the close buttons of our file tabs can be told
+                  apart (e.g., by a screen reader).
+            -->
             <button class="file-tab-close-button pi pi-times"
               type="button"
+              :aria-label="`Close ${common.fileName(fileTab.file.canonicalPath())}`"
               v-hint="'Close'"
               @mousedown.prevent
               @click.stop="closeFile(fileTab.file.path())"
