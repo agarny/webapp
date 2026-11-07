@@ -8,8 +8,8 @@ import { HINT_DELAY } from './constants';
 // Note #1: our hint is shown, without any animation, after a short delay when our element is hovered, and straightaway
 //          when our element (or an element within it, see Note #7) gets a focus ring (i.e. when it is focused using the
 //          keyboard or, for a text field, when it is focused in any way). It is hidden as soon as our element is left,
-//          pressed, blurred, or hidden (see Note #9), and it isn't shown if our element is no longer visible by the
-//          time it is to be shown.
+//          pressed, blurred, or hidden (see Note #9), or Escape is pressed (see Note #10), and it isn't shown if our
+//          element is no longer visible by the time it is to be shown.
 // Note #2: our hint is shown below our element (or above it if there is not enough room below it) and is kept within
 //          the window. It has a fixed position and is appended to our OpenCOR instance (rather than to our element) so
 //          that it doesn't get clipped by an ancestor of our element (e.g., a scroll panel), while still being styled
@@ -34,6 +34,10 @@ import { HINT_DELAY } from './constants';
 //          (e.g., if the user switches to another file tab using the keyboard while our element is hovered or focused),
 //          so we check our element after each key press while our hint is shown, and hide our hint if our element is
 //          no longer visible.
+// Note #10: like a native tooltip, our hint can be dismissed by pressing Escape, be it shown or about to be shown, in
+//           which case it isn't shown again until our element is left (or blurred) and then hovered (or focused) again.
+//           Escape is otherwise left to do what it normally does (e.g., discard the value being edited in an input
+//           field or close a dialog).
 
 const HINT_OFFSET = 6; // Distance between our element and our hint.
 const HINT_MARGIN = 4; // Minimum distance between our hint and the edges of the window.
@@ -52,8 +56,9 @@ interface IHintState {
 
 const states = new WeakMap<HTMLElement, IHintState>();
 
-let hintElement: HTMLElement | null = null;
-let hintOwner: HTMLElement | null = null;
+let hintElement: HTMLElement | null = null; // The element that shows our hint, if any.
+let hintOwner: HTMLElement | null = null; // The element that our hint is about, if any.
+let pendingHintState: IHintState | null = null; // The state of the element which hint is about to be shown, if any.
 
 // The text of our hint as it is displayed.
 // Note: our hint may be the path or URL of a file, so we let it break after a path separator (by inserting a zero-width
@@ -69,7 +74,19 @@ const hideHint = (): void => {
   hintElement = null;
   hintOwner = null;
 
-  window.removeEventListener('keydown', onKeyDown, true);
+  updateKeyDownListener();
+};
+
+// Cancel the hint that is about to be shown, if any.
+
+const cancelPendingHint = (): void => {
+  if (pendingHintState) {
+    window.clearTimeout(pendingHintState.timer);
+
+    pendingHintState = null;
+
+    updateKeyDownListener();
+  }
 };
 
 // Whether the given element is in the DOM and visible.
@@ -82,16 +99,33 @@ const isVisible = (element: HTMLElement): boolean => {
   );
 };
 
-// Hide our hint if our element is no longer visible after a key press (see Note #9 above).
-// Note: a key press may hide our element (or remove it from the DOM), but only once the DOM has been updated, hence we
-//       check our element on the next animation frame.
+// Dismiss our hint, be it shown or about to be shown, if Escape is pressed (see Note #10 above), or hide our hint if
+// our element is no longer visible after a key press (see Note #9 above).
+// Note #1: we listen to key presses only while a hint is shown or about to be shown.
+// Note #2: a key press may hide our element (or remove it from the DOM), but only once the DOM has been updated, hence
+//          we check our element on the next animation frame.
 
-const onKeyDown = (): void => {
+const onKeyDown = (event: KeyboardEvent): void => {
+  if (event.key === 'Escape') {
+    cancelPendingHint();
+    hideHint();
+
+    return;
+  }
+
   window.requestAnimationFrame(() => {
     if (hintOwner && !isVisible(hintOwner)) {
       hideHint();
     }
   });
+};
+
+const updateKeyDownListener = (): void => {
+  if (hintElement || pendingHintState) {
+    window.addEventListener('keydown', onKeyDown, true);
+  } else {
+    window.removeEventListener('keydown', onKeyDown, true);
+  }
 };
 
 // The closest ancestor of the given element that has a hint, if any.
@@ -172,7 +206,7 @@ const showHint = (element: HTMLElement, text: string, html: boolean): void => {
 
   hintOwner = element;
 
-  window.addEventListener('keydown', onKeyDown, true);
+  updateKeyDownListener();
 
   const elementRect = element.getBoundingClientRect();
   const hintRect = hintElement.getBoundingClientRect();
@@ -199,21 +233,26 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
       timer: undefined,
       ariaLabel: false,
       onPointerEnter: () => {
-        // Cancel or hide the hint of our hinted ancestors, if any, since ours is to replace it (see Note #6 above).
+        // Hide the hint of our hinted ancestors, if any, since ours is to replace it (see Note #6 above), and cancel
+        // the hint that is about to be shown, if any (e.g., the hint of one of our hinted ancestors).
 
         for (let ancestor = hintedAncestor(element); ancestor; ancestor = hintedAncestor(ancestor)) {
-          window.clearTimeout(states.get(ancestor)?.timer);
-
           if (hintOwner === ancestor) {
             hideHint();
           }
         }
 
-        window.clearTimeout(state.timer);
+        cancelPendingHint();
 
         state.timer = window.setTimeout(() => {
+          pendingHintState = null;
+
           showHint(element, state.text, state.html);
         }, HINT_DELAY);
+
+        pendingHintState = state;
+
+        updateKeyDownListener();
       },
       onPointerLeave: (event: PointerEvent) => {
         state.onHide();
@@ -235,8 +274,7 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
           event.target.matches(':focus-visible') &&
           closestHintedElement(event.target) === element
         ) {
-          window.clearTimeout(state.timer);
-
+          cancelPendingHint();
           showHint(element, state.text, state.html);
         }
       },
@@ -248,7 +286,9 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
         }
       },
       onHide: () => {
-        window.clearTimeout(state.timer);
+        if (pendingHintState === state) {
+          cancelPendingHint();
+        }
 
         if (hintOwner === element) {
           hideHint();
