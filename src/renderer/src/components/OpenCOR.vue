@@ -1605,14 +1605,44 @@ const onChange = (event: Event): void => {
 };
 
 // Drag and drop.
-// Note: once our drop zone is shown, it covers the whole of OpenCOR (including any overlay that is open) and its
-//       contents ignore pointer events (see DragNDropComponent.vue), so it is the only target of our drag events. This
-//       means that we know that the files being dragged have left OpenCOR (or that the drag has been cancelled) as soon
-//       as our drop zone gets left, without having to keep track of the (nested) elements that are being entered and
-//       left.
+// Note #1: once our drop zone is shown, it covers the whole of OpenCOR (including any overlay that is open) and its
+//          contents ignore pointer events (see DragNDropComponent.vue), so it is normally the only target of our drag
+//          events. This means that we normally know that the files being dragged have left OpenCOR (or that the drag
+//          has been cancelled) as soon as our drop zone gets left, without having to keep track of the (nested)
+//          elements that are being entered and left.
+// Note #2: if the files being dragged leave OpenCOR straight after our drop zone has been shown (e.g., if they are
+//          quickly dragged across a corner of OpenCOR), then it is the element that was entered (rather than our drop
+//          zone) that gets left, meaning that our drop zone would remain shown (and block the mouse). So, we also hide
+//          our drop zone if we haven't been told for a while that files are still being dragged over us (a dragover
+//          event is fired every 350 ms ± 200 ms while files are being dragged over us, even if they are not moved).
+
+const DRAG_OVER_TIMEOUT = 1000;
 
 const dragAndDropVisible = vue.ref<boolean>(false);
 const dragAndDropFileCount = vue.ref<number>(0);
+let dragOverTimer: number | undefined;
+
+const restartDragOverTimer = (): void => {
+  window.clearTimeout(dragOverTimer);
+
+  dragOverTimer = window.setTimeout(() => {
+    dragOverTimer = undefined;
+
+    dragAndDropVisible.value = false;
+  }, DRAG_OVER_TIMEOUT);
+};
+
+vue.watch(dragAndDropVisible, (visible: boolean) => {
+  if (!visible) {
+    window.clearTimeout(dragOverTimer);
+
+    dragOverTimer = undefined;
+  }
+});
+
+trackCleanup(() => {
+  window.clearTimeout(dragOverTimer);
+});
 
 // Hide our drop zone if our UI gets disabled while files are being dragged (e.g., if a dialog gets opened), so that
 // they don't get opened if they are then dropped.
@@ -1638,6 +1668,8 @@ const onDragEnter = (event: DragEvent): void => {
 
   dragAndDropFileCount.value = Array.from(event.dataTransfer.items).filter((item) => item.kind === 'file').length;
   dragAndDropVisible.value = true;
+
+  restartDragOverTimer();
 };
 
 const onDragOver = (event: DragEvent): void => {
@@ -1648,6 +1680,12 @@ const onDragOver = (event: DragEvent): void => {
 
   if (event.dataTransfer?.types.includes('Files')) {
     event.dataTransfer.dropEffect = dragAndDropVisible.value ? 'copy' : 'none';
+  }
+
+  // Our files are still being dragged over us, so make sure that our drop zone doesn't get hidden (see Note #2 above).
+
+  if (dragAndDropVisible.value) {
+    restartDragOverTimer();
   }
 };
 
