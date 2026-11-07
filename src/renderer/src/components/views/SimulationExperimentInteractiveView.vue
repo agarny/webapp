@@ -182,11 +182,14 @@
         />
       </Teleport>
       <Popover ref="runColorPopoverRef" :appendTo="appendTarget">
-        <div class="flex p-2 gap-2">
+        <div class="flex p-2 gap-2" @keydown="onColorSwatchesKeyDown">
           <button class="color-swatch cursor-pointer w-6 h-6 outline-2 outline-transparent rounded-md"
             v-for="(name, color) in colors.PALETTE" :key="color"
+            type="button"
             :style="`background-color: ${color};`"
-            :class="{ 'color-swatch-selected': color === runs[runColorPopoverIndex].color }"
+            :class="{ 'color-swatch-selected': color === runs[runColorPopoverIndex]?.color }"
+            :autofocus="color === runs[runColorPopoverIndex]?.color"
+            :aria-pressed="color === runs[runColorPopoverIndex]?.color"
             v-hint="name"
             @click="onRunColorChange(runColorPopoverIndex, color)"
           />
@@ -2072,10 +2075,42 @@ const onRunColorChange = (index: number, color: string): void => {
   }
 };
 
+// Show/hide our colour popover for the given run.
+// Note #1: the swatch of the current colour of our run is focused when our popover is shown (see its autofocus
+//          attribute), so that our popover can be used with the keyboard. Our popover then keeps the keyboard focus
+//          within itself (i.e. Tab goes from one swatch to another), and Escape hides it and gives the keyboard focus
+//          back to the colour button of our run.
+// Note #2: the left/right arrow keys also go from one swatch to another (wrapping around), and the Home/End keys go to
+//          the first/last swatch (see onColorSwatchesKeyDown()).
+
 const onToggleRunColorPopover = (index: number, event: MouseEvent): void => {
   runColorPopoverIndex.value = index;
 
   runColorPopoverRef.value?.toggle(event);
+};
+
+const onColorSwatchesKeyDown = (event: KeyboardEvent): void => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    return;
+  }
+
+  const swatches = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.color-swatch'));
+  const index = swatches.indexOf(window.document.activeElement as HTMLElement);
+
+  if (index === -1) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const newIndex =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? swatches.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + swatches.length) % swatches.length;
+
+  swatches[newIndex]?.focus();
 };
 
 // Download COMBINE archive.
@@ -2401,12 +2436,31 @@ vue.onMounted(() => {
   box-shadow: 0 2px 8px var(--p-shadow-color-dark, rgba(255, 255, 255, 0.15));
 }
 
+/**
+ * Note: focus outlines are removed (see app.css), which would also remove the outline of the selected swatch when it
+ *       gets the focus, so we restore it.
+ */
+
 .color-swatch-selected {
   outline-color: var(--p-text-color);
 }
 
 .color-swatch-selected:focus {
   outline: 2px solid var(--p-text-color) !important;
+}
+
+/**
+ * Focus ring of a swatch, which is like that of our other buttons (see app.css), i.e. a ring in the primary colour that
+ * is offset from the swatch (and therefore also from the outline of the selected swatch).
+ * Note: it is also shown when the swatch is hovered, hence the :hover variant, which takes precedence over the box
+ *       shadow of a hovered swatch (in both light and dark modes).
+ */
+
+.color-swatch:focus-visible,
+.color-swatch:focus-visible:hover {
+  box-shadow:
+    0 0 0 2px var(--p-content-background),
+    0 0 0 4px var(--p-primary-color);
 }
 
 /**
