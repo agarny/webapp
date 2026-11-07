@@ -85,23 +85,34 @@ const summaryItems = vue.computed<{ type: locApi.EIssueType; icon: string; class
 
 // Copy our issues, as plain text, to the clipboard, so that they can easily be included in an issue report, for
 // instance.
-// Note: the description of an issue may contain some HTML (e.g., to emphasise part of it), hence we only keep its text.
+// Note #1: the description of an issue may contain some HTML (e.g., to emphasise part of it), hence we only keep its
+//          text.
+// Note #2: our issues may change while our copy button lets people know whether they were copied (e.g., if a simulation
+//          input of an interactive simulation experiment view is changed straight after copying), in which case we
+//          reset our copy button since its feedback would no longer be about our (current) issues. We only do this if
+//          what would be copied has changed, i.e. not if our issues are recomputed and are the same as before.
 
 const copyToClipboard = vueCommon.useCopyToClipboard();
 
-const copyIssues = (): void => {
+const issuesText = vue.computed<string>(() => {
   const domParser = new DOMParser();
 
-  void copyToClipboard.copy(
-    props.issues
-      .map((issue) => {
-        const description = domParser.parseFromString(issue.description, 'text/html').body.textContent ?? '';
+  return props.issues
+    .map((issue) => {
+      const description = domParser.parseFromString(issue.description, 'text/html').body.textContent ?? '';
 
-        return `${ISSUE_TYPES[issue.type].label}: ${description}`;
-      })
-      .join('\n')
-  );
+      return `${ISSUE_TYPES[issue.type].label}: ${description}`;
+    })
+    .join('\n');
+});
+
+const copyIssues = (): void => {
+  void copyToClipboard.copy(issuesText.value);
 };
+
+vue.watch(issuesText, () => {
+  copyToClipboard.reset();
+});
 </script>
 
 <style scoped>
