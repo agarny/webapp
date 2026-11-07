@@ -4,7 +4,7 @@
       <p class="description">Enter the URL of a CellML file, SED-ML file, or COMBINE archive.</p>
       <IconField>
         <InputIcon class="pi pi-link" />
-        <InputText v-model="url" autofocus fluid
+        <InputText ref="inputRef" v-model="url" autofocus fluid
           :invalid="showIssue"
           placeholder="https://example.com/model.omex"
           spellcheck="false"
@@ -14,7 +14,14 @@
           @blur="checked = true"
           @keydown.enter.prevent="emitOpenRemote"
         />
-        <InputIcon v-if="url" class="clear-button pi pi-times" v-hint="'Clear'" @mousedown.prevent @click="reset" />
+        <!--
+        Note: our clear button is a real button (rather than an input icon) so that it can be used with the keyboard,
+              but it is styled and positioned like an input icon (see .p-inputicon).
+        -->
+        <button v-if="url" class="p-inputicon clear-button pi pi-times" type="button" v-hint="'Clear'"
+          @mousedown.prevent
+          @click="onClear"
+        />
       </IconField>
 
       <!--
@@ -113,6 +120,18 @@ const reset = (): void => {
   checked.value = false;
 };
 
+// Clear our URL and give the keyboard focus back to our input field.
+// Note: our clear button disappears once our URL has been cleared, so if it has the keyboard focus (i.e. if it was used
+//       with the keyboard), then the keyboard focus would otherwise be lost.
+
+const inputRef = vue.useTemplateRef<{ $el: HTMLElement }>('inputRef');
+
+const onClear = (): void => {
+  reset();
+
+  inputRef.value?.$el.focus();
+};
+
 const emitOpenRemote = (): void => {
   checked.value = true;
 
@@ -160,12 +179,25 @@ const emitClose = (): void => {
   border-color: var(--p-inputtext-invalid-border-color, var(--p-red-400));
 }
 
+/**
+ * Note: our clear button is a button that looks like an input icon, hence we reset the default styling of a button.
+ */
+
 .clear-button {
+  padding: 0;
+  border: none;
+  border-radius: 0.25rem;
+  background: none;
   color: var(--p-text-muted-color);
   cursor: pointer;
 }
 
 .clear-button:hover {
+  color: var(--p-text-color);
+}
+
+.clear-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--p-primary-color);
   color: var(--p-text-color);
 }
 
