@@ -31,9 +31,10 @@ import { HINT_DELAY } from './constants';
 // Note #8: our hint is not visible to assistive technologies, so a plain hint is also used as the accessible name of
 //          our element if our element has no text of its own and no accessible name (e.g., an icon-only button).
 // Note #9: our element may get hidden (or removed from the DOM) while our hint is shown, without being left or blurred
-//          (e.g., if the user switches to another file tab using the keyboard while our element is hovered or focused),
-//          so we check our element after each key press while our hint is shown, and hide our hint if our element is
-//          no longer visible.
+//          (e.g., if the user switches to another file tab using the keyboard while our element is hovered or focused,
+//          or if our element is activated using the keyboard and gets hidden once what it does has been done, like
+//          a recent file on our start screen once it has been opened), so we check our element on every animation
+//          frame while our hint is shown, and hide our hint if our element is no longer visible.
 // Note #10: like a native tooltip, our hint can be dismissed by pressing Escape, be it shown or about to be shown, in
 //           which case it isn't shown again until our element is left (or blurred) and then hovered (or focused) again.
 //           Escape is otherwise left to do what it normally does (e.g., discard the value being edited in an input
@@ -63,6 +64,7 @@ const states = new WeakMap<HTMLElement, IHintState>();
 let hintElement: HTMLElement | null = null; // The element that shows our hint, if any.
 let hintOwner: HTMLElement | null = null; // The element that our hint is about, if any.
 let pendingHintState: IHintState | null = null; // The state of the element which hint is about to be shown, if any.
+let visibilityCheckFrame: number | undefined; // The animation frame in which our element is to be checked, if any.
 
 // Keep track of whether our window has lost the focus (see Note #11 above).
 // Note #1: when our window regains the focus, our element may get the focus back before or after our window gets its
@@ -104,6 +106,10 @@ const hideHint = (): void => {
   hintElement = null;
   hintOwner = null;
 
+  window.cancelAnimationFrame(visibilityCheckFrame ?? 0);
+
+  visibilityCheckFrame = undefined;
+
   updateKeyDownListener();
 };
 
@@ -129,25 +135,33 @@ const isVisible = (element: HTMLElement): boolean => {
   );
 };
 
-// Dismiss our hint, be it shown or about to be shown, if Escape is pressed (see Note #10 above), or hide our hint if
-// our element is no longer visible after a key press (see Note #9 above).
-// Note #1: we listen to key presses only while a hint is shown or about to be shown.
-// Note #2: a key press may hide our element (or remove it from the DOM), but only once the DOM has been updated, hence
-//          we check our element on the next animation frame.
+// Hide our hint if our element is no longer visible (see Note #9 above), or check our element again on the next
+// animation frame.
 
-const onKeyDown = (event: KeyboardEvent): void => {
-  if (event.key === 'Escape') {
-    cancelPendingHint();
+const checkHintOwnerVisibility = (): void => {
+  visibilityCheckFrame = undefined;
+
+  if (!hintOwner) {
+    return;
+  }
+
+  if (!isVisible(hintOwner)) {
     hideHint();
 
     return;
   }
 
-  window.requestAnimationFrame(() => {
-    if (hintOwner && !isVisible(hintOwner)) {
-      hideHint();
-    }
-  });
+  visibilityCheckFrame = window.requestAnimationFrame(checkHintOwnerVisibility);
+};
+
+// Dismiss our hint, be it shown or about to be shown, if Escape is pressed (see Note #10 above).
+// Note: we listen to key presses only while a hint is shown or about to be shown.
+
+const onKeyDown = (event: KeyboardEvent): void => {
+  if (event.key === 'Escape') {
+    cancelPendingHint();
+    hideHint();
+  }
 };
 
 const updateKeyDownListener = (): void => {
@@ -262,6 +276,8 @@ const showHint = (element: HTMLElement, text: string, html: boolean): void => {
 
   updateKeyDownListener();
   positionHint();
+
+  visibilityCheckFrame = window.requestAnimationFrame(checkHintOwnerVisibility);
 };
 
 export const vHint: vue.Directive<HTMLElement, string | undefined> = {
