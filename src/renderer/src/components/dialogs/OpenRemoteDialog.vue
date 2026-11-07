@@ -11,7 +11,7 @@
           autocomplete="off"
           autocapitalize="off"
           inputmode="url"
-          @blur="checked = true"
+          @blur="checked = !!url.trim()"
           @keydown.enter.prevent="emitOpenRemote"
         />
         <!--
@@ -34,7 +34,7 @@
           <i class="pi pi-exclamation-circle"></i>
           <span>Please enter a valid web address (e.g., <code>https://example.com/model.omex</code>).</span>
         </p>
-        <p v-else-if="normalisedUrl && normalisedUrl !== url.trim()" class="hint" v-hint="`Will open ${normalisedUrl}.`">
+        <p v-else-if="normalisedUrl && normalisedUrl !== url.trim() && !normalisedUrl.startsWith('data:')" class="hint" v-hint="`Will open ${normalisedUrl}.`">
           <i class="pi pi-info-circle"></i>
           <span>Will open <code>{{ normalisedUrl }}</code>.</span>
         </p>
@@ -69,16 +69,16 @@ const checked = vue.ref<boolean>(false);
 //          localhost), so that, for instance, some random text is not considered as a valid URL. A URL with a scheme
 //          can have any host (e.g., an intranet host, such as "http://modelserver/model.omex").
 // Note #3: a data URL (e.g., "data:application/zip;base64,...") is also valid (as long as it has a comma after its
-//          media type), since it can be opened like any other file (see OpenCOR.openFile()). It is used as is (so,
-//          unlike for other URLs, we don't let people know which URL will be opened since it would be the same and it
-//          can be very long).
+//          media type), since it can be opened like any other file (see OpenCOR.openFile()). It is used as is, apart
+//          from its scheme which is lowercased (so, unlike for other URLs, we don't let people know which URL will be
+//          opened since it would be (nearly) the same and it can be very long).
 // Note #4: a URL without a scheme must also have no user name and no password, so that, for instance, an email address
 //          (e.g., "user@example.com") or a mailto link (e.g., "mailto:user@example.com", which has no "//" after its
 //          scheme) is not considered as a valid URL, i.e. as "https://user@example.com" or as
 //          "https://mailto:user@example.com" (where "mailto" would be a user name and "user" a password). A URL with a
 //          scheme can have a user name and a password (e.g., "https://user@example.com/model.omex").
 
-const DATA_URL_REGEX = /^data:[^,]*,/;
+const DATA_URL_REGEX = /^data:[^,]*,/i;
 
 const normalisedUrl = vue.computed<string>(() => {
   const trimmedUrl = url.value.trim();
@@ -88,7 +88,7 @@ const normalisedUrl = vue.computed<string>(() => {
   }
 
   if (DATA_URL_REGEX.test(trimmedUrl)) {
-    return trimmedUrl;
+    return `data:${trimmedUrl.slice(5)}`;
   }
 
   const scheme = /^([a-z][a-z\d+.-]*):\/\//i.exec(trimmedUrl)?.[1];
@@ -117,6 +117,10 @@ const normalisedUrl = vue.computed<string>(() => {
 
 // Let people know that their URL is not valid, but only once they are done typing it (i.e. once they leave our input
 // field or try to open it), so that they are not told off while still typing it.
+// Note: our input field is also blurred when our dialog gets hidden (i.e. after we have been reset since the keyboard
+//       focus is then given back to whatever had it before our dialog was shown), so we only consider our URL as
+//       checked when leaving our input field if there is a URL to check. Otherwise, our URL would be considered as
+//       checked the next time our dialog is shown and people would be told off while typing it.
 
 const showIssue = vue.computed<boolean>(() => {
   return checked.value && !!url.value.trim() && !normalisedUrl.value;
