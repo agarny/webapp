@@ -159,12 +159,48 @@ const cpuDescription = (): string => {
   return [cpuModel, logicalCores].filter(Boolean).join(', ');
 };
 
+// The User-Agent Client Hints of the browser in which our Web app is running, if available (i.e. in Chromium-based
+// browsers).
+
+interface IUserAgentData {
+  brands: { brand: string; version: string }[];
+  platform: string;
+}
+
+const userAgentData = (): IUserAgentData | undefined => {
+  return (navigator as Navigator & { userAgentData?: IUserAgentData }).userAgentData;
+};
+
+// The lowest and highest values that navigator.deviceMemory can report, which depend on the version of Chromium and on
+// the platform.
+// Note #1: from Chromium 146, the values are 2, 4, 8, 16, and 32 on desktop, and 2, 4, and 8 on Android (see
+//          https://groups.google.com/a/chromium.org/g/blink-dev/c/vXtAmrVZeDk and https://crbug.com/454354290) while
+//          they used to be 0.25, 0.5, 1, 2, 4, and 8 on all platforms.
+// Note #2: Chromium's implementation may now report 1 on Android, but we still consider 2 as the lowest value there,
+//          so that a device reporting 2 is described as having about 2 GB "or less" (which is true either way).
+// Note #3: if we can't tell the version of Chromium, then we assume the old values.
+
+const UPDATED_DEVICE_MEMORY_LIMITS_CHROMIUM_VERSION = 146;
+
+const deviceMemoryBounds = (): [number, number] => {
+  const chromiumVersion = Number(
+    userAgentData()?.brands.find((brand) => brand.brand === 'Chromium')?.version ??
+      navigator.userAgent.match(/(?:Chrome|CriOS)\/(\d+)/)?.[1] ??
+      0
+  );
+
+  if (chromiumVersion >= UPDATED_DEVICE_MEMORY_LIMITS_CHROMIUM_VERSION) {
+    return userAgentData()?.platform === 'Android' || /Android/.test(navigator.userAgent) ? [2, 8] : [2, 32];
+  }
+
+  return [0.25, 8];
+};
+
 // A description of our amount of memory.
 // Note: in OpenCOR's Web app, we can only rely on navigator.deviceMemory, which is only available in Chromium-based
-//       browsers, and which is approximate (i.e. a power of two, hence we say "about") and capped (at 8 GB, hence we
-//       say "or more" when we reach that cap).
-
-const DEVICE_MEMORY_CAP = 8;
+//       browsers, and which is the amount of memory rounded to the nearest power of two (e.g., 16 GB for 14 GB), hence
+//       we say "about", and clamped (see deviceMemoryBounds()), hence we say "or more" (or "or less") when it is the
+//       highest (or lowest) value that can be reported.
 
 const memoryDescription = (): string => {
   if (systemDetails.value) {
@@ -177,7 +213,17 @@ const memoryDescription = (): string => {
     return '';
   }
 
-  return deviceMemory >= DEVICE_MEMORY_CAP ? `${DEVICE_MEMORY_CAP} GB or more` : `About ${deviceMemory} GB`;
+  const [lowestDeviceMemory, highestDeviceMemory] = deviceMemoryBounds();
+
+  if (deviceMemory >= highestDeviceMemory) {
+    return `About ${deviceMemory} GB or more`;
+  }
+
+  if (deviceMemory <= lowestDeviceMemory) {
+    return `About ${deviceMemory} GB or less`;
+  }
+
+  return `About ${deviceMemory} GB`;
 };
 
 // A description of our GPU, i.e. the name of the renderer used by WebGL (which is the same in OpenCOR and in OpenCOR's
@@ -238,23 +284,19 @@ const gpuDescription = (): string => {
 //       agent string otherwise.
 
 const browserDescription = (): string => {
-  const userAgentData = (
-    navigator as Navigator & {
-      userAgentData?: { brands: { brand: string; version: string }[] };
-    }
-  ).userAgentData;
+  const brands = userAgentData()?.brands;
   const userAgent = navigator.userAgent;
   let name = '';
   let version = '';
 
-  if (userAgentData) {
+  if (brands) {
     // Use the most specific brand (e.g., "Google Chrome"), i.e. neither Chromium itself nor a "GREASE" brand, which is
     // a fake brand with some random punctuation (e.g., "Not)A;Brand" or "Not_A Brand") that Chromium-based browsers add
     // on purpose so that websites don't rely on an exact list of brands.
 
     const brand =
-      userAgentData.brands.find((brand) => !/chromium|not.a.brand/i.test(brand.brand)) ??
-      userAgentData.brands.find((brand) => /chromium/i.test(brand.brand));
+      brands.find((brand) => !/chromium|not.a.brand/i.test(brand.brand)) ??
+      brands.find((brand) => /chromium/i.test(brand.brand));
 
     if (brand) {
       name = brand.brand.replace(/^Google /, '').replace(/^Microsoft /, '');
