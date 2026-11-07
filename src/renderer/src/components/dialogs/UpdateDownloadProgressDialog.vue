@@ -44,8 +44,13 @@ const text = vue.computed<string>(() => {
   return props.installing ? `Installing ${update.value}...` : `Downloading ${update.value}...`;
 });
 
+// Format the given size (in bytes) in megabytes.
+// Note: a megabyte is 1,000,000 bytes (rather than 1,048,576 bytes, i.e. a mebibyte), as on macOS and on most download
+//       pages, so that the size of the update matches the one that people may see elsewhere (e.g., on its release
+//       page).
+
 const formatSize = (size: number): string => {
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return `${(size / 1000 ** 2).toFixed(1)} MB`;
 };
 
 const details = vue.computed<string>(() => {
