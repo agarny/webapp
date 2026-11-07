@@ -7,7 +7,11 @@
       <div class="message-dialog-text" v-html="question"></div>
     </div>
     <template #footer>
-      <Button autofocus :label="yesLabel" :severity="BUTTON_SEVERITIES[severity]" @click="$emit('yes')" />
+      <Button autofocus
+        :label="yesLabel"
+        :severity="severity === 'danger' ? 'danger' : undefined"
+        @click="$emit('yes')"
+      />
       <Button :label="noLabel" severity="secondary" @click="$emit('no')" />
       <Button :label="cancelLabel" severity="secondary" @click="$emit('cancel')" />
     </template>
@@ -19,7 +23,8 @@ import './message-dialog.css';
 
 type Severity = 'danger' | 'warning' | 'info';
 
-// Note: same as for YesNoQuestionDialog.vue when it comes to the labels of our buttons.
+// Note: same as for YesNoQuestionDialog.vue when it comes to the labels of our buttons and the colour of our yes
+//       button.
 
 withDefaults(
   defineProps<{
@@ -43,14 +48,6 @@ defineEmits<{
   no: [];
   cancel: [];
 }>();
-
-// Note: PrimeVue's Button component uses "warn" rather than "warning" as a severity.
-
-const BUTTON_SEVERITIES: Record<Severity, string> = {
-  danger: 'danger',
-  warning: 'warn',
-  info: 'info'
-};
 
 const ICONS: Record<Severity, string> = {
   danger: 'pi pi-exclamation-triangle',
