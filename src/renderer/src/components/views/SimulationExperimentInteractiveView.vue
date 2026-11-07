@@ -119,7 +119,8 @@
                           {{ runName(run, index, true) }}
                         </div>
                         <div class="run-actions">
-                          <ToolbarButtonWidget :icon="run.isVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"
+                          <ToolbarButtonWidget class="run-visibility-button"
+                            :icon="run.isVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"
                             :label="`${run.isVisible ? 'Hide' : 'Show'} ${runName(run, index)}`"
                             small
                             tooltipAlign="end"
@@ -2013,7 +2014,8 @@ const runName = (run: ISimulationRun, index: number, capitalised = false): strin
 // Keep the keyboard focus within our runs when one (or all) of them gets removed using the keyboard since the focused
 // button would otherwise disappear (or get disabled) and the keyboard focus would be lost. The keyboard focus goes to
 // the remove button of the run that takes the place of the removed run or, if there is none, of the previous run, or to
-// our Track run button if there are no tracked runs anymore.
+// our Track run button if there are no tracked runs anymore (or to the visibility button of our live run if our Track
+// run button is disabled, e.g., if our simulation has issues).
 // Note #1: a toolbar button doesn't get the focus when it is clicked (see ToolbarButtonWidget.vue), so a remove button
 //          only has the focus if it was activated using the keyboard.
 // Note #2: we use window.document since document is our SED-ML document.
@@ -2027,8 +2029,21 @@ const keepFocusAfterRunRemoval = async (index: number): Promise<void> => {
   // Note: the live run has no remove button, so the remove button of the run at the given index is at index - 1.
 
   const removeButtons = Array.from(runsListRef.value?.querySelectorAll<HTMLElement>('.run-remove-button') ?? []);
+  const removeButton = removeButtons[Math.min(index, removeButtons.length) - 1];
 
-  (removeButtons[Math.min(index, removeButtons.length) - 1] ?? trackRunButtonRef.value?.$el)?.focus();
+  if (removeButton) {
+    removeButton.focus();
+
+    return;
+  }
+
+  const trackRunButton = trackRunButtonRef.value?.$el;
+
+  if (trackRunButton instanceof HTMLButtonElement && !trackRunButton.disabled) {
+    trackRunButton.focus();
+  } else {
+    runsListRef.value?.querySelector<HTMLElement>('.run-visibility-button')?.focus();
+  }
 };
 
 const onRemoveRun = (index: number, event: Event): void => {
