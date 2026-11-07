@@ -7,7 +7,11 @@
       <div class="message-dialog-text" v-html="question"></div>
     </div>
     <template #footer>
-      <Button autofocus :label="yesLabel" :severity="BUTTON_SEVERITIES[severity]" @click="$emit('yes')" />
+      <Button autofocus
+        :label="yesLabel"
+        :severity="severity === 'danger' ? 'danger' : undefined"
+        @click="$emit('yes')"
+      />
       <Button :label="noLabel" severity="secondary" @click="$emit('no')" />
     </template>
   </BaseDialog>
@@ -18,8 +22,11 @@ import './message-dialog.css';
 
 type Severity = 'danger' | 'warning' | 'info';
 
-// Note: our buttons should preferably be labelled with what they do (e.g., "Reset All" and "Cancel") rather than with
-//       "Yes" and "No", so that the user doesn't have to read our question to know what they do.
+// Note #1: our buttons should preferably be labelled with what they do (e.g., "Reset All" and "Cancel") rather than
+//          with "Yes" and "No", so that the user doesn't have to read our question to know what they do.
+// Note #2: our yes button is only coloured (in red) if our question is about something dangerous (e.g., disconnecting
+//          from GitHub). Otherwise (i.e. for some information or a warning, such as being asked whether to save a
+//          modified file), it is a primary button since it is what the user is expected to do.
 
 withDefaults(
   defineProps<{
@@ -40,14 +47,6 @@ defineEmits<{
   yes: [];
   no: [];
 }>();
-
-// Note: PrimeVue's Button component uses "warn" rather than "warning" as a severity.
-
-const BUTTON_SEVERITIES: Record<Severity, string> = {
-  danger: 'danger',
-  warning: 'warn',
-  info: 'info'
-};
 
 const ICONS: Record<Severity, string> = {
   danger: 'pi pi-exclamation-triangle',
