@@ -12,7 +12,7 @@
           <div v-for="navGroup in navGroups" :key="navGroup.label" class="settings-nav-group">
             <div class="settings-nav-group-label opencor-section-title opencor-section-title-small">
               <span>{{ navGroup.label }}</span>
-              <i v-if="navGroup.hasIssues" class="pi pi-exclamation-triangle settings-nav-issues" v-hint="'Some settings have issues'" />
+              <i v-if="navGroup.hasIssues" class="pi pi-exclamation-triangle settings-nav-issues" role="img" v-hint="'Some settings have issues'" />
             </div>
             <button v-for="navItem in navGroup.items" :key="navItem.label"
               type="button"
