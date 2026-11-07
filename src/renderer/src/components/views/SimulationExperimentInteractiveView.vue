@@ -88,10 +88,10 @@
                         small
                         tooltipAlign="end"
                         :disabled="runs.length === 1"
-                        @click="onRemoveAllRuns"
+                        @click="onRemoveAllRuns($event)"
                       />
                     </div>
-                    <Button class="w-full"
+                    <Button ref="trackRunButtonRef" class="w-full"
                       icon="pi pi-plus"
                       label="Track run"
                       outlined
@@ -99,7 +99,7 @@
                       :disabled="isSimulating || simulationIssues.length > 0"
                       @click="onTrackRun"
                     />
-                    <div class="runs-list">
+                    <div ref="runsListRef" class="runs-list">
                       <div v-for="(run, index) in runs"
                         :key="run.id"
                         class="run-row"
@@ -125,12 +125,12 @@
                             tooltipAlign="end"
                             @click="onToggleRun(index)"
                           />
-                          <ToolbarButtonWidget v-if="!run.isLiveRun"
+                          <ToolbarButtonWidget v-if="!run.isLiveRun" class="run-remove-button"
                             icon="pi pi-times"
                             :label="`Remove ${runName(run, index)}`"
                             small
                             tooltipAlign="end"
-                            @click="onRemoveRun(index)"
+                            @click="onRemoveRun(index, $event)"
                           />
                           <div v-else class="w-6 h-6"></div>
                         </div>
@@ -2007,16 +2007,51 @@ const runName = (run: ISimulationRun, index: number, capitalised = false): strin
   return capitalised ? res.charAt(0).toUpperCase() + res.slice(1) : res;
 };
 
-const onRemoveRun = (index: number): void => {
-  // Remove the given run.
+// Keep the keyboard focus within our runs when one (or all) of them gets removed using the keyboard since the focused
+// button would otherwise disappear (or get disabled) and the keyboard focus would be lost. The keyboard focus goes to
+// the remove button of the run that takes the place of the removed run or, if there is none, of the previous run, or to
+// our Track run button if there are no tracked runs anymore.
+// Note #1: a toolbar button doesn't get the focus when it is clicked (see ToolbarButtonWidget.vue), so a remove button
+//          only has the focus if it was activated using the keyboard.
+// Note #2: we use window.document since document is our SED-ML document.
 
-  runs.value.splice(index, 1);
+const runsListRef = vue.useTemplateRef<HTMLElement>('runsListRef');
+const trackRunButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('trackRunButtonRef');
+
+const keepFocusAfterRunRemoval = async (index: number): Promise<void> => {
+  await vue.nextTick();
+
+  // Note: the live run has no remove button, so the remove button of the run at the given index is at index - 1.
+
+  const removeButtons = Array.from(runsListRef.value?.querySelectorAll<HTMLElement>('.run-remove-button') ?? []);
+
+  (removeButtons[Math.min(index, removeButtons.length) - 1] ?? trackRunButtonRef.value?.$el)?.focus();
 };
 
-const onRemoveAllRuns = (): void => {
+const onRemoveRun = (index: number, event: Event): void => {
+  // Remove the given run.
+
+  const hadFocus = event.currentTarget === window.document.activeElement;
+
+  runs.value.splice(index, 1);
+
+  if (hadFocus) {
+    void keepFocusAfterRunRemoval(index);
+  }
+};
+
+const onRemoveAllRuns = (event?: Event): void => {
   // Remove all the runs except the live run.
+  // Note: we may also be called programmatically (e.g., when our settings get updated), in which case there is no
+  //       event.
+
+  const hadFocus = !!event && event.currentTarget === window.document.activeElement;
 
   runs.value.splice(1);
+
+  if (hadFocus) {
+    void keepFocusAfterRunRemoval(1);
+  }
 };
 
 const onToggleRun = (index: number): void => {
