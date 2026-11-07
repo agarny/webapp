@@ -478,6 +478,26 @@ const addConsoleError = (error: unknown): void => {
   scrollConsoleToBottom();
 };
 
+// A helper function to report the given issues (of our instance) in our console.
+
+const addConsoleIssues = (issues: locApi.IIssue[]): void => {
+  issues.forEach((issue: locApi.IIssue) => {
+    const color =
+      issue.type === locApi.EIssueType.ERROR
+        ? colors.REVERTED_PALETTE.Red
+        : issue.type === locApi.EIssueType.WARNING
+          ? colors.REVERTED_PALETTE.Orange
+          : colors.REVERTED_PALETTE.Blue;
+    const issueType =
+      issue.type === locApi.EIssueType.ERROR ? 'Error' : issue.type === locApi.EIssueType.WARNING ? 'Warning' : 'Info';
+    const issueDescription = issue.description.replace('Task | ', '');
+
+    consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${color};"><strong>${issueType}:</strong> ${issueDescription}</span>`;
+  });
+
+  scrollConsoleToBottom();
+};
+
 // Event handlers.
 
 const onRunPause = async (): Promise<void> => {
@@ -537,9 +557,31 @@ const onRunPause = async (): Promise<void> => {
       progressResetTimer = undefined;
 
       // Start the simulation.
+      // Note: our simulation may fail to start (e.g., if its settings are not valid), in which case we consider our run
+      //       as having failed and we report why, i.e. the issues of our instance, if any, or the error thrown by
+      //       libOpenCOR, if any. Otherwise, the status of our previous run (which we have just reset) would disappear
+      //       without any explanation.
 
-      if (!instance?.startRun()) {
-        simulationStatus.value = instance?.status() ?? locSedApi.ESedInstanceStatus.IDLE;
+      try {
+        if (!instance.startRun()) {
+          const instanceIssues = instance.hasIssues() ? instance.issues() : [];
+
+          simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
+          lastRun.value = { outcome: 'failed' };
+
+          if (instanceIssues.length) {
+            addConsoleIssues(instanceIssues);
+          } else {
+            addConsoleError('the simulation could not be started');
+          }
+
+          return;
+        }
+      } catch (error: unknown) {
+        simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
+        lastRun.value = { outcome: 'failed' };
+
+        addConsoleError(error);
 
         return;
       }
@@ -695,23 +737,7 @@ const onRunPause = async (): Promise<void> => {
                 : 'issues'
           };
 
-          instanceIssues.forEach((issue: locApi.IIssue) => {
-            const color =
-              issue.type === locApi.EIssueType.ERROR
-                ? colors.REVERTED_PALETTE.Red
-                : issue.type === locApi.EIssueType.WARNING
-                  ? colors.REVERTED_PALETTE.Orange
-                  : colors.REVERTED_PALETTE.Blue;
-            const issueType =
-              issue.type === locApi.EIssueType.ERROR
-                ? 'Error'
-                : issue.type === locApi.EIssueType.WARNING
-                  ? 'Warning'
-                  : 'Info';
-            const issueDescription = issue.description.replace('Task | ', '');
-
-            consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${color};"><strong>${issueType}:</strong> ${issueDescription}</span>`;
-          });
+          addConsoleIssues(instanceIssues);
         } else {
           const simulationTime = instance.waitForRun();
 
