@@ -38,6 +38,10 @@ import { HINT_DELAY } from './constants';
 //           which case it isn't shown again until our element is left (or blurred) and then hovered (or focused) again.
 //           Escape is otherwise left to do what it normally does (e.g., discard the value being edited in an input
 //           field or close a dialog).
+// Note #11: when our window loses the focus (e.g., when the user switches to another application), our element gets
+//           blurred, so our hint gets hidden. Our element then gets the focus back when our window regains the focus,
+//           but this is not the user focusing our element (using the keyboard), so we don't show our hint again (which
+//           we would otherwise do for a text field, see Note #1).
 
 const HINT_OFFSET = 6; // Distance between our element and our hint.
 const HINT_MARGIN = 4; // Minimum distance between our hint and the edges of the window.
@@ -59,6 +63,32 @@ const states = new WeakMap<HTMLElement, IHintState>();
 let hintElement: HTMLElement | null = null; // The element that shows our hint, if any.
 let hintOwner: HTMLElement | null = null; // The element that our hint is about, if any.
 let pendingHintState: IHintState | null = null; // The state of the element which hint is about to be shown, if any.
+
+// Keep track of whether our window has lost the focus (see Note #11 above).
+// Note #1: when our window regains the focus, our element may get the focus back before or after our window gets its
+//          focus event, so we only consider that our window has the focus again once its focus event has been handled.
+// Note #2: we start tracking this when our directive is first used rather than when this module is loaded.
+
+let windowFocusLost = false;
+let windowFocusTracked = false;
+
+const trackWindowFocus = (): void => {
+  if (windowFocusTracked) {
+    return;
+  }
+
+  windowFocusTracked = true;
+
+  window.addEventListener('blur', () => {
+    windowFocusLost = true;
+  });
+
+  window.addEventListener('focus', () => {
+    window.setTimeout(() => {
+      windowFocusLost = false;
+    }, 0);
+  });
+};
 
 // The text of our hint as it is displayed.
 // Note: our hint may be the path or URL of a file, so we let it break after a path separator (by inserting a zero-width
@@ -236,6 +266,8 @@ const showHint = (element: HTMLElement, text: string, html: boolean): void => {
 
 export const vHint: vue.Directive<HTMLElement, string | undefined> = {
   mounted(element, binding) {
+    trackWindowFocus();
+
     const state: IHintState = {
       text: binding.value ?? '',
       html: !!binding.modifiers.html,
@@ -276,9 +308,11 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
       },
       onFocusIn: (event: FocusEvent) => {
         // Show our hint if the focus was set using the keyboard, unless the focused element is within an element that
-        // has its own hint (see Note #6 above).
+        // has its own hint (see Note #6 above) or the focus is only given back to our element because our window has
+        // regained the focus (see Note #11 above).
 
         if (
+          !windowFocusLost &&
           event.target instanceof Element &&
           event.target.matches(':focus-visible') &&
           closestHintedElement(event.target) === element
