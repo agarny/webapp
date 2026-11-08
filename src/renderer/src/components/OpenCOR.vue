@@ -2544,8 +2544,8 @@ const onGitHubButtonClick = async (): Promise<void> => {
     padding-top: var(--main-menu-height) !important;
   }
 
-  :deep(.p-message) {
-    margin-top: calc(0.5 * var(--main-menu-height)) !important;
+  :deep(.blocking-message) {
+    margin-top: calc(0.5 * var(--main-menu-height));
   }
 }
 </style>
