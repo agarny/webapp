@@ -28,8 +28,9 @@ import { HINT_DELAY } from './constants';
 //          is shown when it (or an element within it) is focused using the keyboard.
 // Note #7: we listen to focusin/focusout (rather than focus/blur, which don't bubble) so that our hint is also shown
 //          when our element contains the focused element (e.g., a float label that contains an input field).
-// Note #8: our hint is not visible to assistive technologies, so a plain hint is also used as the accessible name of
-//          our element if our element has no text of its own and no accessible name (e.g., an icon-only button).
+// Note #8: our hint is hidden from assistive technologies (since it is a visual aid that isn't linked to our element),
+//          so a plain hint is also used as the accessible name of our element if our element has no text of its own
+//          and no aria-label attribute (e.g., an icon-only button).
 // Note #9: our element may get hidden (or removed from the DOM) while our hint is shown, without being left or blurred
 //          (e.g., if the user switches to another file tab using the keyboard while our element is hovered or focused,
 //          or if our element is activated using the keyboard and gets hidden once what it does has been done, like
@@ -286,6 +287,8 @@ const showHint = (element: HTMLElement, text: string, html: boolean): void => {
   // Create our hint and position it.
 
   hintElement = document.createElement('div');
+
+  hintElement.setAttribute('aria-hidden', 'true');
 
   if (html) {
     hintElement.className = 'opencor-hint opencor-hint-rich';
