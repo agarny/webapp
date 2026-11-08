@@ -1686,7 +1686,12 @@ const onChange = (event: Event): void => {
 //          quickly dragged across a corner of OpenCOR), then it is the element that was entered (rather than our drop
 //          zone) that gets left, meaning that our drop zone would remain shown (and block the mouse). So, we also hide
 //          our drop zone if we haven't been told for a while that files are still being dragged over us (a dragover
-//          event is fired every 350 ms ± 200 ms while files are being dragged over us, even if they are not moved).
+//          event is normally fired every 350 ms ± 200 ms while files are being dragged over us, even if they are not
+//          moved).
+// Note #3: some browsers only fire a dragover event when the files being dragged are moved (e.g., Chromium on Linux),
+//          in which case our drop zone gets hidden if the files are held still for a while. So, we show our drop zone
+//          again as soon as the files are moved again, and we still open the files if they are dropped while our drop
+//          zone is hidden (as long as they could have been dropped onto our drop zone, see canDropFiles()).
 
 const DRAG_OVER_TIMEOUT = 1000;
 
@@ -1725,27 +1730,38 @@ vue.watch(compUiEnabled, (uiEnabled: boolean) => {
   }
 });
 
-const onDragEnter = (event: DragEvent): void => {
-  if (dragAndDropVisible.value || !compUiEnabled.value || props.omex) {
-    return;
-  }
+// Whether the files being dragged can be dropped onto us, i.e. whether our UI is enabled and it is an external (file)
+// drag rather than an internal one (e.g., a tab reorder drag).
 
-  // Only react to external (file) drags, not internal ones (e.g., tab reorder drags).
+const canDropFiles = (event: DragEvent): boolean => {
+  return compUiEnabled.value && !props.omex && !!event.dataTransfer?.types.includes('Files');
+};
 
-  if (!event.dataTransfer?.types.includes('Files')) {
-    return;
-  }
+// Show our drop zone, keeping track of the number of files being dragged, if known (see DragNDropComponent.vue).
 
-  // Keep track of the number of files being dragged, if known (see DragNDropComponent.vue), and show our drop zone.
-
-  dragAndDropFileCount.value = Array.from(event.dataTransfer.items).filter((item) => item.kind === 'file').length;
+const showDropZone = (event: DragEvent): void => {
+  dragAndDropFileCount.value = Array.from(event.dataTransfer?.items ?? []).filter(
+    (item) => item.kind === 'file'
+  ).length;
   dragAndDropVisible.value = true;
 
   restartDragOverTimer();
 };
 
+const onDragEnter = (event: DragEvent): void => {
+  if (!dragAndDropVisible.value && canDropFiles(event)) {
+    showDropZone(event);
+  }
+};
+
 const onDragOver = (event: DragEvent): void => {
   event.preventDefault();
+
+  // Show our drop zone again if it got hidden while files are still being dragged over us (see Note #3 above).
+
+  if (!dragAndDropVisible.value && canDropFiles(event)) {
+    showDropZone(event);
+  }
 
   // Let the user know whether the files being dragged would get opened if they were to be dropped, i.e. whether we are
   // showing our drop zone (we are not if our UI is disabled, for instance).
@@ -1792,7 +1808,10 @@ const droppedFileHandle = (item: DataTransferItem): Promise<FileSystemFileHandle
 };
 
 const onDrop = async (event: DragEvent): Promise<void> => {
-  if (!dragAndDropVisible.value) {
+  // Open the dropped files if our drop zone is shown or if it got hidden while the files were held still (see Note #3
+  // above).
+
+  if (!dragAndDropVisible.value && !canDropFiles(event)) {
     return;
   }
 
