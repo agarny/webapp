@@ -54,9 +54,17 @@ const releaseDate = (version: string): string => {
     return '';
   }
 
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  // Note: an invalid month or day (e.g., 13 or 32) would roll over (e.g., to the following year or month), so we make
+  //       sure that our date is the one that was given to us.
 
-  return Number.isNaN(date.getTime()) ? '' : RELEASE_DATE_FORMAT.format(date);
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, month, day);
+
+  return date.getFullYear() === year && date.getMonth() === month && date.getDate() === day
+    ? RELEASE_DATE_FORMAT.format(date)
+    : '';
 };
 </script>
 
