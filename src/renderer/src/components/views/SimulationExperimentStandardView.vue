@@ -13,7 +13,7 @@
               :disabled="isFinishing"
               @click="onRunPause"
             />
-            <ToolbarButtonWidget
+            <ToolbarButtonWidget ref="stopButtonRef"
               icon="pi pi-stop-circle"
               accent="danger"
               label="Stop simulation"
@@ -156,6 +156,7 @@ const { simulationOnly } = useOpenCORContext();
 const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const editorRef = vue.shallowRef<HTMLElement | null>(null);
 const runPauseButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('runPauseButtonRef');
+const stopButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('stopButtonRef');
 const document = props.file.document();
 const documentIssues = document.issues();
 const isDocumentValid = documentIssues.length === 0;
@@ -188,9 +189,50 @@ interface ILastRun {
 const lastRun = vue.ref<ILastRun | null>(null);
 
 // Whether our simulation run is finishing, i.e. whether its run is over, but its results have yet to be plotted and our
-// UI to be painted with them (see onRunPause()), during which a new run cannot be started.
+// UI to be painted with them (or, if it failed, our instance has yet to be idle, see onRunPause()), during which a new
+// run cannot be started.
 
 const isFinishing = vue.ref<boolean>(false);
+
+// Keep track of whether our Stop button had the keyboard focus when our simulation became idle, i.e. when our Stop
+// button got disabled (and therefore lost the keyboard focus), so that we can give the keyboard focus to our Run/Pause
+// button once our run is over (see onRunPause()).
+// Note: we need to check this synchronously, i.e. before our Stop button gets disabled.
+
+let stopButtonHadFocus = false;
+
+vue.watch(
+  simulationStatus,
+  (status) => {
+    if (status === locSedApi.ESedInstanceStatus.IDLE && stopButtonRef.value?.$el === window.document.activeElement) {
+      stopButtonHadFocus = true;
+    }
+  },
+  { flush: 'sync' }
+);
+
+// Give the keyboard focus to our Run/Pause button, unless the keyboard focus has gone somewhere else in the meantime
+// (i.e. somewhere else than <body> or one of our Run/Pause and Stop buttons, which may keep the keyboard focus once
+// disabled, depending on the browser).
+
+const focusRunPauseButton = async (): Promise<void> => {
+  await vue.nextTick();
+
+  if (isUnmounted) {
+    return;
+  }
+
+  const activeElement = window.document.activeElement;
+
+  if (
+    !activeElement ||
+    activeElement === window.document.body ||
+    activeElement === runPauseButtonRef.value?.$el ||
+    activeElement === stopButtonRef.value?.$el
+  ) {
+    runPauseButtonRef.value?.$el?.focus();
+  }
+};
 
 // The status of our simulation run.
 // Note: our console is not shown when we are in simulation-only mode, so we only refer to it when it is shown.
@@ -515,7 +557,7 @@ const addConsoleIssues = (issues: locApi.IIssue[]): void => {
 
 const onRunPause = async (): Promise<void> => {
   // Make sure that we have an instance (we don't if our document has issues) and that our previous run, if any, is not
-  // finishing (i.e. that its results have been plotted).
+  // finishing (see isFinishing).
 
   if (!instance || isFinishing.value) {
     return;
@@ -554,13 +596,15 @@ const onRunPause = async (): Promise<void> => {
       break;
     default: {
       // locSedApi.ESedInstanceStatus.IDLE:
-      // Reset our abort flag and our live data.
+      // Reset our abort flag, our live data, the outcome of our last run, and whether our Stop button had the keyboard
+      // focus.
       // Note: our live data is normally reset at the end of a simulation run (see updatePlot()), but not if the run was
       //       aborted or failed, in which case we would otherwise end up plotting (some of) the data of that run.
 
       runAborted.value = false;
       liveData = null;
       lastRun.value = null;
+      stopButtonHadFocus = false;
 
       // Cancel the reset of our progress bar by our previous run, if any, so that it doesn't reset the progress bar of
       // our new run, and reset it ourselves (in case our new run fails to start).
@@ -600,7 +644,16 @@ const onRunPause = async (): Promise<void> => {
         return;
       }
 
-      simulationStatus.value = instance?.status() ?? locSedApi.ESedInstanceStatus.IDLE;
+      // Retrieve the status of our simulation.
+      // Note: this may fail (e.g., if libOpenCOR throws an exception), in which case we consider our simulation as
+      //       running since it has been started, and let waitWhileRunning() retrieve its status (and the error get
+      //       reported if its status still cannot be retrieved, see the handling of a run error below).
+
+      try {
+        simulationStatus.value = instance.status();
+      } catch {
+        simulationStatus.value = locSedApi.ESedInstanceStatus.RUNNING;
+      }
 
       // Wait for the simulation to finish, handling pause/resume cycles asynchronously so that the UI remains
       // responsive.
@@ -679,8 +732,16 @@ const onRunPause = async (): Promise<void> => {
       //          RUNNING case above). If this fails too, then there is nothing more that we can do.
       // Note #2: the run is over either way, so we reset our progress bar and live data, but we keep our plot as is (as
       //          when a run is aborted) so that the user can see how far the simulation went.
+      // Note #3: we consider our run as finishing while we wait for our instance to be idle, so that our Run/Pause
+      //          button (and its F9 shortcut) cannot, in the meantime, start a new run, which we would otherwise end up
+      //          waiting for and then reporting as having failed.
+
+      let runPauseButtonHadFocus = false;
 
       if (runError) {
+        runPauseButtonHadFocus = runPauseButtonRef.value?.$el === window.document.activeElement;
+
+        isFinishing.value = true;
         isWaitingOnRun = true;
 
         try {
@@ -699,12 +760,17 @@ const onRunPause = async (): Promise<void> => {
           return;
         }
 
+        isFinishing.value = false;
         simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
         progress.value = 0;
         liveData = null;
         lastRun.value = { outcome: 'failed' };
 
         addConsoleError(runError);
+
+        if (runPauseButtonHadFocus || stopButtonHadFocus) {
+          void focusRunPauseButton();
+        }
 
         return;
       }
@@ -713,8 +779,6 @@ const onRunPause = async (): Promise<void> => {
       // its results, which may take a while (e.g., for a long simulation) and during which our UI cannot be updated.
       // Note: we wait for our UI to be painted with a progress of 100%. We also need to be told if we get unmounted in
       //       the meantime, in which case our resources have to be released by us (see onUnmounted() below).
-
-      let runPauseButtonHadFocus = false;
 
       if (!runAborted.value) {
         runPauseButtonHadFocus = runPauseButtonRef.value?.$el === window.document.activeElement;
@@ -789,8 +853,8 @@ const onRunPause = async (): Promise<void> => {
         addConsoleError(error);
       }
 
-      // Our run is over and its results have been plotted, so reset our progress bar after a short delay, so that
-      // people can see that our simulation has completed.
+      // Our run is over and its results, if any, have been plotted, so reset our progress bar after a short delay, so
+      // that people can see that our simulation has completed.
       // Note: our plot gets rendered after our UI has been updated, which may also take a while, so we wait for it to
       //       be rendered before starting our delay (otherwise our delay may be over before our UI gets rendered
       //       again).
@@ -804,20 +868,14 @@ const onRunPause = async (): Promise<void> => {
 
         isFinishing.value = false;
 
-        // Give the keyboard focus back to our Run/Pause button if it had it before it got disabled (and therefore lost
-        // it), unless the keyboard focus has gone somewhere else in the meantime.
+        // Give the keyboard focus (back) to our Run/Pause button if it or our Stop button had it before it got disabled
+        // (and therefore lost it).
 
-        if (runPauseButtonHadFocus) {
-          await vue.nextTick();
+        if (runPauseButtonHadFocus || stopButtonHadFocus) {
+          await focusRunPauseButton();
 
           if (isUnmounted) {
             return;
-          }
-
-          const activeElement = window.document.activeElement;
-
-          if (!activeElement || activeElement === window.document.body) {
-            runPauseButtonRef.value?.$el?.focus();
           }
         }
 
@@ -826,6 +884,11 @@ const onRunPause = async (): Promise<void> => {
 
           progress.value = 0;
         }, MEDIUM_DELAY);
+      } else if (stopButtonHadFocus) {
+        // Our run was stopped, so give the keyboard focus to our Run/Pause button if our Stop button had it before it
+        // got disabled (and therefore lost it).
+
+        void focusRunPauseButton();
       }
 
       scrollConsoleToBottom();
