@@ -31,6 +31,7 @@
     </nav>
     <div v-if="tooltip" class="view-tooltip absolute px-2 py-1 rounded-md text-xs whitespace-nowrap pointer-events-none"
       :style="{ top: `${tooltip.top}px` }"
+      aria-hidden="true"
     >
       {{ tooltip.label }}
     </div>
