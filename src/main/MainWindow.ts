@@ -1460,7 +1460,7 @@ export class MainWindow extends ApplicationWindow {
   openFile(filePath: string): void {
     allowSavingFile(filePath);
 
-    this.send('open', filePath);
+    this.send('open-file', filePath);
   }
 
   // Enable/disable our UI.

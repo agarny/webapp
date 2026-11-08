@@ -1363,7 +1363,7 @@ const processFile = async (
 ): Promise<IFileInfo | null> => {
   // Check whether we were passed a ZIP-CellML data URL.
   // Note: we may also have been passed the contents of a file that was opened using a data URL and then closed, along
-  //       with its name, so that it can be reopened under that name (see onReopenMenu() and electronApi.onOpen()).
+  //       with its name, so that it can be reopened under that name (see onReopenMenu() and electronApi.onOpenFile()).
 
   let omexDataUrlCounter: number = 0;
 
@@ -1830,7 +1830,7 @@ const onDrop = async (event: DragEvent): Promise<void> => {
 // Open.
 
 trackCleanup(
-  electronApi?.onOpen((filePath: string) => {
+  electronApi?.onOpenFile((filePath: string) => {
     handleExternalRequest(() => {
       // Note: our main process may ask us to reopen a file that was opened using a data URL (through its File|Reopen
       //       menu), in which case we reopen it using the contents that we kept for it (see addRecentFile()).
