@@ -45,9 +45,11 @@ const text = vue.computed<string>(() => {
 });
 
 // Format the given size (in bytes) in megabytes.
-// Note: a megabyte is 1,000,000 bytes (rather than 1,048,576 bytes, i.e. a mebibyte), as on macOS and on most download
-//       pages, so that the size of the update matches the one that people may see elsewhere (e.g., on its release
-//       page).
+// Note #1: a megabyte is 1,000,000 bytes (rather than 1,048,576 bytes, i.e. a mebibyte), as on macOS and on most
+//          download pages.
+// Note #2: the total size is that of what needs to be downloaded, which may be smaller than the size of the update
+//          (e.g., on its release page) if only the parts that have changed since our current version need to be
+//          downloaded (i.e. a differential download, which electron-updater may do on all platforms).
 
 const formatSize = (size: number): string => {
   return `${(size / 1000 ** 2).toFixed(1)} MB`;

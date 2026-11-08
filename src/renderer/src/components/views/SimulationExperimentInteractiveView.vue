@@ -2019,7 +2019,6 @@ const runName = (run: ISimulationRun, index: number, capitalised = false): strin
 // our Track run button is disabled, e.g., if our simulation has issues).
 // Note #1: a toolbar button doesn't get the focus when it is clicked (see ToolbarButtonWidget.vue), so a button only
 //          has the focus if it was focused using the keyboard (be it then activated using the keyboard or the mouse).
-// Note #2: we use window.document since document is our SED-ML document.
 
 const runsListRef = vue.useTemplateRef<HTMLElement>('runsListRef');
 const trackRunButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('trackRunButtonRef');
@@ -2478,7 +2477,7 @@ vue.onMounted(() => {
 
 /**
  * Focus ring of a swatch, which is like that of our other buttons (see app.css), i.e. a ring in the primary colour that
- * is offset from the swatch (and therefore also from the outline of the selected swatch).
+ * is offset from the swatch (or, for the selected swatch, that is right outside its outline).
  * Note: it is also shown when the swatch is hovered, hence the :hover variant, which takes precedence over the box
  *       shadow of a hovered swatch (in both light and dark modes).
  */

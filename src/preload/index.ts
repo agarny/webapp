@@ -73,7 +73,7 @@ retrieveOperatingSystem()
   });
 
 // Some bridging between our main process and renderer process.
-// Note: this must be in sync with src/electronApi.ts.
+// Note: this must be in sync with src/renderer/src/common/electronApi.ts.
 
 electron.contextBridge.exposeInMainWorld('electronApi', {
   // Some general methods.

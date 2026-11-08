@@ -18,10 +18,11 @@ import { HINT_DELAY } from './constants';
 // Note #4: like a native tooltip, our hint isn't shown for an element that ignores pointer events (e.g., the reset
 //          button of one of our input widgets when it is disabled).
 // Note #5: our hint can contain some HTML (e.g., v-hint.html="'<em>Some</em> help'"), in which case it is a "rich" hint
-//          (e.g., some help about an input field or a table of values). A rich hint is wider and, unlike a plain hint,
-//          it isn't hidden when our element is pressed (so that, for instance, some help about an input field remains
-//          visible while the user types in it). The HTML of a rich hint is used as is, so any untrusted text in it
-//          (e.g., the name of a simulation input) must be escaped (see common.escapeHtml()).
+//          (e.g., some help about an input field or a table of values). A rich hint wraps sooner (to keep its lines
+//          easy to read) and, unlike a plain hint, it isn't hidden when our element is pressed (so that, for instance,
+//          some help about an input field doesn't disappear as soon as the user clicks in it to type something). The
+//          HTML of a rich hint is used as is, so any untrusted text in it (e.g., the name of a simulation input) must
+//          be escaped (see common.escapeHtml()).
 // Note #6: our element may contain an element that has its own hint (e.g., the close button of a file tab), in which
 //          case the hint of the inner element replaces ours while it is hovered, and ours is shown again (after the
 //          usual delay) when the inner element is left for our element. Similarly, only the hint of the inner element
@@ -39,7 +40,8 @@ import { HINT_DELAY } from './constants';
 //          may move while our hint is shown (e.g., if the file tab bar is scrolled using the mouse wheel), in which
 //          case we reposition our hint.
 // Note #10: like a native tooltip, our hint can be dismissed by pressing Escape, be it shown or about to be shown, in
-//           which case it isn't shown again until our element is left (or blurred) and then hovered (or focused) again.
+//           which case it isn't shown again until our element is hovered (or focused) anew, i.e. after it has been left
+//           (or blurred) or after an inner element with its own hint has been left for it (see Note #6).
 //           Escape is otherwise left to do what it normally does (e.g., discard the value being edited in an input
 //           field or close a dialog).
 // Note #11: when our window loses the focus (e.g., when the user switches to another application), our hint gets

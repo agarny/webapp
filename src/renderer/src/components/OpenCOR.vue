@@ -977,7 +977,7 @@ const onUpdateErrorDialogClose = (): void => {
 };
 
 // Note: our update available dialog is used by both OpenCOR (when our main process lets us know that an update is
-//       available) and OpenCOR's Web app (when the user clicks on our main menu's "New version available!" button, see
+//       available) and OpenCOR's Web app (when the user clicks on our main menu's "New version available" button, see
 //       onUpdateAvailable() below). We keep track of the version to update to, so that it doesn't change while our
 //       dialog is shown (e.g., if an even newer version of OpenCOR's Web app gets released in the meantime), which
 //       means that it always matches the changes that our dialog lists.

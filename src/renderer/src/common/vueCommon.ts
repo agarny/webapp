@@ -450,7 +450,7 @@ export const waitWhileRunning = (
           setTimeout(poll, VERY_SHORT_DELAY);
 
           break;
-        default: // locSedApi.ESedInstanceStatus.IDLE:
+        default: // locSedApi.ESedInstanceStatus.IDLE.
           if (onProgress && !runAbortedRef?.value) {
             callSafely(() => onProgress(100));
 
