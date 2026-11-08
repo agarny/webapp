@@ -472,6 +472,78 @@ const compUiEnabled = vue.computed<boolean>(() => {
   return !compBlockUiEnabled.value && !isDialogActive.value && !userInputBlocked.value;
 });
 
+// Make our main menu and our contents inert while our UI is blocked, so that they cannot be reached using the keyboard
+// (e.g., using Tab) since our BlockUI's overlay only blocks the mouse.
+// Note #1: our blocking messages are not made inert since they must remain visible to assistive technologies (so that
+//          they get announced), but they cannot be interacted with anyway.
+// Note #2: a dialog may be shown while our UI is blocked, in which case our main menu and our contents are not inert
+//          since a dialog may be rendered within our contents (see BaseDialog.vue) and the descendants of an inert
+//          element cannot be interacted with. A dialog is modal, so it keeps the keyboard focus within itself anyway.
+// Note #3: a dialog gets focused as soon as it is shown, i.e. before Vue would update the DOM, so we make our main menu
+//          and our contents inert (or not) synchronously (and therefore not through our template).
+// Note #4: an element that gets inert loses the keyboard focus, so we give it back to the element that had it before
+//          our UI got blocked (if that element is still there and visible, and the keyboard focus hasn't gone somewhere
+//          else in the meantime) once our UI is unblocked, unless a dialog is shown (since it then has the keyboard
+//          focus).
+
+let elementFocusedBeforeUiBlocked: HTMLElement | null = null;
+
+const inertElements = (): HTMLElement[] => {
+  return [mainMenuRef.value?.$el, contentsRef.value?.$el].filter((element): element is HTMLElement => {
+    return element instanceof HTMLElement;
+  });
+};
+
+const restoreFocusAfterUiUnblocked = async (element: HTMLElement): Promise<void> => {
+  await vue.nextTick();
+
+  const activeElement = document.activeElement;
+
+  if (
+    (!activeElement || activeElement === document.body) &&
+    element.isConnected &&
+    element.getClientRects().length > 0 &&
+    !element.matches(':disabled')
+  ) {
+    element.focus();
+  }
+};
+
+const updateInertElements = (): void => {
+  const elements = inertElements();
+  const inert = compBlockUiEnabled.value && !isDialogActive.value;
+
+  if (inert) {
+    const activeElement = document.activeElement;
+
+    if (
+      !elementFocusedBeforeUiBlocked &&
+      activeElement instanceof HTMLElement &&
+      elements.some((element: HTMLElement) => element.contains(activeElement))
+    ) {
+      elementFocusedBeforeUiBlocked = activeElement;
+    }
+  }
+
+  for (const element of elements) {
+    element.inert = inert;
+  }
+
+  if (!compBlockUiEnabled.value) {
+    const element = elementFocusedBeforeUiBlocked;
+
+    elementFocusedBeforeUiBlocked = null;
+
+    if (element && !isDialogActive.value) {
+      void restoreFocusAfterUiUnblocked(element);
+    }
+  }
+};
+
+vue.watch([compBlockUiEnabled, isDialogActive], updateInertElements, { flush: 'sync' });
+
+vue.onMounted(updateInertElements);
+
 // Enable/disable our main menu (in OpenCOR) whenever our UI gets enabled/disabled.
 // Note: our main menu must not be usable while our UI is blocked (e.g., while a remote model is being loaded) or while
 //       a dialog is open. Local files, however, don't block our UI while they are being opened, so a local file may get
