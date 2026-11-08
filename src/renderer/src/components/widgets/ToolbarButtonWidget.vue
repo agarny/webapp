@@ -16,7 +16,7 @@
     @mousedown.prevent="onMouseDown"
     @mouseenter="updateTooltipPosition"
     @mouseleave="tooltipSuppressed = false"
-    @focus="updateTooltipPosition"
+    @focus="onFocus"
   >
     <i :class="props.icon" class="toolbar-button-icon" />
     <span v-if="props.label" ref="tooltipRef" class="toolbar-button-tooltip absolute flex items-center gap-2 px-2 py-1 rounded-md text-xs whitespace-nowrap pointer-events-none" aria-hidden="true">
@@ -47,10 +47,11 @@ import type { IToolbarButtonProps } from '../../common/vueCommon';
 //          before the button does what it does (e.g., run a simulation with the value that was just entered), unless
 //          the button is to keep the focus where it is (e.g., a button that discards the value being edited, see
 //          SimulationExperimentInteractiveView.vue).
-// Note #5: a button's tooltip is hidden once the button has been pressed, until the mouse leaves the button, so that it
-//          doesn't get in the way of what the button may have shown (e.g., a popover). However, a button can give some
-//          feedback using its tooltip (e.g., "Copied" for a button that copies something, see useCopyToClipboard() in
-//          vueCommon.ts), in which case its tooltip is shown straightaway while the button is hovered.
+// Note #5: a button's tooltip is hidden once the button has been pressed, until the mouse leaves the button (or the
+//          button gets the focus, i.e. using the keyboard, see Note #4), so that it doesn't get in the way of what the
+//          button may have shown (e.g., a popover). However, a button can give some feedback using its tooltip (e.g.,
+//          "Copied" for a button that copies something, see useCopyToClipboard() in vueCommon.ts), in which case its
+//          tooltip is shown straightaway while the button is hovered.
 // Note #6: a tooltip is shown below its button, unless there is not enough room below it, be it in the window or in an
 //          ancestor that clips its contents (e.g., for a button at the bottom of a long list of runs, see
 //          SimulationExperimentInteractiveView.vue), in which case it is shown above it (if there is enough room
@@ -79,6 +80,12 @@ const onMouseDown = (): void => {
   ) {
     activeElement.blur();
   }
+};
+
+const onFocus = (event: FocusEvent): void => {
+  tooltipSuppressed.value = false;
+
+  updateTooltipPosition(event);
 };
 
 const updateTooltipPosition = (event: Event): void => {
