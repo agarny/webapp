@@ -1883,7 +1883,7 @@ const onOpenMenu = (): void => {
 
 const onOpenAction = (): void => {
   if (electronApi) {
-    electronApi.open();
+    electronApi.showOpenDialog();
   } else {
     onOpenMenu();
   }

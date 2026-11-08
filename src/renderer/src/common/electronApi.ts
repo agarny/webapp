@@ -34,7 +34,6 @@ interface IElectronApi {
   installUpdateAndRestart: () => Promise<boolean>;
   loadGitHubAccessToken: () => Promise<string | null>;
   loadSettings: () => Promise<ISettings>;
-  open: () => void;
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) => void;
   rendererReady: () => Promise<void>;
   reopenRecentFile: (filePath: string) => void;
@@ -43,6 +42,7 @@ interface IElectronApi {
   saveFileAs: (defaultFilePath: string) => Promise<string | null>;
   saveGitHubAccessToken: (token: string) => Promise<boolean>;
   saveSettings: (settings: ISettings) => void;
+  showOpenDialog: () => void;
 
   // Renderer process listening to the main process.
 

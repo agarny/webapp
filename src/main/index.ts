@@ -548,9 +548,6 @@ electron.app
         electron.ipcMain.handle('load-settings', (): ISettings => {
           return loadSettings();
         });
-        electron.ipcMain.handle('open', () => {
-          MainWindow.instance?.open();
-        });
         electron.ipcMain.handle(
           'recent-file-path-canonicalised',
           (_event, filePath: string, canonicalFilePath: string) => {
@@ -577,6 +574,9 @@ electron.app
 */
         electron.ipcMain.handle('save-settings', (_event, settings: ISettings) => {
           saveSettings(settings);
+        });
+        electron.ipcMain.handle('show-open-dialog', () => {
+          MainWindow.instance?.showOpenDialog();
         });
 
         // Create our main window and pass to it our command line arguments.

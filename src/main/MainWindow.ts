@@ -1481,7 +1481,7 @@ export class MainWindow extends ApplicationWindow {
   //       while it is already shown (e.g., if the user double clicks on the Open... action of our start screen before
   //       our UI gets disabled), in which case we ignore the request.
 
-  open(): void {
+  showOpenDialog(): void {
     if (this._openDialogShown) {
       return;
     }
@@ -1517,7 +1517,7 @@ export class MainWindow extends ApplicationWindow {
 
   // Handle our renderer's File|Save As menu, i.e. let the user choose where to save a file and return the chosen file
   // path, which our renderer may then save (see canSaveFile()), or null if the user cancelled.
-  // Note: same as for open() when it comes to the enabling of our UI.
+  // Note: same as for showOpenDialog() when it comes to the enabling of our UI.
 
   async saveAs(defaultFilePath: string): Promise<string | null> {
     this.enableDisableUi(false);

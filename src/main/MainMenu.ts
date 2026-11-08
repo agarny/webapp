@@ -99,7 +99,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       label: 'Open...',
       accelerator: 'CmdOrCtrl+O',
       click: () => {
-        mainWindow?.open();
+        mainWindow?.showOpenDialog();
       }
     });
     fileSubMenu.push({
