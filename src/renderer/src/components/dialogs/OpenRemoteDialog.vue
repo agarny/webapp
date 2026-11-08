@@ -11,7 +11,7 @@
           autocomplete="off"
           autocapitalize="off"
           inputmode="url"
-          @blur="checked = !!url.trim()"
+          @blur="checked = !!url.trim() && !normalisedUrl"
           @keydown.enter.prevent="emitOpenRemote"
         />
         <!--
@@ -30,7 +30,7 @@
       -->
 
       <div class="message">
-        <p v-if="showIssue" class="issue">
+        <p v-if="showIssue" class="issue" role="alert">
           <i class="pi pi-exclamation-circle"></i>
           <span>Please enter a valid web address (e.g., <code>https://example.com/model.omex</code>).</span>
         </p>
@@ -137,13 +137,23 @@ const normalisedUrl = vue.computed<string>(() => {
 
 // Let people know that their URL is not valid, but only once they are done typing it (i.e. once they leave our input
 // field or try to open it), so that they are not told off while still typing it.
-// Note: our input field is also blurred when our dialog gets hidden (i.e. after we have been reset since the keyboard
-//       focus is then given back to whatever had it before our dialog was shown), so we only consider our URL as
-//       checked when leaving our input field if there is a URL to check. Otherwise, our URL would be considered as
-//       checked the next time our dialog is shown and people would be told off while typing it.
+// Note #1: once our URL is valid, it is no longer considered as checked, so that people are not told off (again) while
+//          editing it. Similarly, we only consider our URL as checked when leaving our input field if it is not valid
+//          (e.g., not when people tab from a valid URL to our Open button and back to our URL to edit it).
+// Note #2: our input field is also blurred when our dialog gets hidden (i.e. after we have been reset since the
+//          keyboard focus is then given back to whatever had it before our dialog was shown), so we only consider our
+//          URL as checked when leaving our input field if there is a URL to check. Otherwise, our URL would be
+//          considered as checked the next time our dialog is shown and people would be told off while typing it.
+// Note #3: our issue is an alert, so that it gets announced by assistive technologies when it is shown.
 
 const showIssue = vue.computed<boolean>(() => {
   return checked.value && !!url.value.trim() && !normalisedUrl.value;
+});
+
+vue.watch(normalisedUrl, (newNormalisedUrl) => {
+  if (newNormalisedUrl) {
+    checked.value = false;
+  }
 });
 
 const reset = (): void => {
