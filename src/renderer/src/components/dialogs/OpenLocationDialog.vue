@@ -11,7 +11,7 @@
           autocomplete="off"
           autocapitalize="off"
           inputmode="url"
-          @blur="checked = !!url.trim() && !normalisedUrl"
+          @blur="onBlur"
           @keydown.enter="onKeydownEnter"
         />
         <!--
@@ -42,7 +42,7 @@
     </div>
     <template #footer>
       <Button label="Open" :disabled="!normalisedUrl" @click="emitOpenLocation" />
-      <Button label="Cancel" severity="secondary" @click="emitClose" />
+      <Button ref="cancelButtonRef" label="Cancel" severity="secondary" @click="emitClose" />
     </template>
   </BaseDialog>
 </template>
@@ -194,6 +194,13 @@ const normalisedUrl = vue.computed<string>(() => {
 //          URL as checked when leaving our input field if there is a URL to check. Otherwise, our URL would be
 //          considered as checked the next time our dialog is shown and people would be told off while typing it.
 // Note #3: our issue is an alert, so that it gets announced by assistive technologies when it is shown.
+// Note #4: we don't consider our URL as checked when leaving our input field for our Cancel button or the close button
+//          of our dialog, since our dialog is then about to be closed. Otherwise, our issue would briefly be shown
+//          (and announced) before our dialog gets closed. Our input field is left either when the keyboard focus moves
+//          to one of those buttons (e.g., using Tab or, in some browsers, when clicking it), in which case we know
+//          which button gets the keyboard focus, or when one of those buttons is pressed (in browsers where clicking a
+//          button doesn't give it the keyboard focus, e.g., Safari), in which case we need to know which button is
+//          being pressed, hence we keep track of it (in the capture phase, i.e. before our input field gets blurred).
 
 const showIssue = vue.computed<boolean>(() => {
   return checked.value && !!url.value.trim() && !normalisedUrl.value;
@@ -204,6 +211,51 @@ vue.watch(normalisedUrl, (newNormalisedUrl) => {
     checked.value = false;
   }
 });
+
+const cancelButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('cancelButtonRef');
+
+let closeButtonPressed = false;
+
+const isCloseButton = (target: EventTarget | null): boolean => {
+  const cancelButton = cancelButtonRef.value?.$el;
+
+  if (!(target instanceof Element) || !cancelButton) {
+    return false;
+  }
+
+  return (
+    cancelButton.contains(target) ||
+    !!(target.closest('.p-dialog-close-button') && cancelButton.closest('.p-dialog')?.contains(target))
+  );
+};
+
+const onPointerDown = (event: PointerEvent): void => {
+  closeButtonPressed = isCloseButton(event.target);
+};
+
+const onPointerUp = (): void => {
+  closeButtonPressed = false;
+};
+
+vue.onMounted(() => {
+  window.addEventListener('pointerdown', onPointerDown, true);
+  window.addEventListener('pointerup', onPointerUp, true);
+  window.addEventListener('pointercancel', onPointerUp, true);
+});
+
+vue.onBeforeUnmount(() => {
+  window.removeEventListener('pointerdown', onPointerDown, true);
+  window.removeEventListener('pointerup', onPointerUp, true);
+  window.removeEventListener('pointercancel', onPointerUp, true);
+});
+
+const onBlur = (event: FocusEvent): void => {
+  if (closeButtonPressed || isCloseButton(event.relatedTarget)) {
+    return;
+  }
+
+  checked.value = !!url.value.trim() && !normalisedUrl.value;
+};
 
 const reset = (): void => {
   url.value = '';
