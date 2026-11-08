@@ -594,8 +594,24 @@ const onRunPause = async (): Promise<void> => {
       simulationStatus.value = locSedApi.ESedInstanceStatus.RUNNING;
 
       break;
-    default: {
-      // locSedApi.ESedInstanceStatus.IDLE:
+    default: { // locSedApi.ESedInstanceStatus.IDLE.
+      // Commit the value that is being edited in one of our input fields, if any, so that our simulation is run with
+      // it.
+      // Note: our input fields only commit their value when they lose the focus (or when Enter is pressed). Our
+      //       Run/Pause button takes care of this when it is pressed (see ToolbarButtonWidget.vue), but not when our
+      //       run is started using F9, in which case our simulation would otherwise be run with the previous value, and
+      //       the new value would get committed later on (e.g., while our simulation is running).
+
+      const activeElement = window.document.activeElement;
+
+      if (
+        activeElement instanceof HTMLElement &&
+        activeElement.matches('input, textarea') &&
+        rootRef.value?.contains(activeElement)
+      ) {
+        activeElement.blur();
+      }
+
       // Reset our abort flag, our live data, the outcome of our last run, and whether our Stop button had the keyboard
       // focus.
       // Note: our live data is normally reset at the end of a simulation run (see updatePlot()), but not if the run was
