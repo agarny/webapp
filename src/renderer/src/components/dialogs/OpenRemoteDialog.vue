@@ -66,8 +66,16 @@ const checked = vue.ref<boolean>(false);
 // Note #1: a scheme is followed by "//", so that, for instance, "localhost:8080/model.omex" is not considered as having
 //          a "localhost" scheme.
 // Note #2: a URL without a scheme must have a host that looks like one (i.e. a domain name, an IP address, or
-//          localhost), so that, for instance, some random text is not considered as a valid URL. A URL with a scheme
-//          can have any host (e.g., an intranet host, such as "http://modelserver/model.omex").
+//          localhost), so that, for instance, some random text is not considered as a valid URL. A domain name or an
+//          IPv4 address is a host (as typed, i.e. before it gets normalised by the URL parser) with at least two
+//          dot-separated labels, none of which is empty (with an optional trailing dot), so that, for instance, a
+//          relative path (e.g., "./model.omex", which host would be ".") is not considered as a valid URL. An IPv4
+//          address must also be typed as the URL parser would normalise it (i.e. as four decimal numbers, without
+//          leading zeros and without a trailing dot), so that, for instance, a number (e.g., "42" or "3.14", which the
+//          URL parser would normalise to "0.0.0.42" or "3.0.0.14") or an address with leading zeros (e.g.,
+//          "192.168.010.001", which the URL parser would normalise to "192.168.8.1" since "010" is an octal number) is
+//          not considered as a valid URL. A URL with a scheme can have any host (e.g., an intranet host, such as
+//          "http://modelserver/model.omex").
 // Note #3: a data URL is also valid if it is a Base64-encoded COMBINE archive (i.e. "data:application/zip;base64,...")
 //          or zipped CellML file (i.e. "data:application/x.vnd.zip-cellml+zip;base64,..."), since it can then be opened
 //          like any other file (see OpenCOR.openFile() and locCommon.zipDataFromDataUrl()). It is used as is, apart
@@ -81,6 +89,8 @@ const checked = vue.ref<boolean>(false);
 //          scheme can have a user name and a password (e.g., "https://user@example.com/model.omex").
 
 const DATA_URL_REGEX = /^data:(application\/(?:zip|x\.vnd\.zip-cellml\+zip);base64),/i;
+const DOTTED_HOST_REGEX = /^[^.]+(?:\.[^.]+)+\.?$/;
+const IPV4_ADDRESS_REGEX = /^\d+\.\d+\.\d+\.\d+$/;
 
 const normalisedUrl = vue.computed<string>(() => {
   const trimmedUrl = url.value.trim();
@@ -98,6 +108,11 @@ const normalisedUrl = vue.computed<string>(() => {
   const scheme = /^([a-z][a-z\d+.-]*):\/\//i.exec(trimmedUrl)?.[1];
   const urlWithScheme = scheme ? `${scheme.toLowerCase()}${trimmedUrl.slice(scheme.length)}` : `https://${trimmedUrl}`;
 
+  // The host of our URL, as typed, if it has no scheme (i.e. what comes before its path, query, or fragment, without
+  // its port, if any).
+
+  const typedHost = scheme ? '' : (trimmedUrl.split(/[/?#\\]/, 1)[0] ?? '').replace(/:\d*$/, '');
+
   try {
     const parsedUrl = new URL(urlWithScheme);
 
@@ -106,7 +121,8 @@ const normalisedUrl = vue.computed<string>(() => {
       (scheme ||
         (!parsedUrl.username &&
           !parsedUrl.password &&
-          (parsedUrl.hostname.includes('.') ||
+          ((DOTTED_HOST_REGEX.test(typedHost) &&
+            (!IPV4_ADDRESS_REGEX.test(parsedUrl.hostname) || parsedUrl.hostname === typedHost)) ||
             parsedUrl.hostname.startsWith('[') ||
             parsedUrl.hostname === 'localhost')))
     ) {
