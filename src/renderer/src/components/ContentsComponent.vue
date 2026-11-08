@@ -277,10 +277,9 @@ const view = (fileTab: IFileTab): IView => {
   }
 };
 
-// Note: our UI is only blocked for the mouse while it is not enabled (e.g., while a model is being loaded or CellML is
-//       being generated from a CellDL file, see SafeBlockUIWidget), so the buttons of our file tabs, of our view
-//       switchers, and of our Unsupported file type view can still be activated using the keyboard, in which case we
-//       ignore them (as for our keyboard shortcuts, see useOpenCORKeyStroke()).
+// Note: our contents are only inert while our UI is blocked and no dialog is shown (see OpenCOR.vue), so the buttons of
+//       our file tabs, of our view switchers, and of our Unsupported file type view may still get activated while our
+//       UI is not enabled, in which case we ignore them (as for our keyboard shortcuts, see useOpenCORKeyStroke()).
 
 const onSelectView = (fileTab: IFileTab, viewId: string): void => {
   if (!uiEnabled.value) {

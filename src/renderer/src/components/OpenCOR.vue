@@ -976,10 +976,10 @@ if (!electronApi) {
 // Remove the keyboard focus when the user presses the Escape key, so that whatever has it no longer looks focused
 // (e.g., with a focus ring), unless something is open (e.g., a menu or a popover), in which case the Escape key is for
 // closing it.
-// Note #1: we only do this for our instance of OpenCOR, and only if it is active and its UI is enabled (i.e. no dialog
-//          is open, see compUiEnabled).
-// Note #2: we listen to the Escape key before anything else does since some PrimeVue components (e.g., a select) stop
-//          its propagation even when they have nothing to close.
+// Note #1: we only do this for our instance of OpenCOR, and only if it is active and its UI is enabled (i.e. our UI is
+//          neither blocked nor showing a dialog, see compUiEnabled).
+// Note #2: we listen to the Escape key during the capture phase of our window, i.e. before PrimeVue components get it,
+//          since some of them (e.g., a select) stop its propagation even when they have nothing to close.
 // Note #3: a text entry (e.g., the input of an input widget or the range editor of a graph panel) and CellDL Editor may
 //          use the Escape key themselves (e.g., to discard a value being edited or to cancel what the user is doing),
 //          so we leave the keyboard focus alone if it is within one of them. Otherwise, blurring a text entry could,
@@ -2115,9 +2115,9 @@ const onOpenRecentFileAction = (filePath: string): void => {
 };
 
 // Actions of our start screen (see BackgroundComponent.vue).
-// Note: unlike our main menu, our start screen cannot be disabled while our UI is not enabled (e.g., while OpenCOR is
-//       being initialised or a model is being loaded) since our UI is only blocked for the mouse (see
-//       SafeBlockUIWidget), so its actions can still be triggered using the keyboard, in which case we ignore them.
+// Note: unlike our main menu, our start screen is not disabled while our UI is not enabled, and our contents are only
+//       inert while our UI is blocked and no dialog is shown (see inertElements()), so its actions may still get
+//       triggered while our UI is not enabled, in which case we ignore them.
 
 const startScreenAction = <T extends unknown[]>(action: (...args: T) => void): ((...args: T) => void) => {
   return (...args: T): void => {

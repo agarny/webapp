@@ -2022,8 +2022,8 @@ const runName = (run: ISimulationRun, index: number, capitalised = false): strin
 // goes to the remove button of the run that takes the place of the removed run or, if there is none, of the previous
 // run, or to our Track run button if there are no tracked runs anymore (or to the visibility button of our live run if
 // our Track run button is disabled, e.g., if our simulation has issues).
-// Note #1: a toolbar button doesn't get the focus when it is clicked (see ToolbarButtonWidget.vue), so a button only
-//          has the focus if it was focused using the keyboard (be it then activated using the keyboard or the mouse).
+// Note: a toolbar button doesn't get the focus when it is clicked (see ToolbarButtonWidget.vue), so a button only has
+//       the focus if it was focused using the keyboard (be it then activated using the keyboard or the mouse).
 
 const runsListRef = vue.useTemplateRef<HTMLElement>('runsListRef');
 const trackRunButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('trackRunButtonRef');
