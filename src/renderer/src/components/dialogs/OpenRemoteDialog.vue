@@ -68,17 +68,19 @@ const checked = vue.ref<boolean>(false);
 // Note #2: a URL without a scheme must have a host that looks like one (i.e. a domain name, an IP address, or
 //          localhost), so that, for instance, some random text is not considered as a valid URL. A URL with a scheme
 //          can have any host (e.g., an intranet host, such as "http://modelserver/model.omex").
-// Note #3: a data URL (e.g., "data:application/zip;base64,...") is also valid (as long as it has a comma after its
-//          media type), since it can be opened like any other file (see OpenCOR.openFile()). It is used as is, apart
-//          from its scheme which is lowercased (so, unlike for other URLs, we don't let people know which URL will be
-//          opened since it would be (nearly) the same and it can be very long).
+// Note #3: a data URL is also valid if it is a Base64-encoded COMBINE archive (i.e. "data:application/zip;base64,...")
+//          or zipped CellML file (i.e. "data:application/x.vnd.zip-cellml+zip;base64,..."), since it can then be opened
+//          like any other file (see OpenCOR.openFile() and locCommon.zipDataFromDataUrl()). It is used as is, apart
+//          from its scheme, media type, and ";base64" which are lowercased (since locCommon.zipDataFromDataUrl()
+//          expects them to be), so, unlike for other URLs, we don't let people know which URL will be opened since it
+//          would be (nearly) the same and it can be very long.
 // Note #4: a URL without a scheme must also have no user name and no password, so that, for instance, an email address
 //          (e.g., "user@example.com") or a mailto link (e.g., "mailto:user@example.com", which has no "//" after its
 //          scheme) is not considered as a valid URL, i.e. as "https://user@example.com" or as
 //          "https://mailto:user@example.com" (where "mailto" would be a user name and "user" a password). A URL with a
 //          scheme can have a user name and a password (e.g., "https://user@example.com/model.omex").
 
-const DATA_URL_REGEX = /^data:[^,]*,/i;
+const DATA_URL_REGEX = /^data:(application\/(?:zip|x\.vnd\.zip-cellml\+zip);base64),/i;
 
 const normalisedUrl = vue.computed<string>(() => {
   const trimmedUrl = url.value.trim();
@@ -87,8 +89,10 @@ const normalisedUrl = vue.computed<string>(() => {
     return '';
   }
 
-  if (DATA_URL_REGEX.test(trimmedUrl)) {
-    return `data:${trimmedUrl.slice(5)}`;
+  const dataUrlMediaType = DATA_URL_REGEX.exec(trimmedUrl)?.[1];
+
+  if (dataUrlMediaType) {
+    return `data:${dataUrlMediaType.toLowerCase()}${trimmedUrl.slice(5 + dataUrlMediaType.length)}`;
   }
 
   const scheme = /^([a-z][a-z\d+.-]*):\/\//i.exec(trimmedUrl)?.[1];
