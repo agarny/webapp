@@ -30,8 +30,9 @@ import { HINT_DELAY } from './constants';
 // Note #7: we listen to focusin/focusout (rather than focus/blur, which don't bubble) so that our hint is also shown
 //          when our element contains the focused element (e.g., a float label that contains an input field).
 // Note #8: our hint is hidden from assistive technologies (since it is a visual aid that isn't linked to our element),
-//          so a plain hint is also used as the accessible name of our element if our element has no text of its own
-//          and no aria-label attribute (e.g., an icon-only button).
+//          so a plain hint is also used as the accessible name of our element if our element has no accessible name of
+//          its own (e.g., an icon-only button), i.e. no text, no aria-label, aria-labelledby, title, or alt attribute,
+//          and no label (e.g., an input field with a <label for="...">).
 // Note #9: our element may get hidden (or removed from the DOM) while our hint is shown, without being left or blurred
 //          (e.g., if the user switches to another file tab using the keyboard while our element is hovered or focused,
 //          or if our element is activated using the keyboard and gets hidden once what it does has been done, like
@@ -227,8 +228,18 @@ const closestHintedElement = (node: Node): HTMLElement | null => {
 
 // Use our hint as the accessible name of our element, if needed (see Note #8 above).
 
+const ACCESSIBLE_NAME_ATTRIBUTES = ['aria-label', 'aria-labelledby', 'title', 'alt'];
+
+const hasOwnAccessibleName = (element: HTMLElement): boolean => {
+  return (
+    !!element.textContent?.trim() ||
+    ACCESSIBLE_NAME_ATTRIBUTES.some((attribute: string) => element.hasAttribute(attribute)) ||
+    ('labels' in element && !!(element as HTMLInputElement).labels?.length)
+  );
+};
+
 const updateAriaLabel = (element: HTMLElement, state: IHintState): void => {
-  if (!state.ariaLabel && (state.html || element.textContent?.trim() || element.hasAttribute('aria-label'))) {
+  if (!state.ariaLabel && (state.html || hasOwnAccessibleName(element))) {
     return;
   }
 
