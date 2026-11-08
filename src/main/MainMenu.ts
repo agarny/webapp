@@ -103,10 +103,10 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       }
     });
     fileSubMenu.push({
-      label: 'Open Remote...',
+      label: 'Open Location...',
       accelerator: 'CmdOrCtrl+Shift+O',
       click: () => {
-        mainWindow?.send('open-remote');
+        mainWindow?.send('open-location');
       }
     });
     fileSubMenu.push({

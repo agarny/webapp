@@ -34,7 +34,7 @@
         @about="onAboutMenu"
         @changelog="onChangelogMenu"
         @open="onOpenMenu"
-        @openRemote="onOpenRemoteMenu"
+        @openLocation="onOpenLocationMenu"
         @openSampleLorenz="onOpenSampleLorenzMenu"
         @reopen="onReopenMenu"
         @clearRecentFiles="onClearRecentFilesMenu"
@@ -71,7 +71,7 @@
         @open="onStartScreenOpen"
         @openFile="openFile"
         @openRecentFile="onStartScreenOpenRecentFile"
-        @openRemote="onStartScreenOpenRemote"
+        @openLocation="onStartScreenOpenLocation"
         @openSampleLorenz="onStartScreenOpenSampleLorenz"
         @simulationData="emitSimulationData"
       />
@@ -105,9 +105,9 @@
         severity="success"
         @ok="updateNotAvailableVisible = false"
       />
-      <OpenRemoteDialog v-model:visible="openRemoteVisible"
-        @openRemote="onOpenRemote"
-        @close="openRemoteVisible = false"
+      <OpenLocationDialog v-model:visible="openLocationVisible"
+        @openLocation="onOpenLocation"
+        @close="openLocationVisible = false"
       />
       <SettingsDialog v-model:visible="settingsVisible"
         @close="settingsVisible = false"
@@ -1889,25 +1889,25 @@ const onOpenAction = (): void => {
   }
 };
 
-// Open remote.
+// Open location.
 
-const openRemoteVisible = vue.ref<boolean>(false);
+const openLocationVisible = vue.ref<boolean>(false);
 
 trackCleanup(
-  electronApi?.onOpenRemote(() => {
-    openRemoteVisible.value = true;
+  electronApi?.onOpenLocation(() => {
+    openLocationVisible.value = true;
   })
 );
 
-const onOpenRemoteMenu = (): void => {
+const onOpenLocationMenu = (): void => {
   if (props.omex) {
     return;
   }
 
-  openRemoteVisible.value = true;
+  openLocationVisible.value = true;
 };
 
-const onOpenRemote = (url: string): void => {
+const onOpenLocation = (url: string): void => {
   // Note: no matter whether this is OpenCOR or OpenCOR's Web app, we always retrieve the file contents of a remote
   //       file. We could, in OpenCOR, rely on libOpenCOR to retrieve it for us, but this would block the UI. To
   //       retrieve the file here means that it is done asynchronously, which in turn means that the UI is not blocked
@@ -2110,7 +2110,7 @@ const startScreenAction = <T extends unknown[]>(action: (...args: T) => void): (
 
 const onStartScreenOpen = startScreenAction(onOpenAction);
 const onStartScreenOpenRecentFile = startScreenAction(onOpenRecentFileAction);
-const onStartScreenOpenRemote = startScreenAction(onOpenRemoteMenu);
+const onStartScreenOpenLocation = startScreenAction(onOpenLocationMenu);
 const onStartScreenOpenSampleLorenz = startScreenAction(onOpenSampleLorenzMenu);
 
 // Save.

@@ -53,7 +53,7 @@ const emit = defineEmits<{
   closeAll: [];
   download: [];
   open: [];
-  openRemote: [];
+  openLocation: [];
   openSampleLorenz: [];
   reopen: [filePath: string];
   save: [];
@@ -108,11 +108,11 @@ const items = vue.computed(() => [
         }
       },
       {
-        label: 'Open Remote...',
-        icon: 'pi pi-globe',
+        label: 'Open Location...',
+        icon: 'pi pi-link',
         shortcut: isWindowsOrLinux ? 'Ctrl+Shift+Alt+O' : isMacOs ? '⇧⌘⌥O' : undefined,
         command: () => {
-          emit('openRemote');
+          emit('openLocation');
         }
       },
       {
@@ -327,7 +327,7 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
   } else if (common.isCtrlOrCmd(event) && event.shiftKey && event.altKey && event.code === 'KeyO') {
     event.preventDefault();
 
-    emit('openRemote');
+    emit('openLocation');
   } else if (common.isCtrlOrCmd(event) && event.shiftKey && event.altKey && event.code === 'KeyT') {
     event.preventDefault();
 

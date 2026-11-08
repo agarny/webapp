@@ -54,7 +54,7 @@ interface IElectronApi {
   onClearRecentFiles: (callback: () => void) => () => void;
   onEnableDisableUi: (callback: (enable: boolean) => void) => () => void;
   onOpen: (callback: (filePath: string) => void) => () => void;
-  onOpenRemote: (callback: () => void) => () => void;
+  onOpenLocation: (callback: () => void) => () => void;
   onOpenSampleLorenz: (callback: () => void) => () => void;
   onRecentFiles: (callback: (filePaths: string[]) => void) => () => void;
   onClose: (callback: () => void) => () => void;

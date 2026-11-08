@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog header="Open Remote" class="w-169" @cancel="reset">
+  <BaseDialog header="Open Location" class="w-169" @cancel="reset">
     <div class="flex flex-col gap-2 mt-1 mb-2">
       <p class="description">Enter the {{ inputDescription }} of a CellML file, SED-ML file, or COMBINE archive.</p>
       <IconField>
@@ -41,7 +41,7 @@
       </div>
     </div>
     <template #footer>
-      <Button label="Open" :disabled="!normalisedUrl" @click="emitOpenRemote" />
+      <Button label="Open" :disabled="!normalisedUrl" @click="emitOpenLocation" />
       <Button label="Cancel" severity="secondary" @click="emitClose" />
     </template>
   </BaseDialog>
@@ -55,7 +55,7 @@ import { electronApi } from '../../common/electronApi';
 import { vHint } from '../../common/hint';
 
 const emit = defineEmits<{
-  openRemote: [url: string];
+  openLocation: [url: string];
   close: [];
 }>();
 
@@ -93,8 +93,8 @@ const checked = vue.ref<boolean>(false);
 //          "file:///some/path/model.omex") or an absolute file path (e.g., "/some/path/model.omex" or, on Windows,
 //          "C:\some\path\model.omex" or "\\server\share\model.omex"), since it can then be opened like any other file
 //          (see OpenCOR.openFile()). It is used as is, apart from the scheme of a "file" URL which is lowercased, and
-//          it is not decoded (see emitOpenRemote()). A relative file path is not considered as valid since it would be
-//          relative to the working directory of OpenCOR, which people cannot know. Neither is a "file" URL or a file
+//          it is not decoded (see emitOpenLocation()). A relative file path is not considered as valid since it would
+//          be relative to the working directory of OpenCOR, which people cannot know. Neither is a "file" URL or a file
 //          path that doesn't end with a file name (e.g., "file:/", "file:///some/path/", "/", or "C:\"), since it
 //          cannot refer to a file. Note that the query and fragment of a "file" URL are ignored by libOpenCOR (e.g.,
 //          "file:///some/path/model.omex?a=b#c" refers to "/some/path/model.omex"), hence we only check its path.
@@ -232,10 +232,10 @@ const onKeydownEnter = (event: KeyboardEvent): void => {
 
   event.preventDefault();
 
-  emitOpenRemote();
+  emitOpenLocation();
 };
 
-const emitOpenRemote = (): void => {
+const emitOpenLocation = (): void => {
   checked.value = true;
 
   if (!normalisedUrl.value) {
@@ -258,7 +258,7 @@ const emitOpenRemote = (): void => {
     }
   }
 
-  emit('openRemote', decodedUrl);
+  emit('openLocation', decodedUrl);
 
   emitClose();
 };

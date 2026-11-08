@@ -20,7 +20,7 @@
       :recentFilePaths="recentFilePaths"
       @open="$emit('open')"
       @openRecentFile="$emit('openRecentFile', $event)"
-      @openRemote="$emit('openRemote')"
+      @openLocation="$emit('openLocation')"
       @openSampleLorenz="$emit('openSampleLorenz')"
     />
     <div v-show="fileTabs.length" class="file-tab-bar-container shrink-0">
@@ -154,7 +154,7 @@ const emit = defineEmits<{
   open: [];
   openFile: [fileFilePathOrFileContents: string];
   openRecentFile: [filePath: string];
-  openRemote: [];
+  openLocation: [];
   openSampleLorenz: [];
   simulationData: [];
 }>();

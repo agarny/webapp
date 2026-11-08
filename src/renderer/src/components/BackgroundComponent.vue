@@ -70,7 +70,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   open: [];
   openRecentFile: [filePath: string];
-  openRemote: [];
+  openLocation: [];
   openSampleLorenz: [];
 }>();
 
@@ -113,11 +113,11 @@ const ACTIONS: { label: string; icon: string; shortcut?: string; command: () => 
     }
   },
   {
-    label: 'Open Remote...',
-    icon: 'pi pi-globe',
+    label: 'Open Location...',
+    icon: 'pi pi-link',
     shortcut: electronApi ? shortcut('Ctrl+Shift+O', '⇧⌘O') : shortcut('Ctrl+Shift+Alt+O', '⇧⌘⌥O'),
     command: () => {
-      emit('openRemote');
+      emit('openLocation');
     }
   },
   {
