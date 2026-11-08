@@ -182,7 +182,10 @@
           @close="settingsVisible = false"
         />
       </Teleport>
-      <Popover ref="runColorPopoverRef" :appendTo="appendTarget">
+      <Popover ref="runColorPopoverRef" :appendTo="appendTarget"
+        @show="runColorPopoverVisible = true"
+        @hide="runColorPopoverVisible = false"
+      >
         <div class="flex p-2 gap-2" tabindex="-1" :autofocus="!runColorPopoverOpenedUsingKeyboard" @keydown="onColorSwatchesKeyDown">
           <button class="color-swatch cursor-pointer w-6 h-6 outline-2 outline-transparent rounded-md"
             v-for="(name, color) in colors.PALETTE" :key="color"
@@ -531,6 +534,7 @@ const runs = vue.ref<ISimulationRun[]>([
 let trackedRunId = 0;
 let simulationGeneration = 0;
 const runColorPopoverIndex = vue.ref<number>(-1);
+const runColorPopoverVisible = vue.ref<boolean>(false);
 const runColorPopoverOpenedUsingKeyboard = vue.ref<boolean>(false);
 const runColorPopoverRef = vue.ref<InstanceType<typeof Popover> | undefined>();
 const graphPanelRefs = vue.ref<Record<number, InstanceType<typeof GraphPanelWidget> | undefined>>({});
@@ -2117,12 +2121,39 @@ const onRunColorChange = (index: number, color: string): void => {
 //          hides it and gives the keyboard focus back to the colour button of our run.
 // Note #4: the left/right arrow keys also go from one swatch to another (wrapping around), and the Home/End keys go to
 //          the first/last swatch (see onColorSwatchesKeyDown()).
+// Note #5: our popover is toggled when the colour button of the run for which it is shown is pressed, but it is moved
+//          to another run when the colour button of that run is pressed, i.e. it is hidden and then shown again for
+//          that run (so that it gets aligned with, and focused for, that run). Our run is only updated once our popover
+//          has started hiding, so that it doesn't show the colour of the other run while hiding. Also, our popover is
+//          shown again for the colour button that was pressed, which we must therefore pass on explicitly since the
+//          current target of the event is no longer set by then.
 
-const onToggleRunColorPopover = (index: number, event: MouseEvent): void => {
+const onToggleRunColorPopover = async (index: number, event: MouseEvent): Promise<void> => {
+  const popover = runColorPopoverRef.value;
+  const colorButton = event.currentTarget;
+  const openedUsingKeyboard = event.detail === 0;
+
+  if (!popover || !(colorButton instanceof HTMLElement)) {
+    return;
+  }
+
+  if (runColorPopoverVisible.value && runColorPopoverIndex.value !== index) {
+    popover.hide();
+
+    await vue.nextTick();
+
+    runColorPopoverIndex.value = index;
+    runColorPopoverOpenedUsingKeyboard.value = openedUsingKeyboard;
+
+    popover.show({ currentTarget: colorButton } as unknown as Event, colorButton);
+
+    return;
+  }
+
   runColorPopoverIndex.value = index;
-  runColorPopoverOpenedUsingKeyboard.value = event.detail === 0;
+  runColorPopoverOpenedUsingKeyboard.value = openedUsingKeyboard;
 
-  runColorPopoverRef.value?.toggle(event);
+  popover.toggle(event);
 };
 
 const onColorSwatchesKeyDown = (event: KeyboardEvent): void => {
