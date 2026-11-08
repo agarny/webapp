@@ -231,8 +231,13 @@ export const useAppendTarget = (ancestorRef: vue.Ref<HTMLElement | null>) => {
 };
 
 // The props of a toolbar button (see ToolbarButtonWidget.vue).
-// Note: they are defined here so that they can also be used by code that computes some of them (see
-//       useCopyToClipboard()).
+// Note #1: they are defined here so that they can also be used by code that computes some of them (see
+//          useCopyToClipboard()).
+// Note #2: a shortcut is both shown in the tooltip of a toolbar button and used as the value of its aria-keyshortcuts
+//          attribute, so it must be valid for the latter (e.g., "F9" or "Control+Shift+O", see
+//          https://www.w3.org/TR/wai-aria-1.2/#aria-keyshortcuts). This is not the case for a shortcut as it is shown
+//          elsewhere (e.g., "⌘O" or "Ctrl+O" in our main menu), in which case a separate prop would be needed for
+//          aria-keyshortcuts (or our shortcut would need to be converted).
 
 export interface IToolbarButtonProps {
   icon: string;
