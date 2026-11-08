@@ -41,10 +41,11 @@ import { HINT_DELAY } from './constants';
 //           which case it isn't shown again until our element is left (or blurred) and then hovered (or focused) again.
 //           Escape is otherwise left to do what it normally does (e.g., discard the value being edited in an input
 //           field or close a dialog).
-// Note #11: when our window loses the focus (e.g., when the user switches to another application), our element gets
-//           blurred, so our hint gets hidden. Our element then gets the focus back when our window regains the focus,
-//           but this is not the user focusing our element (using the keyboard), so we don't show our hint again (which
-//           we would otherwise do for a text field, see Note #1).
+// Note #11: when our window loses the focus (e.g., when the user switches to another application), our hint gets
+//           hidden (and the hint that is about to be shown, if any, cancelled), be it shown because our element is
+//           hovered or focused. Our element may then get the focus back when our window regains the focus, but this is
+//           not the user focusing our element (using the keyboard), so we don't show our hint again (which we would
+//           otherwise do for a text field, see Note #1).
 
 const HINT_OFFSET = 6; // Distance between our element and our hint.
 const HINT_MARGIN = 4; // Minimum distance between our hint and the edges of the window.
@@ -72,7 +73,8 @@ let hintOwnerRect: DOMRect | null = null; // The position and size of our elemen
 // Keep track of whether our window has lost the focus (see Note #11 above).
 // Note #1: when our window regains the focus, our element may get the focus back before or after our window gets its
 //          focus event, so we only consider that our window has the focus again once its focus event has been handled.
-// Note #2: we start tracking this when our directive is first used rather than when this module is loaded.
+// Note #2: we start tracking this when our directive is first used rather than when this module is loaded, at which
+//          point our window may not have the focus (e.g., if OpenCOR was started in the background).
 
 let windowFocusLost = false;
 let windowFocusTracked = false;
@@ -83,9 +85,13 @@ const trackWindowFocus = (): void => {
   }
 
   windowFocusTracked = true;
+  windowFocusLost = !document.hasFocus();
 
   window.addEventListener('blur', () => {
     windowFocusLost = true;
+
+    cancelPendingHint();
+    hideHint();
   });
 
   window.addEventListener('focus', () => {
