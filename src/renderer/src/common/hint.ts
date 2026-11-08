@@ -34,7 +34,9 @@ import { HINT_DELAY } from './constants';
 //          (e.g., if the user switches to another file tab using the keyboard while our element is hovered or focused,
 //          or if our element is activated using the keyboard and gets hidden once what it does has been done, like
 //          a recent file on our start screen once it has been opened), so we check our element on every animation
-//          frame while our hint is shown, and hide our hint if our element is no longer visible.
+//          frame while our hint is shown, and hide our hint if our element is no longer visible. Similarly, our element
+//          may move while our hint is shown (e.g., if the file tab bar is scrolled using the mouse wheel), in which
+//          case we reposition our hint.
 // Note #10: like a native tooltip, our hint can be dismissed by pressing Escape, be it shown or about to be shown, in
 //           which case it isn't shown again until our element is left (or blurred) and then hovered (or focused) again.
 //           Escape is otherwise left to do what it normally does (e.g., discard the value being edited in an input
@@ -65,6 +67,7 @@ let hintElement: HTMLElement | null = null; // The element that shows our hint, 
 let hintOwner: HTMLElement | null = null; // The element that our hint is about, if any.
 let pendingHintState: IHintState | null = null; // The state of the element which hint is about to be shown, if any.
 let visibilityCheckFrame: number | undefined; // The animation frame in which our element is to be checked, if any.
+let hintOwnerRect: DOMRect | null = null; // The position and size of our element when our hint was last positioned.
 
 // Keep track of whether our window has lost the focus (see Note #11 above).
 // Note #1: when our window regains the focus, our element may get the focus back before or after our window gets its
@@ -105,6 +108,7 @@ const hideHint = (): void => {
 
   hintElement = null;
   hintOwner = null;
+  hintOwnerRect = null;
 
   window.cancelAnimationFrame(visibilityCheckFrame ?? 0);
 
@@ -135,8 +139,8 @@ const isVisible = (element: HTMLElement): boolean => {
   );
 };
 
-// Hide our hint if our element is no longer visible (see Note #9 above), or check our element again on the next
-// animation frame.
+// Hide our hint if our element is no longer visible, or reposition it if our element has moved or been resized (see
+// Note #9 above), and check our element again on the next animation frame.
 
 const checkHintOwnerVisibility = (): void => {
   visibilityCheckFrame = undefined;
@@ -149,6 +153,18 @@ const checkHintOwnerVisibility = (): void => {
     hideHint();
 
     return;
+  }
+
+  const rect = hintOwner.getBoundingClientRect();
+
+  if (
+    !hintOwnerRect ||
+    rect.left !== hintOwnerRect.left ||
+    rect.top !== hintOwnerRect.top ||
+    rect.width !== hintOwnerRect.width ||
+    rect.height !== hintOwnerRect.height
+  ) {
+    positionHint();
   }
 
   visibilityCheckFrame = window.requestAnimationFrame(checkHintOwnerVisibility);
@@ -232,6 +248,9 @@ const positionHint = (): void => {
 
   const elementRect = hintOwner.getBoundingClientRect();
   const hintRect = hintElement.getBoundingClientRect();
+
+  hintOwnerRect = elementRect;
+
   let left = elementRect.left;
   let top = elementRect.bottom + HINT_OFFSET;
 
@@ -377,11 +396,14 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
 
       updateAriaLabel(element, state);
 
-      // Update our hint, if it is shown, and reposition it since its size may have changed (and our element may have
-      // moved).
-      // Note: our hint is repositioned before the next paint, so it doesn't flicker.
+      // Update our hint, if it is shown and its text has changed, and reposition it since its size may have changed.
+      // Note #1: we are called whenever the component that contains our element gets updated, not only when our hint
+      //          changes, hence we check that our hint has changed (e.g., so that a rich hint isn't rebuilt and
+      //          repositioned every time the user types something in the input field that it is about). A change in
+      //          the position of our element is otherwise handled by checkHintOwnerVisibility().
+      // Note #2: our hint is repositioned before the next paint, so it doesn't flicker.
 
-      if (hintOwner === element && hintElement) {
+      if (hintOwner === element && hintElement && binding.value !== binding.oldValue) {
         if (state.text && state.html) {
           hintElement.innerHTML = state.text;
         } else if (state.text) {
