@@ -61,7 +61,7 @@
               :aria-label="`Close ${common.fileName(fileTab.file.canonicalPath())}`"
               v-hint="'Close'"
               @mousedown.prevent
-              @click.stop="closeFile(fileTab.file.path())"
+              @click.stop="onCloseButtonClick(fileTab.file.path())"
             />
           </span>
         </div>
@@ -159,7 +159,7 @@ const emit = defineEmits<{
   simulationData: [];
 }>();
 
-const { simulationOnly } = useOpenCORContext();
+const { simulationOnly, uiEnabled } = useOpenCORContext();
 
 const viewRegistry = useViewRegistry();
 const simulationExperimentInteractiveViewRef = vue.ref<InstanceType<typeof SimulationExperimentInteractiveView> | null>(
@@ -277,7 +277,16 @@ const view = (fileTab: IFileTab): IView => {
   }
 };
 
+// Note: our UI is only blocked for the mouse while it is not enabled (e.g., while a model is being loaded or CellML is
+//       being generated from a CellDL file, see SafeBlockUIWidget), so the buttons of our file tabs, of our view
+//       switchers, and of our Unsupported file type view can still be activated using the keyboard, in which case we
+//       ignore them (as for our keyboard shortcuts, see useOpenCORKeyStroke()).
+
 const onSelectView = (fileTab: IFileTab, viewId: string): void => {
+  if (!uiEnabled.value) {
+    return;
+  }
+
   fileTab.activeViewId = viewId;
 };
 
@@ -573,7 +582,24 @@ const fileTabContextMenuItems = vue.computed<MenuItem[]>(() => {
   ];
 });
 
+// Close the given file when the close button of its file tab is clicked, unless our UI is not enabled (see
+// onSelectView()).
+
+const onCloseButtonClick = (filePath: string): void => {
+  if (uiEnabled.value) {
+    void closeFile(filePath);
+  }
+};
+
+// Show the context menu of the given file tab, unless our UI is not enabled.
+// Note: the context menu may also be shown using the keyboard (e.g., using Shift+F10 when the close button of a file
+//       tab has the keyboard focus), hence we check that our UI is enabled (see onSelectView()).
+
 const onFileTabContextMenu = (event: MouseEvent, filePath: string): void => {
+  if (!uiEnabled.value) {
+    return;
+  }
+
   fileTabContextMenuFilePath.value = filePath;
 
   fileTabContextMenuRef.value?.show(event);

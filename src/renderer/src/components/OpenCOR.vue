@@ -68,11 +68,11 @@
         @fileClosed="onFileClosed"
         @fileOpened="onFileOpened"
         :recentFilePaths="startScreenRecentFilePaths"
-        @open="onOpenAction"
+        @open="onStartScreenOpen"
         @openFile="openFile"
-        @openRecentFile="onOpenRecentFileAction"
-        @openRemote="onOpenRemoteMenu"
-        @openSampleLorenz="onOpenSampleLorenzMenu"
+        @openRecentFile="onStartScreenOpenRecentFile"
+        @openRemote="onStartScreenOpenRemote"
+        @openSampleLorenz="onStartScreenOpenSampleLorenz"
         @simulationData="emitSimulationData"
       />
       <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="initialisation.progress.value" />
@@ -2022,6 +2022,24 @@ const onOpenRecentFileAction = (filePath: string): void => {
     void onReopenMenu(filePath);
   }
 };
+
+// Actions of our start screen (see BackgroundComponent.vue).
+// Note: unlike our main menu, our start screen cannot be disabled while our UI is not enabled (e.g., while OpenCOR is
+//       being initialised or a model is being loaded) since our UI is only blocked for the mouse (see
+//       SafeBlockUIWidget), so its actions can still be triggered using the keyboard, in which case we ignore them.
+
+const startScreenAction = <T extends unknown[]>(action: (...args: T) => void): ((...args: T) => void) => {
+  return (...args: T): void => {
+    if (compUiEnabled.value) {
+      action(...args);
+    }
+  };
+};
+
+const onStartScreenOpen = startScreenAction(onOpenAction);
+const onStartScreenOpenRecentFile = startScreenAction(onOpenRecentFileAction);
+const onStartScreenOpenRemote = startScreenAction(onOpenRemoteMenu);
+const onStartScreenOpenSampleLorenz = startScreenAction(onOpenSampleLorenzMenu);
 
 // Save.
 
