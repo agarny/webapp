@@ -597,18 +597,21 @@ const onRunPause = async (): Promise<void> => {
     default: {
       // locSedApi.ESedInstanceStatus.IDLE.
 
-      // Commit the value that is being edited in one of our input fields, if any, so that our simulation is run with
-      // it.
-      // Note: our input fields only commit their value when they lose the focus (or when Enter is pressed). Our
-      //       Run/Pause button takes care of this when it is pressed (see ToolbarButtonWidget.vue), but not when our
-      //       run is started using F9, in which case our simulation would otherwise be run with the previous value, and
-      //       the new value would get committed later on (e.g., while our simulation is running).
+      // Commit the value that is being edited in one of our simulation settings, if any, so that our simulation is run
+      // with it.
+      // Note #1: our simulation settings only commit their value when they lose the focus (or when Enter is pressed).
+      //          Our Run/Pause button takes care of this when it is pressed (see ToolbarButtonWidget.vue), but not when
+      //          our run is started using F9, in which case our simulation would otherwise be run with the previous
+      //          value, and the new value would get committed later on (e.g., while our simulation is running).
+      // Note #2: we only do this for our simulation settings (see PropertyEditor.vue), i.e. not for our other input
+      //          fields (e.g., the X and Y axis selects of our plot), since those commit their value as it is typed and
+      //          remain enabled while our simulation is running, so they would only lose the keyboard focus.
 
       const activeElement = window.document.activeElement;
 
       if (
         activeElement instanceof HTMLElement &&
-        activeElement.matches('input, textarea') &&
+        activeElement.matches('.property-editor input') &&
         rootRef.value?.contains(activeElement)
       ) {
         activeElement.blur();
