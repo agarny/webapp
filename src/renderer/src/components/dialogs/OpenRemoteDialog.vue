@@ -1,7 +1,7 @@
 <template>
   <BaseDialog header="Open Remote" class="w-169" @cancel="reset">
     <div class="flex flex-col gap-2 mt-1 mb-2">
-      <p class="description">Enter the URL of a CellML file, SED-ML file, or COMBINE archive.</p>
+      <p class="description">Enter the {{ inputDescription }} of a CellML file, SED-ML file, or COMBINE archive.</p>
       <IconField>
         <InputIcon class="pi pi-link" />
         <InputText ref="inputRef" v-model="url" autofocus fluid
@@ -32,7 +32,7 @@
       <div class="message">
         <p v-if="showIssue" class="issue" role="alert">
           <i class="pi pi-exclamation-circle"></i>
-          <span>Please enter a valid web address (e.g., <code>https://example.com/model.omex</code>).</span>
+          <span>Please enter a valid {{ validInputDescription }} (e.g., <code>https://example.com/model.omex</code>).</span>
         </p>
         <p v-else-if="normalisedUrl && normalisedUrl !== url.trim() && !normalisedUrl.startsWith('data:')" class="hint" v-hint="`Will open ${normalisedUrl}.`">
           <i class="pi pi-info-circle"></i>
@@ -51,6 +51,7 @@
 import * as vue from 'vue';
 
 import * as common from '../../common/common';
+import { electronApi } from '../../common/electronApi';
 import { vHint } from '../../common/hint';
 
 const emit = defineEmits<{
@@ -88,16 +89,63 @@ const checked = vue.ref<boolean>(false);
 //          scheme) is not considered as a valid URL, i.e. as "https://user@example.com" or as
 //          "https://mailto:user@example.com" (where "mailto" would be a user name and "user" a password). A URL with a
 //          scheme can have a user name and a password (e.g., "https://user@example.com/model.omex").
+// Note #5: in OpenCOR (i.e. not in OpenCOR's Web app), a local file can also be opened, be it using a "file" URL (e.g.,
+//          "file:///some/path/model.omex") or an absolute file path (e.g., "/some/path/model.omex" or, on Windows,
+//          "C:\some\path\model.omex" or "\\server\share\model.omex"), since it can then be opened like any other file
+//          (see OpenCOR.openFile()). It is used as is, apart from the scheme of a "file" URL which is lowercased, and
+//          it is not decoded (see emitOpenRemote()). A relative file path is not considered as valid since it would be
+//          relative to the working directory of OpenCOR, which people cannot know. Neither is a "file" URL or a file
+//          path that doesn't end with a file name (e.g., "file:/", "file:///some/path/", "/", or "C:\"), since it
+//          cannot refer to a file. Note that the query and fragment of a "file" URL are ignored by libOpenCOR (e.g.,
+//          "file:///some/path/model.omex?a=b#c" refers to "/some/path/model.omex"), hence we only check its path.
 
 const DATA_URL_REGEX = /^data:(application\/(?:zip|x\.vnd\.zip-cellml\+zip);base64),/i;
 const DOTTED_HOST_REGEX = /^[^.]+(?:\.[^.]+)+\.?$/;
 const IPV4_ADDRESS_REGEX = /^\d+\.\d+\.\d+\.\d+$/;
+const FILE_URL_REGEX = /^file:\//i;
+const FILE_URL_WITHOUT_FILE_NAME_PATH_REGEX = /(?:^|\/)(?:[a-z]:)?$/i;
+const POSIX_ABSOLUTE_FILE_PATH_REGEX = /^\/.*[^/]$/;
+const WINDOWS_ABSOLUTE_FILE_PATH_REGEX = /^(?:[a-z]:[\\/]|\\\\[^\\/]+[\\/][^\\/]+[\\/]).*[^\\/]$/i;
+
+// What can be entered, depending on whether local files are supported (see Note #5 above).
+
+const localFilesSupported = !!electronApi;
+const inputDescription = localFilesSupported ? 'URL or path' : 'URL';
+const validInputDescription = localFilesSupported ? 'Web address or file path' : 'Web address';
+
+// The local file to open, if any (see Note #5 above).
+
+const localFile = vue.computed<string>(() => {
+  if (!localFilesSupported) {
+    return '';
+  }
+
+  const trimmedUrl = url.value.trim();
+
+  if (FILE_URL_REGEX.test(trimmedUrl)) {
+    const fileUrl = `file:${trimmedUrl.slice(5)}`;
+
+    try {
+      return FILE_URL_WITHOUT_FILE_NAME_PATH_REGEX.test(new URL(fileUrl).pathname) ? '' : fileUrl;
+    } catch {
+      return '';
+    }
+  }
+
+  return (common.isWindows() ? WINDOWS_ABSOLUTE_FILE_PATH_REGEX : POSIX_ABSOLUTE_FILE_PATH_REGEX).test(trimmedUrl)
+    ? trimmedUrl
+    : '';
+});
 
 const normalisedUrl = vue.computed<string>(() => {
   const trimmedUrl = url.value.trim();
 
   if (!trimmedUrl) {
     return '';
+  }
+
+  if (localFile.value) {
+    return localFile.value;
   }
 
   const dataUrlMediaType = DATA_URL_REGEX.exec(trimmedUrl)?.[1];
@@ -194,15 +242,20 @@ const emitOpenRemote = (): void => {
     return;
   }
 
-  // Note: decodeURI() throws if the URL contains a malformed percent-encoded sequence (e.g., "%E0"), in which case we
-  //       use the URL as is.
+  // Note #1: decodeURI() throws if the URL contains a malformed percent-encoded sequence (e.g., "%E0"), in which case
+  //          we use the URL as is.
+  // Note #2: a local file is not decoded since libOpenCOR decodes the path of a "file" URL itself, while a percent sign
+  //          is a valid character in a file path (e.g., "/some/path/my%20file.omex" and "/some/path/my file.omex" are
+  //          two different files).
 
   let decodedUrl = normalisedUrl.value;
 
-  try {
-    decodedUrl = decodeURI(decodedUrl);
-  } catch {
-    // The URL cannot be decoded, so use it as is.
+  if (!localFile.value) {
+    try {
+      decodedUrl = decodeURI(decodedUrl);
+    } catch {
+      // The URL cannot be decoded, so use it as is.
+    }
   }
 
   emit('openRemote', decodedUrl);
