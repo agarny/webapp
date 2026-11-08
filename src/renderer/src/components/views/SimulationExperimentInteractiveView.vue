@@ -55,10 +55,10 @@
                         tooltipAlign="end"
                         keepFocus
                         :disabled="allSimulationInputsAtDefaultValues"
-                        @click="onResetInputs"
+                        @click="onResetInputs($event)"
                       />
                     </div>
-                    <div class="side-panel-fields">
+                    <div ref="simulationInputsRef" class="side-panel-fields">
                       <InputWidget ref="inputWidgetsRef"
                         v-for="(input, index) in actualUiJson.input"
                         v-model="inputValues[index]!"
@@ -2401,7 +2401,44 @@ const allSimulationInputsAtDefaultValues = vue.computed<boolean>(() => {
   });
 });
 
-const onResetInputs = (): void => {
+// Give the keyboard focus to our first visible simulation input, if our Reset all simulation inputs button had it,
+// since that button gets hidden (and disabled) once all our simulation inputs are at their default values, and the
+// keyboard focus would otherwise be lost (as when removing runs, see keepFocusAfterRunRemoval()).
+// Note #1: our reset button keeps the focus where it is when clicked (see its keepFocus property), so it only has the
+//          focus if it was focused using the keyboard.
+// Note #2: we look for the first element that can be tabbed to (i.e. the text field of a scalar input or the select of
+//          a discrete input) since the other elements of our inputs (e.g., their reset buttons) cannot be tabbed to.
+//          We do this using the DOM since the order of our input widgets in inputWidgetsRef is not guaranteed to be
+//          the order in which they are shown.
+
+const simulationInputsRef = vue.useTemplateRef<HTMLElement>('simulationInputsRef');
+const TABBABLE_ELEMENTS = 'input:not([type="hidden"], [tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
+
+const keepFocusAfterInputsReset = async (resetButton: Element): Promise<void> => {
+  await vue.nextTick();
+
+  // Don't move the keyboard focus if it has gone somewhere else in the meantime (i.e. somewhere else than <body> or our
+  // reset button, which may keep the keyboard focus once disabled, depending on the browser).
+
+  const activeElement = window.document.activeElement;
+
+  if (activeElement && activeElement !== window.document.body && activeElement !== resetButton) {
+    return;
+  }
+
+  Array.from(simulationInputsRef.value?.querySelectorAll<HTMLElement>(TABBABLE_ELEMENTS) ?? [])
+    .find((element: HTMLElement) => element.getClientRects().length > 0 && !element.matches(':disabled'))
+    ?.focus();
+};
+
+const onResetInputs = (event: Event): void => {
+  const resetButton = event.currentTarget instanceof Element ? event.currentTarget : null;
+  const hadFocus = !!resetButton && resetButton === window.document.activeElement;
+
+  if (hadFocus) {
+    void keepFocusAfterInputsReset(resetButton);
+  }
+
   // Discard any value that is being edited, so that it doesn't get committed (and simulated) once its input loses the
   // focus.
   // Note: our reset button keeps the focus where it is when clicked (see its keepFocus property), so that the input
