@@ -80,6 +80,15 @@ export const isCtrlOrCmd = (event: KeyboardEvent): boolean => {
   return isMacOs() ? event.metaKey : event.ctrlKey;
 };
 
+// A method to determine whether a keydown event is processed by an input method editor (IME), e.g., for Chinese or
+// Japanese, in which case it is not for us to handle (e.g., Enter to confirm some text being composed).
+// Note: Safari ends a composition before dispatching the keydown event that confirms it, so that event isn't flagged as
+//       composing, but its key code is 229 (as for any keydown event that is processed by an IME).
+
+export const isImeKeyDown = (event: KeyboardEvent): boolean => {
+  return event.isComposing || event.keyCode === 229;
+};
+
 // Some methods to let OpenCOR own the title of its document (e.g., to show the name of the selected file in it, see
 // ContentsComponent.vue), which is only the case when OpenCOR is not used as a library (see main.ts) since the title
 // of a page that embeds OpenCOR is not ours to change.

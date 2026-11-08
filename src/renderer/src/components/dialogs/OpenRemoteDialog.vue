@@ -12,7 +12,7 @@
           autocapitalize="off"
           inputmode="url"
           @blur="checked = !!url.trim() && !normalisedUrl"
-          @keydown.enter.prevent="emitOpenRemote"
+          @keydown.enter="onKeydownEnter"
         />
         <!--
         Note: our clear button is a real button (rather than an input icon) so that it can be used with the keyboard,
@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
+import * as common from '../../common/common';
 import { vHint } from '../../common/hint';
 
 const emit = defineEmits<{
@@ -171,6 +172,19 @@ const onClear = (): void => {
   reset();
 
   inputRef.value?.$el.focus();
+};
+
+// Open our URL when Enter is pressed, unless it is to confirm some text being composed using an input method editor
+// (IME), e.g., for Chinese or Japanese (see common.isImeKeyDown()).
+
+const onKeydownEnter = (event: KeyboardEvent): void => {
+  if (common.isImeKeyDown(event)) {
+    return;
+  }
+
+  event.preventDefault();
+
+  emitOpenRemote();
 };
 
 const emitOpenRemote = (): void => {

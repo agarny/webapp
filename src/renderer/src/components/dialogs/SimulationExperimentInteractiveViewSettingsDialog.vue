@@ -388,7 +388,7 @@
               <div class="opencor-section-title opencor-section-title-small">or</div>
               <FloatLabel variant="on" class="flex-1 min-w-0">
                 <InputText v-model="externalDataUrl" class="w-full" size="small"
-                  @keydown.enter.stop.prevent="isExternalDataUrlValid && importExternalDataFromUrl()"
+                  @keydown.enter="onExternalDataUrlKeydownEnter"
                 />
                 <label>URL of a CSV file</label>
               </FloatLabel>
@@ -1268,6 +1268,22 @@ const onExternalDataFileDragLeave = (): void => {
   externalDataFileDragging.value = false;
 };
 
+// Import some external data from our URL when Enter is pressed (rather than accept our settings, see onKeydownEnter()),
+// unless it is to confirm some text being composed using an input method (see common.isImeKeyDown()).
+
+const onExternalDataUrlKeydownEnter = (event: KeyboardEvent): void => {
+  if (common.isImeKeyDown(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (isExternalDataUrlValid.value) {
+    void importExternalDataFromUrl();
+  }
+};
+
 const importExternalDataFromUrl = async (): Promise<void> => {
   const url = externalDataUrl.value.trim();
 
@@ -1421,7 +1437,8 @@ const resetUxSettings = () => {
 
 // Accept our settings when the user presses Enter in a text field (as in a native form), but not when, say, a button or
 // a select has the keyboard focus since Enter is then for it (e.g., to click a button, such as our Cancel button, or to
-// open a select), nor when Enter is used to confirm some text that is being composed (e.g., using an input method).
+// open a select), nor when Enter is used to confirm some text that is being composed (e.g., using an input method, see
+// common.isImeKeyDown()).
 
 const TEXT_FIELDS =
   'input:not([type="button"], [type="checkbox"], [type="color"], [type="file"], [type="radio"], [type="range"], [type="reset"], [type="submit"])';
@@ -1429,7 +1446,7 @@ const TEXT_FIELDS =
 const onKeydownEnter = (event: KeyboardEvent): void => {
   if (
     event.defaultPrevented ||
-    event.isComposing ||
+    common.isImeKeyDown(event) ||
     !(event.target instanceof HTMLInputElement) ||
     !event.target.matches(TEXT_FIELDS) ||
     event.target.closest('.p-select, .p-autocomplete')
