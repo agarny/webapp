@@ -183,13 +183,13 @@
         />
       </Teleport>
       <Popover ref="runColorPopoverRef" :appendTo="appendTarget">
-        <div class="flex p-2 gap-2" @keydown="onColorSwatchesKeyDown">
+        <div class="flex p-2 gap-2" tabindex="-1" :autofocus="!runColorPopoverOpenedUsingKeyboard" @keydown="onColorSwatchesKeyDown">
           <button class="color-swatch cursor-pointer w-6 h-6 outline-2 outline-transparent rounded-md"
             v-for="(name, color) in colors.PALETTE" :key="color"
             type="button"
             :style="`background-color: ${color};`"
             :class="{ 'color-swatch-selected': color === runs[runColorPopoverIndex]?.color }"
-            :autofocus="color === runs[runColorPopoverIndex]?.color"
+            :autofocus="runColorPopoverOpenedUsingKeyboard && color === runs[runColorPopoverIndex]?.color"
             :aria-pressed="color === runs[runColorPopoverIndex]?.color"
             v-hint="name"
             @click="onRunColorChange(runColorPopoverIndex, color)"
@@ -531,6 +531,7 @@ const runs = vue.ref<ISimulationRun[]>([
 let trackedRunId = 0;
 let simulationGeneration = 0;
 const runColorPopoverIndex = vue.ref<number>(-1);
+const runColorPopoverOpenedUsingKeyboard = vue.ref<boolean>(false);
 const runColorPopoverRef = vue.ref<InstanceType<typeof Popover> | undefined>();
 const graphPanelRefs = vue.ref<Record<number, InstanceType<typeof GraphPanelWidget> | undefined>>({});
 const appendTarget = vueCommon.useAppendTarget(rootRef as unknown as vue.Ref<HTMLElement | null>);
@@ -2102,28 +2103,56 @@ const onRunColorChange = (index: number, color: string): void => {
 };
 
 // Show/hide our colour popover for the given run.
-// Note #1: the swatch of the current colour of our run is focused when our popover is shown (see its autofocus
-//          attribute), so that our popover can be used with the keyboard. Our popover then keeps the keyboard focus
-//          within itself (i.e. Tab goes from one swatch to another), and Escape hides it and gives the keyboard focus
-//          back to the colour button of our run.
-// Note #2: the left/right arrow keys also go from one swatch to another (wrapping around), and the Home/End keys go to
+// Note #1: when our popover is shown using the keyboard, the swatch of the current colour of our run is focused (see
+//          its autofocus attribute), so that our popover can be used with the keyboard straightaway. When it is shown
+//          using the mouse, our swatches are focused (and therefore get a focus ring and show their hint) only once the
+//          keyboard is used, so it is our swatches' container that is focused (see its autofocus attribute) and the
+//          swatch of the current colour of our run gets focused as soon as Tab or an arrow key is pressed (or the
+//          first/last swatch if Home/End is pressed, see onColorSwatchesKeyDown()). Otherwise, the swatch of the
+//          current colour of our run would be focused programmatically, in which case the browser decides whether it
+//          gets a focus ring (and therefore shows its hint) based on how the keyboard focus was last moved (e.g., not
+//          once a swatch has been clicked).
+// Note #2: a click event that is triggered using the keyboard (i.e. using Enter or Space) has no detail.
+// Note #3: our popover keeps the keyboard focus within itself (i.e. Tab goes from one swatch to another), and Escape
+//          hides it and gives the keyboard focus back to the colour button of our run.
+// Note #4: the left/right arrow keys also go from one swatch to another (wrapping around), and the Home/End keys go to
 //          the first/last swatch (see onColorSwatchesKeyDown()).
 
 const onToggleRunColorPopover = (index: number, event: MouseEvent): void => {
   runColorPopoverIndex.value = index;
+  runColorPopoverOpenedUsingKeyboard.value = event.detail === 0;
 
   runColorPopoverRef.value?.toggle(event);
 };
 
 const onColorSwatchesKeyDown = (event: KeyboardEvent): void => {
-  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+  if (!['Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
     return;
   }
 
   const swatches = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.color-swatch'));
   const index = swatches.indexOf(window.document.activeElement as HTMLElement);
 
+  // Focus the swatch of the current colour of our run (or the first/last swatch) if no swatch has the focus yet, i.e.
+  // if our popover was shown using the mouse (see Note #1 above).
+
   if (index === -1) {
+    event.preventDefault();
+
+    const selectedIndex = swatches.findIndex((swatch: HTMLElement) =>
+      swatch.classList.contains('color-swatch-selected')
+    );
+
+    swatches[
+      event.key === 'Home' ? 0 : event.key === 'End' ? swatches.length - 1 : Math.max(selectedIndex, 0)
+    ]?.focus();
+
+    return;
+  }
+
+  // Let our popover handle Tab (see Note #3 above).
+
+  if (event.key === 'Tab') {
     return;
   }
 
