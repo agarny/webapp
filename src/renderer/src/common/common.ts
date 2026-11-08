@@ -376,13 +376,45 @@ export const waitForNextAnimationFrame = (): Promise<number> => {
 
 // A method to wait for our UI to be painted.
 // Note #1: we wait for two animation frames since the first one is just before the next paint while the second one is
-//          just after it.
+//          after it (i.e. just before the following paint).
 // Note #2: there is no need to wait for vue.nextTick() first since Vue updates the DOM in a microtask, i.e. before the
 //          next animation frame.
+// Note #3: no animation frames are run while our document is hidden (e.g., when our window is minimised), in which case
+//          there is nothing to paint for people to see, so we don't wait (or stop waiting) for our UI to be painted.
+//          Otherwise, we would wait until our document is visible again (e.g., a simulation run would only finish
+//          once our window is restored).
+
+const waitForNextAnimationFrameUnlessHidden = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (document.visibilityState === 'hidden') {
+      resolve();
+
+      return;
+    }
+
+    const onDone = (): void => {
+      cancelAnimationFrame(frame);
+
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+
+      resolve();
+    };
+
+    const onVisibilityChange = (): void => {
+      if (document.visibilityState === 'hidden') {
+        onDone();
+      }
+    };
+
+    const frame = requestAnimationFrame(onDone);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  });
+};
 
 export const waitForNextPaint = async (): Promise<void> => {
-  await waitForNextAnimationFrame();
-  await waitForNextAnimationFrame();
+  await waitForNextAnimationFrameUnlessHidden();
+  await waitForNextAnimationFrameUnlessHidden();
 };
 
 // Some constants related to simulation data values.
