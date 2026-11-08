@@ -75,10 +75,10 @@
         @openSampleLorenz="onStartScreenOpenSampleLorenz"
         @simulationData="emitSimulationData"
       />
-      <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="initialisation.progress.value" />
-      <BlockingMessageComponent v-if="loadingModelMessageVisible" message="Loading model..." />
-      <BlockingMessageComponent v-show="loadingExternalDataVisible" message="Loading external data..." />
-      <BlockingMessageComponent v-show="opencorMessageVisible" :message="opencorMessageMessage" :progress="opencorMessageProgress" />
+      <BlockingMessageComponent class="app-blocking-message" v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="initialisation.progress.value" />
+      <BlockingMessageComponent class="app-blocking-message" v-if="loadingModelMessageVisible" message="Loading model..." />
+      <BlockingMessageComponent class="app-blocking-message" v-show="loadingExternalDataVisible" message="Loading external data..." />
+      <BlockingMessageComponent class="app-blocking-message" v-show="opencorMessageVisible" :message="opencorMessageMessage" :progress="opencorMessageProgress" />
       <OkMessageDialog v-model:visible="updateErrorVisible"
         :title="updateErrorTitle"
         :message="updateErrorIssue"
@@ -2616,7 +2616,13 @@ const onGitHubButtonClick = async (): Promise<void> => {
     padding-top: var(--main-menu-height) !important;
   }
 
-  :deep(.blocking-message) {
+  /**
+   * Note: only our own blocking messages are shifted down since they are centred over the whole of OpenCOR (i.e. also
+   *       over our main menu), unlike the blocking message of a view (e.g., CellDL Editor's loading message), which is
+   *       centred over the view itself (and therefore already below our main menu).
+   */
+
+  :deep(.app-blocking-message) {
     margin-top: calc(0.5 * var(--main-menu-height));
   }
 }
