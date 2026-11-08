@@ -131,7 +131,7 @@ import * as vue from 'vue';
 
 import * as colors from '../../common/colors';
 import * as common from '../../common/common';
-import { MEDIUM_DELAY, TOAST_LIFE } from '../../common/constants';
+import { MEDIUM_DELAY, STOP_RUN_TIMEOUT, TOAST_LIFE } from '../../common/constants';
 import * as locCommon from '../../common/locCommon';
 import * as vueCommon from '../../common/vueCommon';
 import * as locApi from '../../libopencor/locApi';
@@ -594,7 +594,9 @@ const onRunPause = async (): Promise<void> => {
       simulationStatus.value = locSedApi.ESedInstanceStatus.RUNNING;
 
       break;
-    default: { // locSedApi.ESedInstanceStatus.IDLE.
+    default: {
+      // locSedApi.ESedInstanceStatus.IDLE.
+
       // Commit the value that is being edited in one of our input fields, if any, so that our simulation is run with
       // it.
       // Note: our input fields only commit their value when they lose the focus (or when Enter is pressed). Our
@@ -751,6 +753,10 @@ const onRunPause = async (): Promise<void> => {
       // Note #3: we consider our run as finishing while we wait for our instance to be idle, so that our Run/Pause
       //          button (and its F9 shortcut) cannot, in the meantime, start a new run, which we would otherwise end up
       //          waiting for and then reporting as having failed.
+      // Note #4: our instance may never be idle (e.g., if it cannot be stopped), in which case our Run/Pause button
+      //          would remain disabled for good, so we only wait for so long. We then let people know that our
+      //          simulation could not be stopped since it may still be running (or be paused), in which case our next
+      //          run may, for instance, end up pausing it rather than starting a new one (see Note #1).
 
       let runPauseButtonHadFocus = false;
 
@@ -760,10 +766,23 @@ const onRunPause = async (): Promise<void> => {
         isFinishing.value = true;
         isWaitingOnRun = true;
 
+        let stopRunTimedOut = false;
+
         try {
           instance.stopRun();
 
-          await vueCommon.waitWhileRunning(instance).promise;
+          const { promise: stopRunPromise, cancel: stopRunCancel } = vueCommon.waitWhileRunning(instance);
+          const stopRunTimer = setTimeout(() => {
+            stopRunTimedOut = true;
+
+            stopRunCancel();
+          }, STOP_RUN_TIMEOUT);
+
+          try {
+            await stopRunPromise;
+          } finally {
+            clearTimeout(stopRunTimer);
+          }
         } catch {
           // Our instance cannot be relied upon anymore, so there is nothing more that we can do.
         } finally {
@@ -783,6 +802,10 @@ const onRunPause = async (): Promise<void> => {
         lastRun.value = { outcome: 'failed' };
 
         addConsoleError(runError);
+
+        if (stopRunTimedOut) {
+          addConsoleError('the simulation could not be stopped');
+        }
 
         if (runPauseButtonHadFocus || stopButtonHadFocus) {
           void focusRunPauseButton();
