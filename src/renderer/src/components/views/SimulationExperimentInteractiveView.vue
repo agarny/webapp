@@ -131,7 +131,7 @@
                             :label="`Remove ${runName(run, index)}`"
                             small
                             tooltipAlign="end"
-                            @click="onRemoveRun(index, $event)"
+                            @click="onRemoveRun(index)"
                           />
                           <div v-else class="w-6 h-6"></div>
                         </div>
@@ -2062,10 +2062,10 @@ const keepFocusAfterRunRemoval = async (index: number): Promise<void> => {
   }
 };
 
-const onRemoveRun = (index: number, event: Event): void => {
+const onRemoveRun = (index: number): void => {
   // Remove the given run.
 
-  const hadFocus = event.currentTarget === window.document.activeElement || runsHaveFocus(index, 1);
+  const hadFocus = runsHaveFocus(index, 1);
 
   runs.value.splice(index, 1);
 
