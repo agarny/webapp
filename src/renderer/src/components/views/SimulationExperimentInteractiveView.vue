@@ -2011,17 +2011,29 @@ const runName = (run: ISimulationRun, index: number, capitalised = false): strin
   return capitalised ? res.charAt(0).toUpperCase() + res.slice(1) : res;
 };
 
-// Keep the keyboard focus within our runs when one (or all) of them gets removed using the keyboard since the focused
-// button would otherwise disappear (or get disabled) and the keyboard focus would be lost. The keyboard focus goes to
-// the remove button of the run that takes the place of the removed run or, if there is none, of the previous run, or to
-// our Track run button if there are no tracked runs anymore (or to the visibility button of our live run if our Track
-// run button is disabled, e.g., if our simulation has issues).
-// Note #1: a toolbar button doesn't get the focus when it is clicked (see ToolbarButtonWidget.vue), so a remove button
-//          only has the focus if it was activated using the keyboard.
+// Keep the keyboard focus within our runs when one (or all) of them gets removed while the keyboard focus is on its (or
+// their) remove button (or on another of its (or their) buttons) or on our Remove all tracked runs button since the
+// focused button would otherwise disappear (or get disabled) and the keyboard focus would be lost. The keyboard focus
+// goes to the remove button of the run that takes the place of the removed run or, if there is none, of the previous
+// run, or to our Track run button if there are no tracked runs anymore (or to the visibility button of our live run if
+// our Track run button is disabled, e.g., if our simulation has issues).
+// Note #1: a toolbar button doesn't get the focus when it is clicked (see ToolbarButtonWidget.vue), so a button only
+//          has the focus if it was focused using the keyboard (be it then activated using the keyboard or the mouse).
 // Note #2: we use window.document since document is our SED-ML document.
 
 const runsListRef = vue.useTemplateRef<HTMLElement>('runsListRef');
 const trackRunButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('trackRunButtonRef');
+
+// Whether the keyboard focus is on one of the buttons of the runs from the given index onwards (up to the given number
+// of runs).
+
+const runsHaveFocus = (index: number, count = Infinity): boolean => {
+  const activeElement = window.document.activeElement;
+
+  return Array.from(runsListRef.value?.children ?? [])
+    .slice(index, index + count)
+    .some((runRow: Element) => runRow.contains(activeElement));
+};
 
 const keepFocusAfterRunRemoval = async (index: number): Promise<void> => {
   await vue.nextTick();
@@ -2049,7 +2061,7 @@ const keepFocusAfterRunRemoval = async (index: number): Promise<void> => {
 const onRemoveRun = (index: number, event: Event): void => {
   // Remove the given run.
 
-  const hadFocus = event.currentTarget === window.document.activeElement;
+  const hadFocus = event.currentTarget === window.document.activeElement || runsHaveFocus(index, 1);
 
   runs.value.splice(index, 1);
 
@@ -2063,7 +2075,7 @@ const onRemoveAllRuns = (event?: Event): void => {
   // Note: we may also be called programmatically (e.g., when our settings get updated), in which case there is no
   //       event.
 
-  const hadFocus = !!event && event.currentTarget === window.document.activeElement;
+  const hadFocus = !!event && (event.currentTarget === window.document.activeElement || runsHaveFocus(1));
 
   runs.value.splice(1);
 
