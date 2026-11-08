@@ -12,6 +12,7 @@
     ]"
     type="button"
     :aria-label="props.label"
+    :aria-keyshortcuts="props.shortcut"
     :disabled="props.disabled"
     @mousedown.prevent="onMouseDown"
     @mouseenter="updateTooltipPosition"

@@ -23,7 +23,7 @@
             >
               <i :class="navItem.icon" class="settings-nav-item-icon" />
               <span class="flex-1 truncate">{{ navItem.label }}</span>
-              <i v-if="navItem.hasIssues" class="pi pi-exclamation-triangle settings-nav-issues" v-hint="'Some settings have issues'" />
+              <i v-if="navItem.hasIssues" class="pi pi-exclamation-triangle settings-nav-issues" role="img" v-hint="'Some settings have issues'" />
               <span v-if="navItem.count !== undefined" class="settings-nav-count">{{ navItem.count }}</span>
             </button>
           </div>

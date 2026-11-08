@@ -40,7 +40,7 @@
           </div>
         </template>
       </Toolbar>
-      <ProgressBar class="run-progress" :class="{ 'run-progress-visible': progress > 0 }" :showValue="false" :value="progress" />
+      <ProgressBar class="run-progress" :class="{ 'run-progress-visible': progress > 0 }" aria-label="Simulation progress" :showValue="false" :value="progress" />
       <div class="grow flex flex-col min-h-0">
         <Splitter class="border-none! flex-1 m-0 min-h-0" layout="vertical">
           <SplitterPanel :size="simulationOnly ? 100 : 89">

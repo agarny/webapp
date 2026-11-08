@@ -9,7 +9,7 @@
       </div>
       <div v-if="issues.length" class="issues-summary">
         <span v-for="summaryItem in summaryItems" :key="summaryItem.type" class="issues-summary-item" :class="summaryItem.class">
-          <i :class="summaryItem.icon" />{{ summaryItem.count }}
+          <i :class="summaryItem.icon" aria-hidden="true" /><span class="sr-only">{{ summaryItem.label }}: </span>{{ summaryItem.count }}
         </span>
         <ToolbarButtonWidget
           v-bind="copyToClipboard.buttonProps('Copy issues')"
@@ -35,7 +35,8 @@
       <ScrollPanel v-else class="h-full">
         <div class="issues-list" :class="{ 'issues-list-extra-space': extraSpace }">
           <div v-for="(issue, index) in issues" :key="`issue_${index}`" class="issue" :class="ISSUE_TYPES[issue.type].class">
-            <i :class="ISSUE_TYPES[issue.type].icon" class="issue-icon" />
+            <i :class="ISSUE_TYPES[issue.type].icon" class="issue-icon" aria-hidden="true" />
+            <span class="sr-only">{{ ISSUE_TYPES[issue.type].label }}: </span>
             <span class="issue-description" v-html="issue.description" />
           </div>
         </div>
@@ -69,14 +70,25 @@ const ISSUE_TYPES: Record<locApi.EIssueType, { label: string; icon: string; clas
 };
 
 // The number of issues of each type, if any.
+// Note: the icon of a type is not visible to assistive technologies, so we use a visually hidden label instead (so
+//       that, for instance, "Errors: 2" rather than just "2" gets announced).
 
-const summaryItems = vue.computed<{ type: locApi.EIssueType; icon: string; class: string; count: number }[]>(() => {
+const SUMMARY_LABELS: Record<locApi.EIssueType, string> = {
+  [locApi.EIssueType.ERROR]: 'Errors',
+  [locApi.EIssueType.WARNING]: 'Warnings',
+  [locApi.EIssueType.INFORMATION]: 'Information'
+};
+
+const summaryItems = vue.computed<
+  { type: locApi.EIssueType; icon: string; class: string; label: string; count: number }[]
+>(() => {
   return [locApi.EIssueType.ERROR, locApi.EIssueType.WARNING, locApi.EIssueType.INFORMATION]
     .map((type) => {
       return {
         type,
         icon: ISSUE_TYPES[type].icon,
         class: ISSUE_TYPES[type].class,
+        label: SUMMARY_LABELS[type],
         count: props.issues.filter((issue) => issue.type === type).length
       };
     })
