@@ -64,17 +64,20 @@ const checked = vue.ref<boolean>(false);
 
 // The URL to open, if valid, i.e. the given URL without any leading/trailing whitespace, with a lowercase scheme (e.g.,
 // "Https://" becomes "https://", as some mobile keyboards capitalise the first letter of what is typed), and with an
-// https:// scheme if it has no scheme (e.g., "example.com/model.omex" becomes "https://example.com/model.omex").
+// https:// scheme if it has no scheme (e.g., "example.com/model.omex" becomes "https://example.com/model.omex"), and
+// with the dot segments of its path, if any, resolved (see Note #6).
 // Note #1: a scheme is followed by "//", so that, for instance, "localhost:8080/model.omex" is not considered as having
 //          a "localhost" scheme.
 // Note #2: a URL without a scheme must have a host that looks like one (i.e. a domain name, an IP address, or
 //          localhost), so that, for instance, some random text is not considered as a valid URL. A domain name or an
 //          IPv4 address is a host (as typed, i.e. before it gets normalised by the URL parser) with at least two
 //          dot-separated labels, none of which is empty (with an optional trailing dot), so that, for instance, a
-//          relative path (e.g., "./model.omex", which host would be ".") is not considered as a valid URL. An IPv4
-//          address must also be typed as the URL parser would normalise it (i.e. as four decimal numbers, without
-//          leading zeros and without a trailing dot), so that, for instance, a number (e.g., "42" or "3.14", which the
-//          URL parser would normalise to "0.0.0.42" or "3.0.0.14") or an address with leading zeros (e.g.,
+//          relative path (e.g., "./model.omex", which host would be ".") or a number (e.g., "42") is not considered as
+//          a valid URL. (A relative path which first segment looks like a domain name (e.g., "model.omex") is still
+//          considered as a valid URL (i.e. "https://model.omex"), hence we let people know which URL will be opened.)
+//          An IPv4 address must also be typed as the URL parser would normalise it (i.e. as four decimal numbers,
+//          without leading zeros and without a trailing dot), so that, for instance, a number with dot-separated parts
+//          (e.g., "3.14", which the URL parser would normalise to "3.0.0.14") or an address with leading zeros (e.g.,
 //          "192.168.010.001", which the URL parser would normalise to "192.168.8.1" since "010" is an octal number) is
 //          not considered as a valid URL. A URL with a scheme can have any host (e.g., an intranet host, such as
 //          "http://modelserver/model.omex").
@@ -89,23 +92,62 @@ const checked = vue.ref<boolean>(false);
 //          scheme) is not considered as a valid URL, i.e. as "https://user@example.com" or as
 //          "https://mailto:user@example.com" (where "mailto" would be a user name and "user" a password). A URL with a
 //          scheme can have a user name and a password (e.g., "https://user@example.com/model.omex").
-// Note #5: in OpenCOR (i.e. not in OpenCOR's Web app), a local file can also be opened, be it using a "file" URL (e.g.,
-//          "file:///some/path/model.omex") or an absolute file path (e.g., "/some/path/model.omex" or, on Windows,
-//          "C:\some\path\model.omex" or "\\server\share\model.omex"), since it can then be opened like any other file
-//          (see OpenCOR.openFile()). It is used as is, apart from the scheme of a "file" URL which is lowercased, and
-//          it is not decoded (see emitOpenLocation()). A relative file path is not considered as valid since it would
-//          be relative to the working directory of OpenCOR, which people cannot know. Neither is a "file" URL or a file
-//          path that doesn't end with a file name (e.g., "file:/", "file:///some/path/", "/", or "C:\"), since it
-//          cannot refer to a file. Note that the query and fragment of a "file" URL are ignored by libOpenCOR (e.g.,
-//          "file:///some/path/model.omex?a=b#c" refers to "/some/path/model.omex"), hence we only check its path.
+// Note #5: in OpenCOR (i.e. not in OpenCOR's Web app), a local file can also be opened, be it using a "file" URL with
+//          no host or a "localhost" host (e.g., "file:///some/path/model.omex") or an absolute file path (e.g.,
+//          "/some/path/model.omex" or, on Windows, "C:\some\path\model.omex" or "\\server\share\model.omex"), since it
+//          can then be opened like any other file (see OpenCOR.openFile()). It is used as is, apart from the scheme of
+//          a "file" URL which is lowercased, and it is not decoded (see emitOpenLocation()). A "file" URL with another
+//          host (e.g., "file://server/share/model.omex") is not considered as valid since libOpenCOR would consider it
+//          as a remote file, which it would then retrieve synchronously (i.e. freezing our UI). A relative file path is
+//          not considered as valid either since it would be relative to the working directory of OpenCOR, which people
+//          cannot know. Neither is a "file" URL or a file path that doesn't end with a file name (e.g., "file:/",
+//          "file:///some/path/", "/", "/some/path/..", or "C:\"), since it cannot refer to a file. Note that the query
+//          and fragment of a "file" URL are ignored by libOpenCOR (e.g., "file:///some/path/model.omex?a=b#c" refers to
+//          "/some/path/model.omex"), hence we only check its path.
+// Note #6: the path of a Web address may contain dot segments (e.g., "https://example.com/some/path/../model.omex"),
+//          which we resolve (e.g., "https://example.com/some/model.omex"), so that people know which URL will really be
+//          opened, and so that the name of the file that gets opened is not "." or ".." (e.g., for
+//          "https://example.com/some/path/.."). A Web address need not end with a file name (e.g.,
+//          "https://example.com/some/path/download"), so a path that resolves to a "directory" (e.g.,
+//          "https://example.com/some/") is still valid. Only the path of the URL is changed (using the path, as
+//          percent-encoded by the URL parser), i.e. the rest of the URL is used as typed (e.g., its host is not
+//          lowercased or converted to Punycode).
 
 const DATA_URL_REGEX = /^data:(application\/(?:zip|x\.vnd\.zip-cellml\+zip);base64),/i;
 const DOTTED_HOST_REGEX = /^[^.]+(?:\.[^.]+)+\.?$/;
 const IPV4_ADDRESS_REGEX = /^\d+\.\d+\.\d+\.\d+$/;
 const FILE_URL_REGEX = /^file:\//i;
+const FILE_URL_HOST_REGEX = /^file:\/\/([^/?#]*)/i;
 const FILE_URL_WITHOUT_FILE_NAME_PATH_REGEX = /(?:^|\/)(?:[a-z]:)?$/i;
 const POSIX_ABSOLUTE_FILE_PATH_REGEX = /^\/.*[^/]$/;
 const WINDOWS_ABSOLUTE_FILE_PATH_REGEX = /^(?:[a-z]:[\\/]|\\\\[^\\/]+[\\/][^\\/]+[\\/]).*[^\\/]$/i;
+const DOT_SEGMENT_FILE_PATH_REGEX = /(?:^|[\\/])\.\.?$/;
+const DOT_SEGMENT_URL_PATH_REGEX = /(?:^|[\\/])(?:\.|%2e){1,2}(?=[\\/]|$)/i;
+
+// Resolve the dot segments of the path of the given Web address, if any, using the path of its parsed version (see
+// Note #6 above).
+// Note: the authority of a Web address ends with its path, query, or fragment, if any, while its path ends with its
+//       query or fragment, if any. A backslash is considered as a forward slash by the URL parser for a Web address.
+
+const resolvedDotSegmentsUrl = (urlWithScheme: string, parsedUrl: URL): string => {
+  const authorityStart = urlWithScheme.indexOf('//') + 2;
+  const pathOffset = urlWithScheme.slice(authorityStart).search(/[\\/?#]/);
+
+  if (pathOffset === -1) {
+    return urlWithScheme;
+  }
+
+  const pathStart = authorityStart + pathOffset;
+  const pathAndRest = urlWithScheme.slice(pathStart);
+  const pathLength = pathAndRest.search(/[?#]/);
+  const path = pathLength === -1 ? pathAndRest : pathAndRest.slice(0, pathLength);
+
+  if (!DOT_SEGMENT_URL_PATH_REGEX.test(path)) {
+    return urlWithScheme;
+  }
+
+  return `${urlWithScheme.slice(0, pathStart)}${parsedUrl.pathname}${pathAndRest.slice(path.length)}`;
+};
 
 // What can be entered, depending on whether local files are supported (see Note #5 above).
 
@@ -123,6 +165,16 @@ const localFile = vue.computed<string>(() => {
   const trimmedUrl = url.value.trim();
 
   if (FILE_URL_REGEX.test(trimmedUrl)) {
+    // Note: we check the host of our "file" URL as typed (as libOpenCOR does) rather than as normalised by the URL
+    //       parser, which, for instance, considers that "file://C:/some/path/model.omex" has no host while libOpenCOR
+    //       considers that its host is "C:".
+
+    const fileUrlHost = FILE_URL_HOST_REGEX.exec(trimmedUrl)?.[1] ?? '';
+
+    if (fileUrlHost && fileUrlHost.toLowerCase() !== 'localhost') {
+      return '';
+    }
+
     const fileUrl = `file:${trimmedUrl.slice(5)}`;
 
     try {
@@ -132,7 +184,8 @@ const localFile = vue.computed<string>(() => {
     }
   }
 
-  return (common.isWindows() ? WINDOWS_ABSOLUTE_FILE_PATH_REGEX : POSIX_ABSOLUTE_FILE_PATH_REGEX).test(trimmedUrl)
+  return (common.isWindows() ? WINDOWS_ABSOLUTE_FILE_PATH_REGEX : POSIX_ABSOLUTE_FILE_PATH_REGEX).test(trimmedUrl) &&
+    !DOT_SEGMENT_FILE_PATH_REGEX.test(trimmedUrl)
     ? trimmedUrl
     : '';
 });
@@ -175,7 +228,7 @@ const normalisedUrl = vue.computed<string>(() => {
             parsedUrl.hostname.startsWith('[') ||
             parsedUrl.hostname === 'localhost')))
     ) {
-      return urlWithScheme;
+      return resolvedDotSegmentsUrl(urlWithScheme, parsedUrl);
     }
   } catch {
     // The URL is not valid.
@@ -185,10 +238,12 @@ const normalisedUrl = vue.computed<string>(() => {
 });
 
 // Let people know that their URL is not valid, but only once they are done typing it (i.e. once they leave our input
-// field or try to open it), so that they are not told off while still typing it.
-// Note #1: once our URL is valid, it is no longer considered as checked, so that people are not told off (again) while
-//          editing it. Similarly, we only consider our URL as checked when leaving our input field if it is not valid
-//          (e.g., not when people tab from a valid URL to our Open button and back to our URL to edit it).
+// field or try to open it, which doesn't count if there is no URL to open), so that they are not told off while still
+// typing it.
+// Note #1: once our URL is valid (or empty), it is no longer considered as checked, so that people are not told off
+//          (again) while editing it (or typing a new one). Similarly, we only consider our URL as checked when leaving
+//          our input field if it is not valid (e.g., not when people tab from a valid URL to our Open button and back
+//          to our URL to edit it).
 // Note #2: our input field is also blurred when our dialog gets hidden (i.e. after we have been reset since the
 //          keyboard focus is then given back to whatever had it before our dialog was shown), so we only consider our
 //          URL as checked when leaving our input field if there is a URL to check. Otherwise, our URL would be
@@ -200,14 +255,16 @@ const normalisedUrl = vue.computed<string>(() => {
 //          to one of those buttons (e.g., using Tab or, in some browsers, when clicking it), in which case we know
 //          which button gets the keyboard focus, or when one of those buttons is pressed (in browsers where clicking a
 //          button doesn't give it the keyboard focus, e.g., Safari), in which case we need to know which button is
-//          being pressed, hence we keep track of it (in the capture phase, i.e. before our input field gets blurred).
+//          being pressed, hence we keep track of it (in the capture phase, i.e. before our input field gets blurred)
+//          until it has been clicked (rather than released since, with touch input, a button is released before our
+//          input field gets blurred).
 
 const showIssue = vue.computed<boolean>(() => {
   return checked.value && !!url.value.trim() && !normalisedUrl.value;
 });
 
-vue.watch(normalisedUrl, (newNormalisedUrl) => {
-  if (newNormalisedUrl) {
+vue.watch([normalisedUrl, url], ([newNormalisedUrl, newUrl]) => {
+  if (newNormalisedUrl || !newUrl.trim()) {
     checked.value = false;
   }
 });
@@ -233,20 +290,20 @@ const onPointerDown = (event: PointerEvent): void => {
   closeButtonPressed = isCloseButton(event.target);
 };
 
-const onPointerUp = (): void => {
+const onClickOrPointerCancel = (): void => {
   closeButtonPressed = false;
 };
 
 vue.onMounted(() => {
   window.addEventListener('pointerdown', onPointerDown, true);
-  window.addEventListener('pointerup', onPointerUp, true);
-  window.addEventListener('pointercancel', onPointerUp, true);
+  window.addEventListener('click', onClickOrPointerCancel, true);
+  window.addEventListener('pointercancel', onClickOrPointerCancel, true);
 });
 
 vue.onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onPointerDown, true);
-  window.removeEventListener('pointerup', onPointerUp, true);
-  window.removeEventListener('pointercancel', onPointerUp, true);
+  window.removeEventListener('click', onClickOrPointerCancel, true);
+  window.removeEventListener('pointercancel', onClickOrPointerCancel, true);
 });
 
 const onBlur = (event: FocusEvent): void => {
@@ -288,7 +345,7 @@ const onKeydownEnter = (event: KeyboardEvent): void => {
 };
 
 const emitOpenLocation = (): void => {
-  checked.value = true;
+  checked.value = !!url.value.trim();
 
   if (!normalisedUrl.value) {
     return;
