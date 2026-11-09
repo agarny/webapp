@@ -15,8 +15,9 @@ import { HINT_DELAY } from './constants';
 //          that it doesn't get clipped by an ancestor of our element (e.g., a scroll panel), while still being styled
 //          like the rest of our OpenCOR instance (see .opencor-hint in app.css).
 // Note #3: only one hint is shown at any given time.
-// Note #4: like a native tooltip, our hint isn't shown for an element that ignores pointer events (e.g., the reset
-//          button of one of our input widgets when it is disabled).
+// Note #4: like a native tooltip, our hint isn't shown when hovering an element that ignores pointer events (e.g., the
+//          reset button of one of our input widgets when it is disabled), although it is still shown if that element
+//          gets a focus ring.
 // Note #5: our hint can contain some HTML (e.g., v-hint.html="'<em>Some</em> help'"), in which case it is a "rich" hint
 //          (e.g., some help about an input field or a table of values). A rich hint wraps sooner (to keep its lines
 //          easy to read) and, unlike a plain hint, it isn't hidden when our element is pressed (so that, for instance,
@@ -58,7 +59,7 @@ interface IHintState {
   text: string;
   html: boolean;
   timer: number | undefined;
-  ariaLabel: boolean;
+  ariaLabel: string | null;
   onPointerEnter: () => void;
   onPointerLeave: (event: PointerEvent) => void;
   onFocusIn: (event: FocusEvent) => void;
@@ -76,12 +77,15 @@ let hintOwnerRect: DOMRect | null = null; // The position and size of our elemen
 
 // Keep track of whether our window has lost the focus (see Note #11 above).
 // Note #1: when our window regains the focus, our element may get the focus back before or after our window gets its
-//          focus event, so we only consider that our window has the focus again once its focus event has been handled.
-// Note #2: we start tracking this when our directive is first used rather than when this module is loaded, at which
-//          point our window may not have the focus (e.g., if OpenCOR was started in the background).
+//          focus event, so we only consider that our window has the focus again once the task that follows its focus
+//          event has run (unless our window has lost the focus again in the meantime).
+// Note #2: we only start tracking this when our directive is first used (so that no window listeners are added unless
+//          hints are used), at which point we check whether our window currently has the focus (it may not, e.g., if
+//          OpenCOR was started in the background).
 
 let windowFocusLost = false;
 let windowFocusTracked = false;
+let windowFocusTimer: number | undefined;
 
 const trackWindowFocus = (): void => {
   if (windowFocusTracked) {
@@ -92,6 +96,9 @@ const trackWindowFocus = (): void => {
   windowFocusLost = !document.hasFocus();
 
   window.addEventListener('blur', () => {
+    window.clearTimeout(windowFocusTimer);
+
+    windowFocusTimer = undefined;
     windowFocusLost = true;
 
     cancelPendingHint();
@@ -99,7 +106,10 @@ const trackWindowFocus = (): void => {
   });
 
   window.addEventListener('focus', () => {
-    window.setTimeout(() => {
+    window.clearTimeout(windowFocusTimer);
+
+    windowFocusTimer = window.setTimeout(() => {
+      windowFocusTimer = undefined;
       windowFocusLost = false;
     }, 0);
   });
@@ -140,12 +150,14 @@ const cancelPendingHint = (): void => {
 };
 
 // Whether the given element is in the DOM and visible.
+// Note: checkVisibilityCSS is the original name of the visibilityProperty option of checkVisibility(), which is what
+//       some (older) Web browsers only know about.
 
 const isVisible = (element: HTMLElement): boolean => {
   return (
     element.isConnected &&
     element.getClientRects().length > 0 &&
-    element.checkVisibility?.({ visibilityProperty: true }) !== false
+    element.checkVisibility?.({ visibilityProperty: true, checkVisibilityCSS: true }) !== false
   );
 };
 
@@ -230,33 +242,54 @@ const closestHintedElement = (node: Node): HTMLElement | null => {
 
 const ACCESSIBLE_NAME_ATTRIBUTES = ['aria-label', 'aria-labelledby', 'title', 'alt'];
 
-const hasOwnAccessibleName = (element: HTMLElement): boolean => {
+// Note #1: the aria-label that we have given to our element, if any, doesn't count as an accessible name of its own.
+// Note #2: our element may get an accessible name of its own after we have given it an aria-label (e.g., if it gets
+//          some text or if its own aria-label gets set, replacing ours), in which case we let go of ours (removing it
+//          only if it is still ours).
+
+const hasOwnAccessibleName = (element: HTMLElement, ourAriaLabel: string | null): boolean => {
   return (
     !!element.textContent?.trim() ||
-    ACCESSIBLE_NAME_ATTRIBUTES.some((attribute: string) => element.hasAttribute(attribute)) ||
+    ACCESSIBLE_NAME_ATTRIBUTES.some(
+      (attribute: string) =>
+        element.hasAttribute(attribute) &&
+        (attribute !== 'aria-label' || element.getAttribute(attribute) !== ourAriaLabel)
+    ) ||
     ('labels' in element && !!(element as HTMLInputElement).labels?.length)
   );
 };
 
+const removeOurAriaLabel = (element: HTMLElement, state: IHintState): void => {
+  if (state.ariaLabel !== null && element.getAttribute('aria-label') === state.ariaLabel) {
+    element.removeAttribute('aria-label');
+  }
+
+  state.ariaLabel = null;
+};
+
 const updateAriaLabel = (element: HTMLElement, state: IHintState): void => {
-  if (!state.ariaLabel && (state.html || hasOwnAccessibleName(element))) {
+  const ariaLabel = !state.html && state.text && !hasOwnAccessibleName(element, state.ariaLabel) ? state.text : null;
+
+  if (ariaLabel === state.ariaLabel) {
     return;
   }
 
-  state.ariaLabel = !!state.text;
-
-  if (state.ariaLabel) {
-    element.setAttribute('aria-label', state.text);
+  if (ariaLabel === null) {
+    removeOurAriaLabel(element, state);
   } else {
-    element.removeAttribute('aria-label');
+    element.setAttribute('aria-label', ariaLabel);
+
+    state.ariaLabel = ariaLabel;
   }
 };
 
-// Position our hint below its owner (or above it if there is not enough room below it), within the window (see Note #2
-// above).
-// Note: we measure our hint at the top-left corner of the window, so that its width doesn't depend on where it would
-//       otherwise be laid out (e.g., if our OpenCOR instance is embedded in a page, away from the left edge of the
-//       window, or if our hint is being repositioned after its text has changed, see the updated() hook below).
+// Position our hint below its owner (or above it if there is not enough room below it, but there is above it or there
+// is more room above it than below it), within the window (see Note #2 above).
+// Note #1: if there is not enough room for our hint either below or above its owner, then it overlaps its owner (as
+//          little as possible) so that it remains within the window.
+// Note #2: we measure our hint at the top-left corner of the window, so that its width doesn't depend on where it would
+//          otherwise be laid out (e.g., if our OpenCOR instance is embedded in a page, away from the left edge of the
+//          window, or if our hint is being repositioned after its text has changed, see the updated() hook below).
 
 const positionHint = (): void => {
   if (!hintElement || !hintOwner) {
@@ -279,7 +312,13 @@ const positionHint = (): void => {
   }
 
   if (top + hintRect.height > window.innerHeight - HINT_MARGIN) {
-    top = elementRect.top - HINT_OFFSET - hintRect.height;
+    const topAbove = elementRect.top - HINT_OFFSET - hintRect.height;
+
+    if (topAbove >= HINT_MARGIN || elementRect.top > window.innerHeight - elementRect.bottom) {
+      top = topAbove;
+    } else {
+      top = window.innerHeight - HINT_MARGIN - hintRect.height;
+    }
   }
 
   hintElement.style.left = `${Math.max(left, HINT_MARGIN)}px`;
@@ -288,8 +327,8 @@ const positionHint = (): void => {
 
 const showHint = (element: HTMLElement, text: string, html: boolean): void => {
   // Make sure that we have something to show and that our element is still in the DOM and visible.
-  // Note: our element may, for instance, be in a file tab that was hidden (using visibility: hidden) while our hint
-  //       was pending (e.g., if the user switched to another file tab using the keyboard).
+  // Note: our element may, for instance, be in the panel of a file tab that was hidden (using visibility: hidden) while
+  //       our hint was pending (e.g., if the user switched to another file tab using the keyboard).
 
   hideHint();
 
@@ -329,7 +368,7 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
       text: binding.value ?? '',
       html: !!binding.modifiers.html,
       timer: undefined,
-      ariaLabel: false,
+      ariaLabel: null,
       onPointerEnter: () => {
         // Hide the hint of our hinted ancestors, if any, since ours is to replace it (see Note #6 above), and cancel
         // the hint that is about to be shown, if any (e.g., the hint of one of our hinted ancestors).
@@ -452,9 +491,7 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
       element.removeEventListener('focusin', state.onFocusIn);
       element.removeEventListener('focusout', state.onFocusOut);
 
-      if (state.ariaLabel) {
-        element.removeAttribute('aria-label');
-      }
+      removeOurAriaLabel(element, state);
 
       states.delete(element);
     }
