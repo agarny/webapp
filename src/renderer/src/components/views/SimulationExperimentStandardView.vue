@@ -304,7 +304,7 @@ const simulationSettingsDisabled = vue.computed<boolean>(() => {
 });
 
 const runAborted = vue.ref(false);
-let progressResetCancel: (() => void) | undefined;
+let cancelRunPolling: (() => void) | undefined;
 let progressResetTimer: ReturnType<typeof setTimeout> | undefined;
 const appendTarget = vueCommon.useAppendTarget(rootRef as unknown as vue.Ref<HTMLElement | null>);
 
@@ -475,22 +475,48 @@ const onParameterChange = (): void => {
   updatePlot();
 };
 
+// Stop the given instance and wait for it to be idle, but only for up to STOP_RUN_TIMEOUT since it may never be (e.g.,
+// if it cannot be stopped after a run error), and return whether it is idle.
+// Note: this throws if stopping the instance or retrieving its status fails (e.g., if libOpenCOR throws an exception).
+
+const stopRunAndWait = async (sedInstance: locSedApi.SedInstance): Promise<boolean> => {
+  sedInstance.stopRun();
+
+  const { promise, cancel } = vueCommon.waitWhileRunning(sedInstance);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+
+    cancel();
+  }, STOP_RUN_TIMEOUT);
+
+  try {
+    await promise;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  return !timedOut;
+};
+
 // Release our instance (once it is idle) and our document.
-// Note: an instance must not be released while it is running, hence we stop it and wait for it to be idle first.
+// Note: an instance must not be released while it is running, hence we stop it and wait for it to be idle first. If it
+//       is still not idle after a while (see stopRunAndWait()), then we don't release it (i.e. we leak it rather than
+//       release it while it is running, and rather than keep waiting on it forever).
 
 let isUnmounted = false;
 let isWaitingOnRun = false;
 
 const releaseResources = async (): Promise<void> => {
   // Note: we always release our document, even if something goes wrong with our instance (e.g., if libOpenCOR throws an
-  //       exception while we wait for it to be idle) since we would otherwise leak it.
+  //       exception while we wait for it to be idle, or if it cannot be stopped) since we would otherwise leak it.
 
   try {
     if (instance) {
-      if (instance.status() !== locSedApi.ESedInstanceStatus.IDLE) {
-        instance.stopRun();
+      if (instance.status() !== locSedApi.ESedInstanceStatus.IDLE && !(await stopRunAndWait(instance))) {
+        console.error('OpenCOR: a simulation instance could not be stopped, so it could not be released.');
 
-        await vueCommon.waitWhileRunning(instance).promise;
+        return;
       }
 
       instance.release();
@@ -741,10 +767,12 @@ const onRunPause = async (): Promise<void> => {
         runAborted
       );
 
-      // We keep the cancel function so that, on unmount, we can stop polling (so that we stop waiting on our run and
-      // release our resources, see below) and cancel the delayed reset of our progress bar by waitWhileRunning().
+      // We keep the cancel function so that, on unmount, we can stop polling, i.e. stop waiting on our run and release
+      // our resources (see below).
+      // Note: the delayed reset of our progress bar by waitWhileRunning() is not cancelled on unmount since our cancel
+      //       function is forgotten as soon as our run is over, but it is ignored anyway (see runIsOver above).
 
-      progressResetCancel = runCancel;
+      cancelRunPolling = runCancel;
 
       isWaitingOnRun = true;
 
@@ -758,7 +786,7 @@ const onRunPause = async (): Promise<void> => {
         runIsOver = true;
         isWaitingOnRun = false;
 
-        progressResetCancel = undefined;
+        cancelRunPolling = undefined;
       }
 
       // Release our resources if we got unmounted while the simulation was running (see onUnmounted() below).
@@ -803,20 +831,7 @@ const onRunPause = async (): Promise<void> => {
         let simulationMayNotBeStopped = false;
 
         try {
-          instance.stopRun();
-
-          const { promise: stopRunPromise, cancel: stopRunCancel } = vueCommon.waitWhileRunning(instance);
-          const stopRunTimer = setTimeout(() => {
-            simulationMayNotBeStopped = true;
-
-            stopRunCancel();
-          }, STOP_RUN_TIMEOUT);
-
-          try {
-            await stopRunPromise;
-          } finally {
-            clearTimeout(stopRunTimer);
-          }
+          simulationMayNotBeStopped = !(await stopRunAndWait(instance));
         } catch {
           // Our instance cannot be relied upon anymore, so there is nothing more that we can do, except let people know
           // (see Note #4).
@@ -994,7 +1009,7 @@ vue.onMounted(() => {
 vue.onUnmounted(() => {
   isUnmounted = true;
 
-  progressResetCancel?.();
+  cancelRunPolling?.();
 
   clearTimeout(progressResetTimer);
   clearTimeout(runStatusTimer);
