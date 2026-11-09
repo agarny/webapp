@@ -133,8 +133,15 @@ body {
       transition: none;
     }
 
+    /**
+     * Note: like a primary button (which focus ring has our primary colour, i.e. its background colour), a danger
+     *       button (e.g., the Reset All button of our Reset All dialog) has a focus ring of its background colour. We
+     *       fall back to our error colour, just in case PrimeVue hasn't defined the background colour of a danger
+     *       button (it only defines the colours of a component once that component is used).
+     */
+
     .p-button-danger:focus-visible {
-      --opencor-focus-ring-color: var(--opencor-error-color);
+      --opencor-focus-ring-color: var(--p-button-danger-background, var(--opencor-error-color));
     }
 
     a:focus-visible {
