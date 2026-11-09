@@ -604,6 +604,18 @@ const onFileTabContextMenu = (event: MouseEvent, filePath: string): void => {
   fileTabContextMenuRef.value?.show(event);
 };
 
+// Hide the context menu of our file tabs, if shown, when our UI gets disabled (e.g., when a file is opened from outside
+// of OpenCOR while it is shown).
+// Note: our context menu is appended to our overlay container, which is not part of our contents, so it is not made
+//       inert while our UI is blocked (see OpenCOR.vue) and its commands could otherwise still be used (e.g., using the
+//       keyboard) while our UI is not enabled.
+
+vue.watch(uiEnabled, (enabled: boolean) => {
+  if (!enabled) {
+    fileTabContextMenuRef.value?.hide();
+  }
+});
+
 // Fade the edges of our file tab bar when some file tabs are hidden past them (since our file tab bar has no visible
 // scrollbar), so that the user can tell that there are more file tabs.
 
