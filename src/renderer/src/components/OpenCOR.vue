@@ -475,7 +475,7 @@ const compUiEnabled = vue.computed<boolean>(() => {
 // Make our main menu and our contents inert while our UI is blocked, so that they cannot be reached using the keyboard
 // (e.g., using Tab) since our BlockUI's overlay only blocks the mouse.
 // Note #1: our blocking messages are not made inert since they must remain visible to assistive technologies (so that
-//          they get announced), but they cannot be interacted with anyway.
+//          they can get announced, see BlockingMessageComponent.vue), but they cannot be interacted with anyway.
 // Note #2: a dialog may be shown while our UI is blocked, in which case our main menu and our contents are not inert
 //          since a dialog may be rendered within our contents (see BaseDialog.vue) and the descendants of an inert
 //          element cannot be interacted with. A dialog is modal, so it keeps the keyboard focus within itself anyway.
@@ -2116,7 +2116,7 @@ const onOpenRecentFileAction = (filePath: string): void => {
 
 // Actions of our start screen (see BackgroundComponent.vue).
 // Note: unlike our main menu, our start screen is not disabled while our UI is not enabled, and our contents are only
-//       inert while our UI is blocked and no dialog is shown (see inertElements()), so its actions may still get
+//       inert while our UI is blocked and no dialog is shown (see updateInertElements()), so its actions may still get
 //       triggered while our UI is not enabled, in which case we ignore them.
 
 const startScreenAction = <T extends unknown[]>(action: (...args: T) => void): ((...args: T) => void) => {

@@ -20,8 +20,10 @@
 <script setup lang="ts">
 // A message that is shown while OpenCOR (or part of it) is blocked, e.g., while it is being initialised or while a
 // model is being loaded, with the progress made, if known.
-// Note: we are a live region, so that our message gets announced by assistive technologies, but not our progress
-//       (which would otherwise get announced each time it changes), which is available through our progress bar.
+// Note: we are a live region, so that a change to our message gets announced by assistive technologies (whether the
+//       message we are first shown with gets announced depends on the assistive technology since a live region is only
+//       reliably announced when its contents change), but not our progress (which would otherwise get announced each
+//       time it changes), which is available through our progress bar.
 
 defineProps<{
   message: string;
