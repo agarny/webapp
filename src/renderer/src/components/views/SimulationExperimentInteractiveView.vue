@@ -2126,7 +2126,8 @@ const onRunColorChange = (index: number, color: string): void => {
 //          that run (so that it gets aligned with, and focused for, that run). Our run is only updated once our popover
 //          has started hiding, so that it doesn't show the colour of the other run while hiding. Also, our popover is
 //          shown again for the colour button that was pressed, which we must therefore pass on explicitly since the
-//          current target of the event is no longer set by then.
+//          current target of the event cannot be relied upon by then (e.g., it is null once the event has been
+//          dispatched, as is the case for a click that is triggered programmatically).
 
 const onToggleRunColorPopover = async (index: number, event: MouseEvent): Promise<void> => {
   const popover = runColorPopoverRef.value;
@@ -2437,10 +2438,10 @@ const allSimulationInputsAtDefaultValues = vue.computed<boolean>(() => {
 // keyboard focus would otherwise be lost (as when removing runs, see keepFocusAfterRunRemoval()).
 // Note #1: our reset button keeps the focus where it is when clicked (see its keepFocus property), so it only has the
 //          focus if it was focused using the keyboard.
-// Note #2: we look for the first element that can be tabbed to (i.e. the text field of a scalar input or the select of
-//          a discrete input) since the other elements of our inputs (e.g., their reset buttons) cannot be tabbed to.
-//          We do this using the DOM since the order of our input widgets in inputWidgetsRef is not guaranteed to be
-//          the order in which they are shown.
+// Note #2: we look for the first element that can be tabbed to, i.e. the text field of a scalar input or the select of
+//          a discrete input, since it comes before the other elements of an input that can be tabbed to (e.g., the
+//          handle of the slider of a scalar input). We do this using the DOM since the order of our input widgets in
+//          inputWidgetsRef is not guaranteed to be the order in which they are shown.
 
 const simulationInputsRef = vue.useTemplateRef<HTMLElement>('simulationInputsRef');
 const TABBABLE_ELEMENTS = 'input:not([type="hidden"], [tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
@@ -2466,10 +2467,6 @@ const onResetInputs = (event: Event): void => {
   const resetButton = event.currentTarget instanceof Element ? event.currentTarget : null;
   const hadFocus = !!resetButton && resetButton === window.document.activeElement;
 
-  if (hadFocus) {
-    void keepFocusAfterInputsReset(resetButton);
-  }
-
   // Discard any value that is being edited, so that it doesn't get committed (and simulated) once its input loses the
   // focus.
   // Note: our reset button keeps the focus where it is when clicked (see its keepFocus property), so that the input
@@ -2487,17 +2484,25 @@ const onResetInputs = (event: Event): void => {
   });
 
   if (
-    defaultInputValues.every((defaultInputValue: number, index: number) => {
+    !defaultInputValues.every((defaultInputValue: number, index: number) => {
       return inputValues.value[index] === defaultInputValue;
     })
   ) {
-    return;
+    inputValues.value = defaultInputValues;
+
+    onInputChange();
+    onInputChangeEnd();
   }
 
-  inputValues.value = defaultInputValues;
+  // Keep the keyboard focus, if our reset button had it.
+  // Note: we do this once our inputs have been reset, so that we wait for our UI to reflect it (e.g., for our reset
+  //       button to be hidden and for some of our inputs to be shown/hidden, see runSimulation()). Otherwise, we would
+  //       look for our first visible simulation input before our UI gets updated, i.e. we might give the keyboard focus
+  //       to an input that is about to be hidden.
 
-  onInputChange();
-  onInputChangeEnd();
+  if (hadFocus) {
+    void keepFocusAfterInputsReset(resetButton);
+  }
 };
 
 // Make sure that any pending simulation updates are discarded once we get unmounted.
