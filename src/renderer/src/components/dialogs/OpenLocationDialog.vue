@@ -18,8 +18,9 @@
         Note: our clear button is a real button (rather than an input icon) so that it can be used with the keyboard,
               but it is styled and positioned like an input icon (see .p-inputicon).
         -->
-        <button v-if="url" class="p-inputicon clear-button pi pi-times" type="button" v-hint="'Clear'"
+        <button v-if="url" ref="clearButtonRef" class="p-inputicon clear-button pi pi-times" type="button" v-hint="'Clear'"
           @mousedown.prevent
+          @blur="onBlur"
           @click="onClear"
         />
       </IconField>
@@ -315,8 +316,19 @@ vue.onBeforeUnmount(() => {
   window.removeEventListener('pointercancel', onClickOrPointerCancel, true);
 });
 
+// Note: our input field and its clear button are considered as one, so moving the keyboard focus from one to the other
+//       doesn't count as leaving our input field (e.g., when tabbing to our clear button to clear an invalid URL, in
+//       which case our issue would otherwise briefly be shown (and announced) before our URL gets cleared), but leaving
+//       our clear button for anything else does.
+
+const clearButtonRef = vue.useTemplateRef<HTMLElement>('clearButtonRef');
+
+const isUrlField = (target: EventTarget | null): boolean => {
+  return target instanceof Node && (!!inputRef.value?.$el.contains(target) || !!clearButtonRef.value?.contains(target));
+};
+
 const onBlur = (event: FocusEvent): void => {
-  if (closeButtonPressed || isCloseButton(event.relatedTarget)) {
+  if (closeButtonPressed || isCloseButton(event.relatedTarget) || isUrlField(event.relatedTarget)) {
     return;
   }
 
