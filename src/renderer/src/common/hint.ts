@@ -8,8 +8,8 @@ import { HINT_DELAY } from './constants';
 // Note #1: our hint is shown, without any animation, after a short delay when our element is hovered, and straightaway
 //          when our element (or an element within it, see Note #7) gets a focus ring (i.e. when it is focused using the
 //          keyboard or, for a text field, when it is focused in any way). It is hidden as soon as our element is left,
-//          pressed, blurred, or hidden (see Note #9), or Escape is pressed (see Note #10), and it isn't shown if our
-//          element is no longer visible by the time it is to be shown.
+//          pressed (using a pointing device), blurred, or hidden (see Note #9), or Escape is pressed (see Note #10),
+//          and it isn't shown if our element is no longer visible by the time it is to be shown.
 // Note #2: our hint is shown below our element (or above it if there is not enough room below it) and is kept within
 //          the window. It has a fixed position and is appended to our OpenCOR instance (rather than to our element) so
 //          that it doesn't get clipped by an ancestor of our element (e.g., a scroll panel), while still being styled
@@ -149,7 +149,8 @@ const cancelPendingHint = (): void => {
   }
 };
 
-// Whether the given element is in the DOM and visible.
+// Whether the given element is in the DOM and visible (i.e. not transparent either, e.g., the reset button of one of
+// our input widgets once its value is its default value, while the pointer is still over it).
 // Note: checkVisibilityCSS is the original name of the visibilityProperty option of checkVisibility(), which is what
 //       some (older) Web browsers only know about.
 
@@ -157,7 +158,7 @@ const isVisible = (element: HTMLElement): boolean => {
   return (
     element.isConnected &&
     element.getClientRects().length > 0 &&
-    element.checkVisibility?.({ visibilityProperty: true, checkVisibilityCSS: true }) !== false
+    element.checkVisibility?.({ opacityProperty: true, visibilityProperty: true, checkVisibilityCSS: true }) !== false
   );
 };
 
