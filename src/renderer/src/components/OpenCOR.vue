@@ -75,7 +75,7 @@
         @openSampleLorenz="onStartScreenOpenSampleLorenz"
         @simulationData="emitSimulationData"
       />
-      <BlockingMessageComponent class="app-blocking-message" v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="initialisation.progress.value" />
+      <BlockingMessageComponent class="app-blocking-message initialising-opencor-message" v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="initialisation.progress.value" />
       <BlockingMessageComponent class="app-blocking-message" v-if="loadingModelMessageVisible" message="Loading model..." />
       <BlockingMessageComponent class="app-blocking-message" v-show="loadingExternalDataVisible" message="Loading external data..." />
       <BlockingMessageComponent class="app-blocking-message" v-show="opencorMessageVisible" :message="opencorMessageMessage" :progress="opencorMessageProgress" />
@@ -2650,12 +2650,16 @@ const onGitHubButtonClick = async (): Promise<void> => {
   }
 
   /**
-   * Note: only our own blocking messages are shifted down since they are centred over the whole of OpenCOR (i.e. also
-   *       over our main menu), unlike the blocking message of a view (e.g., CellDL Editor's loading message), which is
-   *       centred over the view itself (and therefore already below our main menu).
+   * Note #1: only our own blocking messages are shifted down since they are centred over the whole of OpenCOR (i.e.
+   *          also over our main menu), unlike the blocking message of a view (e.g., CellDL Editor's loading message),
+   *          which is centred over the view itself (and therefore already below our main menu).
+   * Note #2: our initialising message is not shifted down since it replaces the message that is shown until OpenCOR has
+   *          been loaded (see index.html), which is centred over the whole window (since it cannot know whether there
+   *          will be a main menu and, if so, how tall it will be), so that both look like a single step (rather than
+   *          our message jumping down once OpenCOR has been loaded).
    */
 
-  :deep(.app-blocking-message) {
+  :deep(.app-blocking-message:not(.initialising-opencor-message)) {
     margin-top: calc(0.5 * var(--main-menu-height));
   }
 }
