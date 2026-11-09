@@ -126,11 +126,20 @@ const DOT_SEGMENT_URL_PATH_REGEX = /(?:^|[\\/])(?:\.|%2e){1,2}(?=[\\/]|$)/i;
 
 // Resolve the dot segments of the path of the given Web address, if any, using the path of its parsed version (see
 // Note #6 above).
-// Note: the authority of a Web address ends with its path, query, or fragment, if any, while its path ends with its
-//       query or fragment, if any. A backslash is considered as a forward slash by the URL parser for a Web address.
+// Note: the authority of a Web address starts after all the slashes that follow its scheme (the URL parser skips any
+//       number of them, e.g., "https:///example.com/model.omex" has "example.com" as its host) and ends with its path,
+//       query, or fragment, if any, while its path ends with its query or fragment, if any. A backslash is considered
+//       as a forward slash by the URL parser for a Web address.
 
 const resolvedDotSegmentsUrl = (urlWithScheme: string, parsedUrl: URL): string => {
-  const authorityStart = urlWithScheme.indexOf('//') + 2;
+  const schemeEnd = urlWithScheme.indexOf(':') + 1;
+  const authorityOffset = urlWithScheme.slice(schemeEnd).search(/[^\\/]/);
+
+  if (authorityOffset === -1) {
+    return urlWithScheme;
+  }
+
+  const authorityStart = schemeEnd + authorityOffset;
   const pathOffset = urlWithScheme.slice(authorityStart).search(/[\\/?#]/);
 
   if (pathOffset === -1) {
