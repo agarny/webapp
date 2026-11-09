@@ -35,9 +35,12 @@
           <i class="pi pi-exclamation-circle"></i>
           <span>Please enter a valid {{ validInputDescription }} (e.g., <code>https://example.com/model.omex</code>).</span>
         </p>
-        <p v-else-if="normalisedUrl && normalisedUrl !== url.trim() && !normalisedUrl.startsWith('data:')" class="hint" v-hint="`Will open ${normalisedUrl}.`">
+        <p v-else-if="normalisedUrl && normalisedUrl !== url.trim() && !normalisedUrl.startsWith('data:')" class="hint"
+          v-hint="willOpenMessageTruncated ? `This will open ${normalisedUrl}.` : ''"
+          @pointerenter="onWillOpenMessagePointerEnter"
+        >
           <i class="pi pi-info-circle"></i>
-          <span>Will open <code>{{ normalisedUrl }}</code>.</span>
+          <span ref="willOpenMessageRef">This will open <code>{{ normalisedUrl }}</code>.</span>
         </p>
       </div>
     </div>
@@ -279,6 +282,19 @@ vue.watch([normalisedUrl, url], ([newNormalisedUrl, newUrl]) => {
   }
 });
 
+// Let people know which URL will be opened in full, using a hint, if our message about it is truncated (see .hint).
+// Note: we check whether our message is truncated when it gets hovered, i.e. before its hint gets shown (which happens
+//       after a delay, see hint.ts), rather than whenever our message or our dialog changes size.
+
+const willOpenMessageRef = vue.useTemplateRef<HTMLElement>('willOpenMessageRef');
+const willOpenMessageTruncated = vue.ref<boolean>(false);
+
+const onWillOpenMessagePointerEnter = (): void => {
+  const willOpenMessage = willOpenMessageRef.value;
+
+  willOpenMessageTruncated.value = !!willOpenMessage && willOpenMessage.scrollWidth > willOpenMessage.clientWidth;
+};
+
 const cancelButtonRef = vue.useTemplateRef<{ $el: HTMLElement }>('cancelButtonRef');
 
 let closeButtonPressed = false;
@@ -445,7 +461,9 @@ const emitClose = (): void => {
 
 /**
  * Note: a message is shown on a single line (so that it never takes more space than we reserve for it), with an
- *       ellipsis if it is too long (e.g., because of a long URL), in which case its full text is shown in a tooltip.
+ *       ellipsis if it is too long. Our message about the URL that will be opened may be too long because of a long
+ *       URL, in which case it is shown in full in a hint (see onWillOpenMessagePointerEnter()). Our issue is only too
+ *       long if our dialog is very narrow, and it is announced in full by assistive technologies anyway.
  */
 
 .hint,
