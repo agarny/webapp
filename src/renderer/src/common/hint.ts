@@ -7,9 +7,11 @@ import { HINT_DELAY } from './constants';
 // buttons (see ToolbarButtonWidget.vue).
 // Note #1: our hint is shown, without any animation, after a short delay when our element is hovered, and straightaway
 //          when our element (or an element within it, see Note #7) gets a focus ring (i.e. when it is focused using the
-//          keyboard or, for a text field, when it is focused in any way). It is hidden as soon as our element is left,
-//          pressed (using a pointing device), blurred, or hidden (see Note #9), or Escape is pressed (see Note #10),
-//          and it isn't shown if our element is no longer visible by the time it is to be shown.
+//          keyboard or, for a text field, when it is focused in any way). It is hidden as soon as our element is left
+//          (unless it has a focus ring, so that our hint doesn't disappear while our element is focused, e.g., some
+//          help about an input field while the user is typing something in it), pressed (using a pointing device),
+//          blurred, or hidden (see Note #9), or Escape is pressed (see Note #10), and it isn't shown if our element is
+//          no longer visible by the time it is to be shown.
 // Note #2: our hint is shown below our element (or above it if there is not enough room below it) and is kept within
 //          the window. It has a fixed position and is appended to our OpenCOR instance (rather than to our element) so
 //          that it doesn't get clipped by an ancestor of our element (e.g., a scroll panel), while still being styled
@@ -239,6 +241,21 @@ const closestHintedElement = (node: Node): HTMLElement | null => {
   return null;
 };
 
+// Whether the given element has a focus ring, i.e. whether it (or an element within it, but not within an inner
+// element that has its own hint, see Note #6 above) has the focus and has been focused using the keyboard (or is a text
+// field, see Note #1 above).
+
+const hasFocusRing = (element: HTMLElement): boolean => {
+  const activeElement = document.activeElement;
+
+  return (
+    activeElement instanceof HTMLElement &&
+    element.contains(activeElement) &&
+    activeElement.matches(':focus-visible') &&
+    closestHintedElement(activeElement) === element
+  );
+};
+
 // Use our hint as the accessible name of our element, if needed (see Note #8 above).
 
 const ACCESSIBLE_NAME_ATTRIBUTES = ['aria-label', 'aria-labelledby', 'title', 'alt'];
@@ -393,6 +410,18 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
         updateKeyDownListener();
       },
       onPointerLeave: (event: PointerEvent) => {
+        // Keep our hint if our element has a focus ring since our hint is then also shown because our element is
+        // focused (see Note #1 above), but cancel it if it is only about to be shown (e.g., if it was dismissed using
+        // Escape and our element was then hovered, but left before our hint could be shown again).
+
+        if (hasFocusRing(element)) {
+          if (pendingHintState === state) {
+            cancelPendingHint();
+          }
+
+          return;
+        }
+
         state.onHide();
 
         // Show the hint of our hinted ancestor again if we are left for it (see Note #6 above).

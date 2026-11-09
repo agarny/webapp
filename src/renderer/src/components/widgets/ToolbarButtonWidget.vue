@@ -1,5 +1,5 @@
 <template>
-  <button class="toolbar-button relative flex items-center justify-center shrink-0 rounded-md cursor-pointer"
+  <button ref="buttonRef" class="toolbar-button relative flex items-center justify-center shrink-0 rounded-md cursor-pointer"
     :class="[
       props.small ? 'toolbar-button-small w-6 h-6' : 'w-8 h-8',
       props.accent ? `toolbar-button-${props.accent}` : '',
@@ -7,6 +7,7 @@
         'toolbar-button-tooltip-end': props.tooltipAlign === 'end',
         'toolbar-button-tooltip-above': tooltipAbove,
         'toolbar-button-tooltip-suppressed': tooltipSuppressed,
+        'toolbar-button-tooltip-dismissed': tooltipDismissed,
         'toolbar-button-tooltip-feedback': props.feedback
       }
     ]"
@@ -15,9 +16,10 @@
     :aria-keyshortcuts="props.shortcut"
     :disabled="props.disabled"
     @mousedown.prevent="onMouseDown"
-    @mouseenter="updateTooltipPosition"
+    @mouseenter="onMouseEnter"
     @mouseleave="tooltipSuppressed = false"
     @focus="onFocus"
+    @click="tooltipDismissed = false"
   >
     <i :class="props.icon" class="toolbar-button-icon" />
     <span v-if="props.label" ref="tooltipRef" class="toolbar-button-tooltip absolute flex items-center gap-2 px-2 py-1 rounded-md text-xs whitespace-nowrap pointer-events-none" aria-hidden="true">
@@ -57,13 +59,19 @@ import type { IToolbarButtonProps } from '../../common/vueCommon';
 //          ancestor that clips its contents (e.g., for a button at the bottom of a long list of runs, see
 //          SimulationExperimentInteractiveView.vue), in which case it is shown above it (if there is enough room
 //          there).
+// Note #7: like a hint (see hint.ts), a tooltip can be dismissed by pressing Escape, be it shown or about to be shown
+//          (including when it gives some feedback, see Note #5), in which case it isn't shown again until its button
+//          is hovered, focused, or pressed anew (so that it can, for instance, give some feedback again). Escape is
+//          otherwise left to do what it normally does (e.g., remove the keyboard focus, see OpenCOR.vue).
 
 const TOOLTIP_OFFSET = 6; // Distance between our button and our tooltip (see .toolbar-button-tooltip below).
 const TOOLTIP_MARGIN = 4; // Minimum distance between our tooltip and the edges of the window.
 
 const props = defineProps<IToolbarButtonProps>();
 
+const buttonRef = vue.useTemplateRef<HTMLButtonElement>('buttonRef');
 const tooltipSuppressed = vue.ref<boolean>(false);
+const tooltipDismissed = vue.ref<boolean>(false);
 const tooltipAbove = vue.ref<boolean>(false);
 const tooltipRef = vue.useTemplateRef<HTMLElement>('tooltipRef');
 
@@ -83,11 +91,35 @@ const onMouseDown = (): void => {
   }
 };
 
-const onFocus = (event: FocusEvent): void => {
-  tooltipSuppressed.value = false;
+const onMouseEnter = (event: MouseEvent): void => {
+  tooltipDismissed.value = false;
 
   updateTooltipPosition(event);
 };
+
+const onFocus = (event: FocusEvent): void => {
+  tooltipSuppressed.value = false;
+  tooltipDismissed.value = false;
+
+  updateTooltipPosition(event);
+};
+
+// Dismiss our tooltip, if any, when Escape is pressed while it is shown or about to be shown, i.e. while our button is
+// hovered or has a focus ring (see Note #7 above).
+
+const onWindowKeyDown = (event: KeyboardEvent): void => {
+  if (event.key === 'Escape' && buttonRef.value?.matches(':hover, :focus-visible')) {
+    tooltipDismissed.value = true;
+  }
+};
+
+vue.onMounted(() => {
+  window.addEventListener('keydown', onWindowKeyDown, true);
+});
+
+vue.onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onWindowKeyDown, true);
+});
 
 const updateTooltipPosition = (event: Event): void => {
   const tooltip = tooltipRef.value;
@@ -230,12 +262,13 @@ const updateTooltipPosition = (event: Event): void => {
 }
 
 .toolbar-button:active .toolbar-button-tooltip,
-.toolbar-button.toolbar-button-tooltip-suppressed .toolbar-button-tooltip {
+.toolbar-button.toolbar-button-tooltip-suppressed .toolbar-button-tooltip,
+.toolbar-button.toolbar-button-tooltip-dismissed .toolbar-button-tooltip {
   visibility: hidden;
   transition: none;
 }
 
-.toolbar-button.toolbar-button-tooltip-feedback:hover .toolbar-button-tooltip {
+.toolbar-button.toolbar-button-tooltip-feedback:not(.toolbar-button-tooltip-dismissed):hover .toolbar-button-tooltip {
   visibility: visible;
   transition: none;
 }

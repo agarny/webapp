@@ -18,8 +18,8 @@
           :aria-label="view.label"
           :aria-pressed="view.id === activeViewId"
           @mousedown.prevent
-          @mouseenter="showTooltip(view.label, $event.currentTarget as HTMLElement, false)"
-          @mouseleave="hideTooltip"
+          @mouseenter="onMouseEnter(view.label, $event)"
+          @mouseleave="onMouseLeave"
           @focus="onFocus(view.label, $event)"
           @blur="hideTooltip"
           @click="hideTooltip(); $emit('selectView', view.id)"
@@ -105,8 +105,14 @@ const setViewButtonRef = (viewId: string, element: unknown): void => {
 // Tooltip, which is shown to the right of a view button, after a short delay when the button is hovered, and
 // straightaway when the button is focused using the keyboard or when another tooltip was shown (or has just been
 // hidden), so that people can quickly go through our view buttons.
-// Note: our tooltip is not part of our nav element since it would otherwise get clipped by it (since our nav element
-//       can be scrolled), hence it is positioned relative to our root element.
+// Note #1: our tooltip is not part of our nav element since it would otherwise get clipped by it (since our nav element
+//          can be scrolled), hence it is positioned relative to our root element.
+// Note #2: our tooltip remains shown while its view button has a focus ring, even if that view button gets hovered and
+//          then left, and it is shown again if another view button gets hovered and then left (since we only have one
+//          tooltip).
+// Note #3: like a hint (see hint.ts), our tooltip can be dismissed by pressing Escape, be it shown or about to be
+//          shown, in which case it isn't shown again until a view button is hovered or focused anew. Escape is
+//          otherwise left to do what it normally does (e.g., remove the keyboard focus, see OpenCOR.vue).
 
 const TOOLTIP_WARM_DELAY = 300;
 
@@ -114,6 +120,7 @@ const navRef = vue.shallowRef<HTMLElement | null>(null);
 const tooltip = vue.ref<{ label: string; top: number } | null>(null);
 let tooltipTimer: number | undefined;
 let tooltipHiddenTime = 0;
+let tooltipDismissed = false;
 
 const showTooltip = (label: string, element: HTMLElement, immediately: boolean): void => {
   window.clearTimeout(tooltipTimer);
@@ -141,16 +148,64 @@ const hideTooltip = (): void => {
   }
 };
 
+// The view button that has a focus ring, if any.
+
+const viewButtonWithFocusRing = (): HTMLElement | null => {
+  const activeElement = document.activeElement;
+
+  return activeElement instanceof HTMLElement &&
+    navRef.value?.contains(activeElement) &&
+    activeElement.matches('.view-icon:focus-visible')
+    ? activeElement
+    : null;
+};
+
+const onMouseEnter = (label: string, event: MouseEvent): void => {
+  tooltipDismissed = false;
+
+  showTooltip(label, event.currentTarget as HTMLElement, false);
+};
+
+// Show the tooltip of the view button that has a focus ring, if any (unless our tooltip has been dismissed), or hide
+// our tooltip (see Notes #2 and #3 above).
+
+const onMouseLeave = (): void => {
+  const viewButton = tooltipDismissed ? null : viewButtonWithFocusRing();
+
+  if (viewButton) {
+    showTooltip(viewButton.getAttribute('aria-label') ?? '', viewButton, true);
+  } else {
+    hideTooltip();
+  }
+};
+
 const onFocus = (label: string, event: FocusEvent): void => {
   const element = event.currentTarget as HTMLElement;
 
   if (element.matches(':focus-visible')) {
+    tooltipDismissed = false;
+
     showTooltip(label, element, true);
   }
 };
 
+// Dismiss our tooltip, be it shown or about to be shown, if Escape is pressed (see Note #3 above).
+
+const onWindowKeyDown = (event: KeyboardEvent): void => {
+  if (event.key === 'Escape') {
+    tooltipDismissed = true;
+
+    hideTooltip();
+  }
+};
+
+vue.onMounted(() => {
+  window.addEventListener('keydown', onWindowKeyDown, true);
+});
+
 vue.onBeforeUnmount(() => {
   window.clearTimeout(tooltipTimer);
+  window.removeEventListener('keydown', onWindowKeyDown, true);
 });
 
 // Move the focus between our view buttons using the keyboard.
