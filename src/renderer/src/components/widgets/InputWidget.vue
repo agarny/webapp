@@ -5,6 +5,7 @@
         v-model="discreteValue"
         :options="possibleValues"
         optionLabel="name"
+        :ariaLabel="name"
         @change="selectChange"
         :appendTo="appendTarget"
         class="w-full"
