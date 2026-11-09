@@ -286,7 +286,7 @@ const runStatus = vue.computed<{ type: string; icon: string; label: string } | n
   const percentage = Math.round(progress.value);
 
   if (simulationStatus.value === locSedApi.ESedInstanceStatus.RUNNING || isFinishing.value) {
-    return { type: 'running', icon: 'pi pi-hourglass', label: `Running… ${percentage}%` };
+    return { type: 'running', icon: 'pi pi-hourglass', label: `Running... ${percentage}%` };
   }
 
   if (simulationStatus.value === locSedApi.ESedInstanceStatus.PAUSED) {
@@ -328,7 +328,7 @@ const runStatusAnnouncement = vue.computed<string>(() => {
     return '';
   }
 
-  return runStatus.value?.type === 'running' ? 'Running…' : (runStatus.value?.label ?? '');
+  return runStatus.value?.type === 'running' ? 'Running...' : (runStatus.value?.label ?? '');
 });
 
 const reannounceRunStatus = (): void => {
