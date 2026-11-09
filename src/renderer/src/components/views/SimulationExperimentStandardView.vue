@@ -234,6 +234,38 @@ const focusRunPauseButton = async (): Promise<void> => {
   }
 };
 
+// Give the keyboard focus back to the simulation setting that was being edited when our run was started using F9, if
+// any, once our run is over, since it got blurred so that its value could be committed (see onRunPause()), unless the
+// keyboard focus has gone somewhere else in the meantime (i.e. somewhere else than <body>).
+
+let settingBlurredForRun: HTMLElement | null = null;
+
+const focusSettingBlurredForRun = async (): Promise<void> => {
+  const setting = settingBlurredForRun;
+
+  settingBlurredForRun = null;
+
+  if (!setting) {
+    return;
+  }
+
+  await vue.nextTick();
+
+  if (isUnmounted) {
+    return;
+  }
+
+  const activeElement = window.document.activeElement;
+
+  if (
+    (!activeElement || activeElement === window.document.body) &&
+    setting.isConnected &&
+    !setting.matches(':disabled')
+  ) {
+    setting.focus();
+  }
+};
+
 // The status of our simulation run.
 // Note: our console is not shown when we are in simulation-only mode, so we only refer to it when it is shown.
 
@@ -274,9 +306,41 @@ const runStatus = vue.computed<{ type: string; icon: string; label: string } | n
   }
 });
 
+// Our run status, as announced by assistive technologies (see our template).
+// Note: our run status may not change when it is reported (e.g., if our run fails to start after our previous run did
+//       too), in which case it wouldn't get announced, so we can clear it and only set it again a bit later (since
+//       assistive technologies may not notice a change that is undone straightaway), see reannounceRunStatus().
+
+const runStatusAnnouncementCleared = vue.ref<boolean>(false);
+let runStatusAnnouncementTimer: ReturnType<typeof setTimeout> | undefined;
+
 const runStatusAnnouncement = vue.computed<string>(() => {
+  if (runStatusAnnouncementCleared.value) {
+    return '';
+  }
+
   return runStatus.value?.type === 'running' ? 'Running…' : (runStatus.value?.label ?? '');
 });
+
+const reannounceRunStatus = (): void => {
+  clearTimeout(runStatusAnnouncementTimer);
+
+  runStatusAnnouncementCleared.value = true;
+
+  runStatusAnnouncementTimer = setTimeout(() => {
+    runStatusAnnouncementTimer = undefined;
+
+    runStatusAnnouncementCleared.value = false;
+  }, MEDIUM_DELAY);
+};
+
+// Consider our run as having failed, making sure that it gets announced (see reannounceRunStatus()).
+
+const markRunAsFailed = (): void => {
+  lastRun.value = { outcome: 'failed' };
+
+  reannounceRunStatus();
+};
 
 // Hide the status of our last run after a while (i.e. as long as a toast would be shown) if it is only a confirmation
 // (i.e. our simulation has either completed or been stopped), but keep it if it requires people's attention (i.e. our
@@ -618,6 +682,52 @@ const onRunPause = async (): Promise<void> => {
     return;
   }
 
+  // Stop our simulation if it is running (or paused) while we are not waiting on it, i.e. if it could not be stopped
+  // after a run error (see Note #4 of the handling of a run error below). Our UI then considers our simulation as idle,
+  // i.e. people want to start a new run, which we do once our simulation has been stopped. Otherwise, we would, for
+  // instance, pause our simulation, with nothing waiting on it (i.e. our UI would remain paused).
+  // Note: as for a run error, we consider our run as finishing while we wait for our simulation to be idle (see Note #3
+  //       of the handling of a run error below), and we let people know if it still cannot be stopped.
+
+  if (status !== locSedApi.ESedInstanceStatus.IDLE && !isWaitingOnRun) {
+    const runPauseButtonHadFocus = runPauseButtonRef.value?.$el === window.document.activeElement;
+    let simulationStopped = false;
+
+    isFinishing.value = true;
+    isWaitingOnRun = true;
+
+    try {
+      simulationStopped = await stopRunAndWait(instance);
+    } catch {
+      // Our instance cannot be relied upon, so there is nothing more that we can do, except let people know (see
+      // below).
+    } finally {
+      isWaitingOnRun = false;
+    }
+
+    if (isUnmounted) {
+      await releaseResources();
+
+      return;
+    }
+
+    isFinishing.value = false;
+
+    if (runPauseButtonHadFocus) {
+      void focusRunPauseButton();
+    }
+
+    if (!simulationStopped) {
+      markRunAsFailed();
+
+      addConsoleError('the simulation could not be stopped');
+
+      return;
+    }
+
+    status = locSedApi.ESedInstanceStatus.IDLE;
+  }
+
   switch (status) {
     case locSedApi.ESedInstanceStatus.RUNNING:
       // Pause the simulation.
@@ -656,14 +766,20 @@ const onRunPause = async (): Promise<void> => {
       // Note #2: we only do this for our simulation settings (see PropertyEditor.vue), i.e. not for our other input
       //          fields (e.g., the X and Y axis selects of our plot), since those commit their value as it is typed and
       //          remain enabled while our simulation is running, so they would only lose the keyboard focus.
+      // Note #3: we give the keyboard focus back to our simulation setting once our run is over (see
+      //          focusSettingBlurredForRun()).
 
       const activeElement = window.document.activeElement;
+
+      settingBlurredForRun = null;
 
       if (
         activeElement instanceof HTMLElement &&
         activeElement.matches('.property-editor input') &&
         rootRef.value?.contains(activeElement)
       ) {
+        settingBlurredForRun = activeElement;
+
         activeElement.blur();
       }
 
@@ -696,7 +812,8 @@ const onRunPause = async (): Promise<void> => {
           const instanceIssues = instance.hasIssues() ? instance.issues() : [];
 
           simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
-          lastRun.value = { outcome: 'failed' };
+
+          markRunAsFailed();
 
           if (instanceIssues.length) {
             addConsoleIssues(instanceIssues);
@@ -704,13 +821,18 @@ const onRunPause = async (): Promise<void> => {
             addConsoleError('the simulation could not be started');
           }
 
+          void focusSettingBlurredForRun();
+
           return;
         }
       } catch (error: unknown) {
         simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
-        lastRun.value = { outcome: 'failed' };
+
+        markRunAsFailed();
 
         addConsoleError(error);
+
+        void focusSettingBlurredForRun();
 
         return;
       }
@@ -811,10 +933,10 @@ const onRunPause = async (): Promise<void> => {
       //          our instance again.
       // Note #4: our instance may never be idle (e.g., if it cannot be stopped), in which case our Run/Pause button
       //          would remain disabled for good, so we only wait for so long. We then let people know that our
-      //          simulation could not be stopped since it may still be running (or be paused), in which case our next
-      //          run may, for instance, end up pausing it rather than starting a new one (see Note #1). We do the same
-      //          if stopping our simulation (or retrieving its status) fails since we cannot then know whether it has
-      //          been stopped.
+      //          simulation could not be stopped since it may still be running (or be paused), in which case we try to
+      //          stop it again when people next try to start a new run (see the beginning of onRunPause()). We do the
+      //          same if stopping our simulation (or retrieving its status) fails since we cannot then know whether it
+      //          has been stopped.
       // Note #5: our Stop button gets disabled (see Note #3) before our simulation status is set to idle, i.e. before
       //          we would normally know whether it had the keyboard focus (see stopButtonHadFocus), hence we check it
       //          here.
@@ -862,6 +984,8 @@ const onRunPause = async (): Promise<void> => {
         if (runPauseButtonHadFocus || stopButtonHadFocus) {
           void focusRunPauseButton();
         }
+
+        void focusSettingBlurredForRun();
 
         return;
       }
@@ -982,6 +1106,11 @@ const onRunPause = async (): Promise<void> => {
         void focusRunPauseButton();
       }
 
+      // Give the keyboard focus back to the simulation setting that was being edited when our run was started using F9,
+      // if any (and if the keyboard focus hasn't been given to our Run/Pause button above).
+
+      void focusSettingBlurredForRun();
+
       scrollConsoleToBottom();
     }
   }
@@ -1013,6 +1142,7 @@ vue.onUnmounted(() => {
 
   clearTimeout(progressResetTimer);
   clearTimeout(runStatusTimer);
+  clearTimeout(runStatusAnnouncementTimer);
 
   // Release our resources, unless a simulation run is still waiting on our instance, in which case they will be
   // released by that simulation run once it is done with our instance.
