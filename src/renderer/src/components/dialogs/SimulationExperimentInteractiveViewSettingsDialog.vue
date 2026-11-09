@@ -1284,7 +1284,20 @@ const onExternalDataUrlKeydownEnter = (event: KeyboardEvent): void => {
   }
 };
 
+// Import some external data from our URL.
+// Note: we may be asked to import some external data from our URL while we are already doing so (e.g., if Enter is
+//       pressed twice in a row, kept pressed, or if our Import button is double clicked), in which case we ignore the
+//       request since we would otherwise import the same external data several times.
+
+let importingExternalDataFromUrl = false;
+
 const importExternalDataFromUrl = async (): Promise<void> => {
+  if (importingExternalDataFromUrl) {
+    return;
+  }
+
+  importingExternalDataFromUrl = true;
+
   const url = externalDataUrl.value.trim();
 
   try {
@@ -1304,6 +1317,8 @@ const importExternalDataFromUrl = async (): Promise<void> => {
       detail: common.formatMessage(common.formatError(error)),
       life: TOAST_LIFE
     });
+  } finally {
+    importingExternalDataFromUrl = false;
   }
 };
 
