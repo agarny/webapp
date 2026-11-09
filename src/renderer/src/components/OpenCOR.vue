@@ -1143,6 +1143,20 @@ trackCleanup(
   })
 );
 
+// Note: we are told that an update is being installed if we have been reloaded (e.g., after a crash) after having asked
+//       for it to be installed (see resendUpdateState() in MainWindow.ts), in which case OpenCOR is about to be quit,
+//       so we only need to show it (and block our UI), as when we ask for an update to be installed (see above).
+
+trackCleanup(
+  electronApi?.onUpdateInstalling(() => {
+    updateDownloadPercent.value = 100;
+    updateDownloadTransferred.value = updateDownloadTotal.value;
+    userInputBlocked.value = true;
+    updateInstalling.value = true;
+    updateDownloadProgressVisible.value = true;
+  })
+);
+
 const updateNotAvailableVisible = vue.ref<boolean>(false);
 
 trackCleanup(

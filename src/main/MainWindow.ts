@@ -180,8 +180,9 @@ export const installUpdateAndRestart = (): boolean => {
 const resendUpdateState = (): void => {
   // Let our renderer know about the update that is being downloaded or installed, if any.
   // Note: this is needed when our renderer has been reloaded (e.g., after it crashed), so that it can show the progress
-  //       of the update (and block its UI) and ask us to install the update once it has been downloaded (in case our
-  //       previous renderer didn't get a chance to do so).
+  //       of the update (and block its UI), ask us to install the update once it has been downloaded (in case our
+  //       previous renderer didn't get a chance to do so), or show that the update is being installed (and block its
+  //       UI) if we have already been asked to install it (in which case OpenCOR is about to be quit).
 
   if (updateState === 'idle') {
     return;
@@ -196,6 +197,8 @@ const resendUpdateState = (): void => {
 
   if (updateState === 'downloaded') {
     MainWindow.instance?.send('update-downloaded');
+  } else if (updateState === 'installing') {
+    MainWindow.instance?.send('update-installing');
   }
 };
 

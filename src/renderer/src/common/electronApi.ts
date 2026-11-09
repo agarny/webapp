@@ -70,6 +70,7 @@ interface IElectronApi {
   onUpdateDownloaded: (callback: () => void) => () => void;
   onUpdateDownloadError: (callback: (issue: string) => void) => () => void;
   onUpdateInstallError: (callback: (issue: string) => void) => () => void;
+  onUpdateInstalling: (callback: () => void) => () => void;
   onUpdateDownloadProgress: (callback: (percent: number, transferred: number, total: number) => void) => () => void;
   onUpdateNotAvailable: (callback: () => void) => () => void;
 }

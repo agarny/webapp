@@ -180,6 +180,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   onUpdateDownloaded: (callback: () => void) => onIpc('update-downloaded', callback),
   onUpdateDownloadError: (callback: (issue: string) => void) => onIpc('update-download-error', callback),
   onUpdateInstallError: (callback: (issue: string) => void) => onIpc('update-install-error', callback),
+  onUpdateInstalling: (callback: () => void) => onIpc('update-installing', callback),
   onUpdateDownloadProgress: (callback: (percent: number, transferred: number, total: number) => void) =>
     onIpc('update-download-progress', callback),
   onUpdateNotAvailable: (callback: () => void) => onIpc('update-not-available', callback)
