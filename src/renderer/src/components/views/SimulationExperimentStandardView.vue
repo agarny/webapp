@@ -17,7 +17,7 @@
               icon="pi pi-stop-circle"
               accent="danger"
               label="Stop simulation"
-              :disabled="simulationStatus === locSedApi.ESedInstanceStatus.IDLE"
+              :disabled="isFinishing || simulationStatus === locSedApi.ESedInstanceStatus.IDLE"
               @click="onStop"
             />
             <!--
@@ -189,8 +189,8 @@ interface ILastRun {
 const lastRun = vue.ref<ILastRun | null>(null);
 
 // Whether our simulation run is finishing, i.e. whether its run is over, but its results have yet to be plotted and our
-// UI to be painted with them (or, if it failed, our instance has yet to be idle, see onRunPause()), during which a new
-// run cannot be started.
+// UI to be painted with them (or, if it failed, while we try to stop our instance, for up to STOP_RUN_TIMEOUT, see
+// onRunPause()), during which a new run cannot be started (nor our current run be stopped).
 
 const isFinishing = vue.ref<boolean>(false);
 
@@ -448,16 +448,31 @@ const updatePlot = (dataSize: number = 0): void => {
 };
 
 // Update the plot after the X or Y parameter has changed.
-// Note: while a simulation is running or paused, only part of its data has been computed (the rest is either zeros or
-//       the data of a previous run), so we only plot the data that has been computed so far (as we do while running,
-//       see onRunPause()).
+// Note #1: while a simulation is running or paused, only part of its data has been computed (the rest is either zeros
+//          or the data of a previous run), so we only plot the data that has been computed so far (as we do while
+//          running, see onRunPause()).
+// Note #2: retrieving the progress of our simulation may fail (e.g., if libOpenCOR throws an exception while a failed
+//          run is being stopped, see onRunPause()), in which case we plot all of our data, as if our simulation was
+//          idle.
 
 const onParameterChange = (): void => {
   if (instance && simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE) {
-    updatePlot(Math.round(instance.progress() * (uniformTimeCourse?.numberOfSteps() ?? 0)) + 1);
-  } else {
-    updatePlot();
+    let progress: number | undefined;
+
+    try {
+      progress = instance.progress();
+    } catch {
+      progress = undefined;
+    }
+
+    if (progress !== undefined) {
+      updatePlot(Math.round(progress * (uniformTimeCourse?.numberOfSteps() ?? 0)) + 1);
+
+      return;
+    }
   }
+
+  updatePlot();
 };
 
 // Release our instance (once it is idle) and our document.
@@ -597,6 +612,15 @@ const onRunPause = async (): Promise<void> => {
     default: {
       // locSedApi.ESedInstanceStatus.IDLE.
 
+      // Make sure that we are not still waiting on our previous run, if any.
+      // Note: our instance may be idle before waitWhileRunning() has noticed it (it polls our instance), in which case
+      //       starting a new run would have our previous run (which is still waiting) also wait on our new run, and
+      //       then report its outcome too.
+
+      if (isWaitingOnRun) {
+        return;
+      }
+
       // Commit the value that is being edited in one of our simulation settings, if any, so that our simulation is run
       // with it.
       // Note #1: our simulation settings only commit their value when they lose the focus (or when Enter is pressed).
@@ -717,8 +741,8 @@ const onRunPause = async (): Promise<void> => {
         runAborted
       );
 
-      // We store the cancel function in a variable so that we can call it on component unmount to avoid writing to
-      // stale references after the component is torn down.
+      // We keep the cancel function so that, on unmount, we can stop polling (so that we stop waiting on our run and
+      // release our resources, see below) and cancel the delayed reset of our progress bar by waitWhileRunning().
 
       progressResetCancel = runCancel;
 
@@ -755,28 +779,35 @@ const onRunPause = async (): Promise<void> => {
       //          when a run is aborted) so that the user can see how far the simulation went.
       // Note #3: we consider our run as finishing while we wait for our instance to be idle, so that our Run/Pause
       //          button (and its F9 shortcut) cannot, in the meantime, start a new run, which we would otherwise end up
-      //          waiting for and then reporting as having failed.
+      //          waiting for and then reporting as having failed, and so that our Stop button cannot be used to stop
+      //          our instance again.
       // Note #4: our instance may never be idle (e.g., if it cannot be stopped), in which case our Run/Pause button
       //          would remain disabled for good, so we only wait for so long. We then let people know that our
       //          simulation could not be stopped since it may still be running (or be paused), in which case our next
-      //          run may, for instance, end up pausing it rather than starting a new one (see Note #1).
+      //          run may, for instance, end up pausing it rather than starting a new one (see Note #1). We do the same
+      //          if stopping our simulation (or retrieving its status) fails since we cannot then know whether it has
+      //          been stopped.
+      // Note #5: our Stop button gets disabled (see Note #3) before our simulation status is set to idle, i.e. before
+      //          we would normally know whether it had the keyboard focus (see stopButtonHadFocus), hence we check it
+      //          here.
 
       let runPauseButtonHadFocus = false;
 
       if (runError) {
         runPauseButtonHadFocus = runPauseButtonRef.value?.$el === window.document.activeElement;
+        stopButtonHadFocus ||= stopButtonRef.value?.$el === window.document.activeElement;
 
         isFinishing.value = true;
         isWaitingOnRun = true;
 
-        let stopRunTimedOut = false;
+        let simulationMayNotBeStopped = false;
 
         try {
           instance.stopRun();
 
           const { promise: stopRunPromise, cancel: stopRunCancel } = vueCommon.waitWhileRunning(instance);
           const stopRunTimer = setTimeout(() => {
-            stopRunTimedOut = true;
+            simulationMayNotBeStopped = true;
 
             stopRunCancel();
           }, STOP_RUN_TIMEOUT);
@@ -787,7 +818,10 @@ const onRunPause = async (): Promise<void> => {
             clearTimeout(stopRunTimer);
           }
         } catch {
-          // Our instance cannot be relied upon anymore, so there is nothing more that we can do.
+          // Our instance cannot be relied upon anymore, so there is nothing more that we can do, except let people know
+          // (see Note #4).
+
+          simulationMayNotBeStopped = true;
         } finally {
           isWaitingOnRun = false;
         }
@@ -806,7 +840,7 @@ const onRunPause = async (): Promise<void> => {
 
         addConsoleError(runError);
 
-        if (stopRunTimedOut) {
+        if (simulationMayNotBeStopped) {
           addConsoleError('the simulation could not be stopped');
         }
 
@@ -943,8 +977,9 @@ const onStop = (): void => {
 
   instance?.stopRun();
 
-  // Note: the simulation status will be updated by the next poll cycle of waitWhileRunning(), so we don't set it here
-  //       to avoid a race window where the user could re-trigger a run before the C++ thread has fully stopped.
+  // Note: the simulation status will be updated by the next poll cycle of waitWhileRunning(), i.e. once our simulation
+  //       is actually idle. Setting it here would have our Run/Pause button say "Run" while pressing it would still
+  //       pause our (not yet stopped) simulation.
 };
 
 // Initialise the plot on mount.
@@ -953,8 +988,8 @@ vue.onMounted(() => {
   updatePlot();
 });
 
-// Cancel any pending progress reset timers to avoid writing to stale refs after the component is torn down, and release
-// our resources.
+// Stop polling our simulation run, if any, cancel our pending timers (progress reset and run status), and release our
+// resources (unless a simulation run is still waiting on our instance, see below).
 
 vue.onUnmounted(() => {
   isUnmounted = true;
