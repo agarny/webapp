@@ -6,8 +6,29 @@ import type { OpenCORTheme } from '../../index';
 
 import * as locSedApi from '../libopencor/locSedApi';
 
-import { COPY_FEEDBACK_LIFE, MEDIUM_DELAY, VERY_SHORT_DELAY } from './constants';
+import { COPY_FEEDBACK_LIFE, MEDIUM_DELAY, NARROW_LAYOUT_WIDTH, VERY_SHORT_DELAY } from './constants';
 import { electronApi } from './electronApi';
+
+// A composable to know whether the given element is narrow (i.e. narrower than NARROW_LAYOUT_WIDTH), in which case it
+// should use a narrow layout (e.g., a simulation experiment view stacks its side panel above its plots rather than
+// shows it to their left, so that its plots remain usable on a phone or when OpenCOR is embedded in a small container).
+// Note #1: we use the width of the given element (rather than that of the window), since OpenCOR may not take the whole
+//          window (e.g., when it is embedded in a page).
+// Note #2: we ignore a width of zero, which means that the given element is not shown (e.g., if it is in a view that
+//          is not currently shown), so that our layout doesn't change for nothing.
+
+export const useNarrowLayout = (elementRef: vue.Ref<HTMLElement | null>): vue.Ref<boolean> => {
+  const narrowLayout = vue.ref<boolean>(false);
+  const { width } = vueusecore.useElementSize(() => elementRef.value, undefined, { box: 'border-box' });
+
+  vue.watch(width, (newWidth: number) => {
+    if (newWidth > 0) {
+      narrowLayout.value = newWidth < NARROW_LAYOUT_WIDTH;
+    }
+  });
+
+  return narrowLayout;
+};
 
 // A constant to know the UID of the active instance of OpenCOR.
 

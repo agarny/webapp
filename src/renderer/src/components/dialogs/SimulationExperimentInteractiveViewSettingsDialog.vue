@@ -1,6 +1,6 @@
 <template>
-  <div ref="rootRef">
-    <BaseDialog v-bind="$attrs" header="Settings" class="w-270 h-210"
+  <div ref="rootRef" class="settings-dialog-root">
+    <BaseDialog v-bind="$attrs" header="Settings" class="settings-dialog w-270 h-210"
       :centreOn="centreOn"
       @keydown.enter="onKeydownEnter"
       @cancel="onCancel"
@@ -385,21 +385,23 @@
                 size="small"
                 @click="importExternalDataFromFile"
               />
-              <div class="opencor-section-title opencor-section-title-small">or</div>
-              <FloatLabel variant="on" class="flex-1 min-w-0">
-                <InputText v-model="externalDataUrl" class="w-full" size="small"
-                  @keydown.enter="onExternalDataUrlKeydownEnter"
+              <div class="external-data-import-url">
+                <div class="opencor-section-title opencor-section-title-small">or</div>
+                <FloatLabel variant="on" class="flex-1 min-w-0">
+                  <InputText v-model="externalDataUrl" class="w-full" size="small"
+                    @keydown.enter="onExternalDataUrlKeydownEnter"
+                  />
+                  <label>URL of a CSV file</label>
+                </FloatLabel>
+                <Button class="shrink-0"
+                  icon="pi pi-link"
+                  label="Import"
+                  outlined
+                  size="small"
+                  :disabled="!isExternalDataUrlValid"
+                  @click="importExternalDataFromUrl"
                 />
-                <label>URL of a CSV file</label>
-              </FloatLabel>
-              <Button class="shrink-0"
-                icon="pi pi-link"
-                label="Import"
-                outlined
-                size="small"
-                :disabled="!isExternalDataUrlValid"
-                @click="importExternalDataFromUrl"
-              />
+              </div>
             </div>
             <ScrollPanel class="min-h-0">
               <div class="items-list">
@@ -1885,6 +1887,19 @@ const toggleIssues = (event: Event) => {
 }
 
 /**
+ * Note: our URL field and its Import button are grouped (with the "or" that precedes them), so that they can be shown
+ *       on their own line in our narrow layout (see below), rather than be squashed next to our Browse... button.
+ */
+
+.external-data-import-url {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/**
  * Footer.
  */
 
@@ -1921,5 +1936,72 @@ const toggleIssues = (event: Event) => {
 :global(.p-select-overlay.item-filter .p-select-header > div > input) {
   padding: 0.25rem;
   padding-right: 0;
+}
+
+/**
+ * Narrow layout, i.e. when OpenCOR is less than 40rem wide (see NARROW_LAYOUT_WIDTH in constants.ts), e.g., on a phone
+ * or when OpenCOR is embedded in a small container (see opencor-dialog in BaseDialog.vue). Our dialog then takes all
+ * the room it can, our navigation becomes a row of tabs (above our sections) that can be scrolled horizontally, our
+ * form fields are stacked rather than shown side by side, and our URL field for external data (and its Import button)
+ * is shown on its own line.
+ * Note: the labels of our navigation groups are not shown since our navigation is a single row of tabs. The issues of a
+ *       navigation group are still shown, i.e. next to the navigation items that have issues.
+ */
+
+@container opencor-dialog (width < 40rem) {
+  .settings-dialog-root :deep(.settings-dialog) {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+
+  .settings-body {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    gap: 0.125rem;
+    width: auto;
+    padding: 0 0 0.5rem;
+    border-right: none;
+    border-bottom: 1px solid var(--p-content-border-color);
+    overflow: auto hidden;
+    scrollbar-width: thin;
+  }
+
+  .settings-nav-group {
+    flex-direction: row;
+  }
+
+  .settings-nav-group-label {
+    display: none;
+  }
+
+  .settings-nav-item {
+    flex: none;
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .section-header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .external-data-import {
+    flex-wrap: wrap;
+  }
+
+  .external-data-import-url {
+    flex-basis: 100%;
+  }
 }
 </style>

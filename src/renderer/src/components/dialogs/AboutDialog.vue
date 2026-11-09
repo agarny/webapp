@@ -46,7 +46,7 @@
 
       <!-- The two versions of OpenCOR -->
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="flavours grid grid-cols-2 gap-3">
         <a class="flavour" href="https://github.com/opencor/webapp/releases/latest" target="_blank" rel="noopener">
           <i class="pi pi-desktop flavour-icon"></i>
           <span class="min-w-0">
@@ -525,5 +525,27 @@ const copyDetails = (): void => {
 
 .links .pi {
   font-size: 0.8125rem;
+}
+
+/**
+ * Narrow layout, i.e. when OpenCOR is less than 40rem wide (see NARROW_LAYOUT_WIDTH in constants.ts), e.g., on a phone
+ * or when OpenCOR is embedded in a small container (see opencor-dialog in BaseDialog.vue). Our details and the two
+ * versions of OpenCOR are then shown in a single column, so that our details are not wrapped every few characters.
+ */
+
+@container opencor-dialog (width < 40rem) {
+  .details-list,
+  .flavours {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .details-list-software {
+    grid-template-rows: none;
+    grid-auto-flow: row;
+  }
+
+  .details-list-hardware {
+    margin-right: 0;
+  }
 }
 </style>

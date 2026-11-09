@@ -44,8 +44,13 @@
       <div class="grow flex flex-col min-h-0">
         <Splitter class="border-none! flex-1 m-0 min-h-0" layout="vertical">
           <SplitterPanel :size="simulationOnly ? 100 : 89">
-            <Splitter>
-              <SplitterPanel class="min-w-56" :size="17">
+            <!--
+            Note: our side panel is stacked above our plot when we use a narrow layout (see narrowLayout), in which case
+                  we use a vertical splitter. A splitter only sizes its panels when it is mounted, hence we remount it
+                  when our layout changes.
+            -->
+            <Splitter :key="narrowLayout ? 'narrow' : 'wide'" :layout="narrowLayout ? 'vertical' : 'horizontal'">
+              <SplitterPanel :class="narrowLayout ? 'min-h-24' : 'min-w-56'" :size="narrowLayout ? 40 : 17">
                 <ScrollPanel class="h-full">
                   <div class="side-panel">
                     <SimulationPropertyEditor v-if="instanceTask && uniformTimeCourse" :uniformTimeCourse="uniformTimeCourse" :instanceTask="instanceTask" :disabled="simulationSettingsDisabled" />
@@ -90,7 +95,7 @@
                   </div>
                 </ScrollPanel>
               </SplitterPanel>
-              <SplitterPanel :size="83">
+              <SplitterPanel :size="narrowLayout ? 60 : 83">
                 <GraphPanelWidget
                   :key="'standard-graph-panel'"
                   :data="data"
@@ -99,7 +104,7 @@
               </SplitterPanel>
             </Splitter>
           </SplitterPanel>
-          <SplitterPanel v-if="!simulationOnly" class="flex flex-col min-h-0" :size="11">
+          <SplitterPanel v-if="!simulationOnly" class="console-panel flex flex-col" :size="11">
             <div class="console-header">
               <span class="opencor-section-title opencor-section-title-small">Console</span>
               <div class="flex gap-0.5">
@@ -178,6 +183,10 @@ const initialConsoleContents = `<b>${props.file.path()}</b>`;
 const consoleContents = vue.ref<string>(initialConsoleContents);
 const progress = vue.ref<number>(0);
 const simulationStatus = vue.ref<locSedApi.ESedInstanceStatus>(instance?.status() ?? locSedApi.ESedInstanceStatus.IDLE);
+
+// Whether we use a narrow layout, i.e. whether our side panel is stacked above our plot (see our template).
+
+const narrowLayout = vueCommon.useNarrowLayout(rootRef);
 
 // The outcome of our last simulation run, if any, and the status of our simulation, which we show in our toolbar.
 
@@ -1187,6 +1196,19 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
 </script>
 
 <style scoped>
+/**
+ * Console, which always shows a few lines (e.g., when our view is not very tall, like on a phone in landscape mode),
+ * and which wraps long lines (e.g., the URL of our file), so that it never needs to be scrolled horizontally.
+ */
+
+.console-panel {
+  min-height: 6rem;
+}
+
+.console {
+  overflow-wrap: anywhere;
+}
+
 /**
  * Side panel, i.e. our simulation settings and the parameters to plot.
  * Note: an input field has an intrinsic width (of about 20 characters), which would otherwise prevent our side panel

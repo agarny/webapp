@@ -39,7 +39,7 @@
             </template>
           </div>
           <IssuesView v-else-if="uiJsonIssues.length" class="w-full m-4" :issues="uiJsonIssues" />
-          <div v-else class="flex grow min-h-0">
+          <div v-else class="panels flex grow min-h-0" :class="{ 'narrow-layout': narrowLayout }">
             <div class="side-panel-column">
               <ScrollPanel class="h-full">
                 <div class="side-panel">
@@ -151,7 +151,7 @@
                 </div>
               </ScrollPanel>
             </div>
-            <div class="relative flex flex-col grow h-full min-h-0">
+            <div class="plots-column relative flex flex-col grow h-full min-h-0">
               <div class="flex flex-col grow gap-2 min-h-0" :class="{ 'invisible pointer-events-none': simulationIssues.length }">
                 <GraphPanelWidget
                   v-for="(_plot, index) in actualUiJson.output.plots"
@@ -276,6 +276,10 @@ const uniformTimeCourse = isDocumentValid ? (document.simulation(0) as locApi.Se
 const cvode = uniformTimeCourse?.cvode() ?? null;
 const mathEval = new math.Float64ArrayMath();
 const model = isDocumentValid ? document.model(0) : null;
+
+// Whether we use a narrow layout, i.e. whether our side panel is stacked above our plots (see .narrow-layout below).
+
+const narrowLayout = vueCommon.useNarrowLayout(rootRef);
 
 // Some helper functions to evaluate and apply the model changes resulting from the given parameters and scope.
 
@@ -2636,6 +2640,28 @@ vue.onMounted(() => {
   flex-shrink: 0;
   width: 16rem;
   border-right: 1px solid var(--p-content-border-color);
+}
+
+/**
+ * Narrow layout (see useNarrowLayout() in vueCommon.ts), i.e. our side panel is stacked above our plots (rather than
+ * shown to their left), so that our plots remain usable (e.g., on a phone or when OpenCOR is embedded in a small
+ * container). Our side panel then takes the whole width and part of the height of our view, and can be scrolled.
+ */
+
+.panels.narrow-layout {
+  flex-direction: column;
+}
+
+.narrow-layout .side-panel-column {
+  width: auto;
+  height: 40%;
+  border-right: none;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.narrow-layout .plots-column {
+  flex: 1 1 0;
+  height: auto;
 }
 
 .side-panel {
