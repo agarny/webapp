@@ -9,27 +9,23 @@
   >
     <Toast :id="toastId" :class="compIsActiveApp ? 'visible' : 'invisible'"
       :group="toastId"
-      :pt:root:style="{ position: 'absolute' }"
-    />
+      :pt="TOAST_PT"
+      :onMouseEnter="onToastHover"
+      :onMouseLeave="onToastHover"
+    >
+      <template #container="{ message, closeCallback }">
+        <ToastMessageWidget :message="message" @close="closeCallback" />
+      </template>
+    </Toast>
     <BackgroundComponent v-show="compBackgroundVisible" />
     <IssuesView v-if="compIssues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="compIssues" />
     <div v-else class="h-full flex flex-col"
       @dragenter="onDragEnter"
-      @dragover.prevent
+      @dragover="onDragOver"
       @drop.prevent="onDrop"
-      @dragleave="onDragLeave"
     >
       <input ref="filesRef" type="file" multiple style="display: none;" @change="onChange" />
-      <Transition
-        enter-active-class="transition-opacity duration-200"
-        leave-active-class="transition-opacity duration-200"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <DragNDropComponent v-if="dragAndDropCounter" />
-      </Transition>
+      <DragNDropComponent v-if="dragAndDropVisible" :fileCount="dragAndDropFileCount" @leave="dragAndDropVisible = false" />
       <MainMenu ref="mainMenuRef" v-if="isFullWebApp"
         :hasFiles="hasFiles"
         :canSave="canSave"
@@ -38,7 +34,7 @@
         @about="onAboutMenu"
         @changelog="onChangelogMenu"
         @open="onOpenMenu"
-        @openRemote="onOpenRemoteMenu"
+        @openLocation="onOpenLocationMenu"
         @openSampleLorenz="onOpenSampleLorenzMenu"
         @reopen="onReopenMenu"
         @clearRecentFiles="onClearRecentFilesMenu"
@@ -57,8 +53,11 @@
         </div>
         <YesNoQuestionDialog
           v-model:visible="disconnectFromGitHubVisible"
-          title="Disconnect from GitHub..."
-          question="You are about to disconnect from GitHub. Do you want to proceed?"
+          title="Disconnect from GitHub"
+          question="You are about to disconnect from GitHub. Do you want to continue?"
+          severity="danger"
+          yesLabel="Disconnect"
+          noLabel="Cancel"
           @yes="onDisconnectFromGitHub"
           @no="disconnectFromGitHubVisible = false"
         />
@@ -68,16 +67,22 @@
         @error="onError"
         @fileClosed="onFileClosed"
         @fileOpened="onFileOpened"
+        :recentFilePaths="startScreenRecentFilePaths"
+        @open="onStartScreenOpen"
         @openFile="openFile"
+        @openRecentFile="onStartScreenOpenRecentFile"
+        @openLocation="onStartScreenOpenLocation"
+        @openSampleLorenz="onStartScreenOpenSampleLorenz"
         @simulationData="emitSimulationData"
       />
-      <BlockingMessageComponent v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="initialisation.progress.value" />
-      <BlockingMessageComponent v-if="loadingModelMessageVisible" message="Loading model..." />
-      <BlockingMessageComponent v-show="loadingExternalDataVisible" message="Loading external data..." />
-      <BlockingMessageComponent v-show="opencorMessageVisible" :message="opencorMessageMessage" :progress="opencorMessageProgress" />
+      <BlockingMessageComponent class="app-blocking-message initialising-opencor-message" v-show="initialisingOpencorMessageVisible" message="Initialising OpenCOR..." :progress="initialisation.progress.value" />
+      <BlockingMessageComponent class="app-blocking-message" v-if="loadingModelMessageVisible" message="Loading model..." />
+      <BlockingMessageComponent class="app-blocking-message" v-show="loadingExternalDataVisible" message="Loading external data..." />
+      <BlockingMessageComponent class="app-blocking-message" v-show="opencorMessageVisible" :message="opencorMessageMessage" :progress="opencorMessageProgress" />
       <OkMessageDialog v-model:visible="updateErrorVisible"
         :title="updateErrorTitle"
         :message="updateErrorIssue"
+        severity="danger"
         @ok="onUpdateErrorDialogClose"
       />
       <UpdateAvailableDialog v-model:visible="updateAvailableVisible"
@@ -88,24 +93,31 @@
         @close="updateAvailableVisible = false"
       />
       <UpdateDownloadProgressDialog v-model:visible="updateDownloadProgressVisible"
+        :version="updateVersion"
         :percent="updateDownloadPercent"
+        :transferred="updateDownloadTransferred"
+        :total="updateDownloadTotal"
+        :installing="updateInstalling"
       />
       <OkMessageDialog v-model:visible="updateNotAvailableVisible"
-        title="Check for Updates..."
-        message="No updates are available at this time."
+        title="Check for Updates"
+        message="You are using the latest version of OpenCOR."
+        severity="success"
         @ok="updateNotAvailableVisible = false"
       />
-      <OpenRemoteDialog v-model:visible="openRemoteVisible"
-        @openRemote="onOpenRemote"
-        @close="openRemoteVisible = false"
+      <OpenLocationDialog v-model:visible="openLocationVisible"
+        @openLocation="onOpenLocation"
+        @close="openLocationVisible = false"
       />
       <SettingsDialog v-model:visible="settingsVisible"
         @close="settingsVisible = false"
       />
       <YesNoQuestionDialog v-model:visible="resetAllVisible"
-        title="Reset All..."
-        question="You are about to reset all of your settings. Do you want to proceed?"
+        title="Reset All"
+        question="All of your settings will be reset and OpenCOR will restart. Do you want to continue?"
         severity="danger"
+        yesLabel="Reset All"
+        noLabel="Cancel"
         @yes="onResetAll"
         @no="resetAllVisible = false"
       />
@@ -460,6 +472,78 @@ const compUiEnabled = vue.computed<boolean>(() => {
   return !compBlockUiEnabled.value && !isDialogActive.value && !userInputBlocked.value;
 });
 
+// Make our main menu and our contents inert while our UI is blocked, so that they cannot be reached using the keyboard
+// (e.g., using Tab) since our BlockUI's overlay only blocks the mouse.
+// Note #1: our blocking messages are not made inert since they must remain visible to assistive technologies (so that
+//          they can get announced, see BlockingMessageComponent.vue), but they cannot be interacted with anyway.
+// Note #2: a dialog may be shown while our UI is blocked, in which case our main menu and our contents are not inert
+//          since a dialog may be rendered within our contents (see BaseDialog.vue) and the descendants of an inert
+//          element cannot be interacted with. A dialog is modal, so it keeps the keyboard focus within itself anyway.
+// Note #3: a dialog gets focused as soon as it is shown, i.e. before Vue would update the DOM, so we make our main menu
+//          and our contents inert (or not) synchronously (and therefore not through our template).
+// Note #4: an element that gets inert loses the keyboard focus, so we give it back to the element that had it before
+//          our UI got blocked (if that element is still there and visible, and the keyboard focus hasn't gone somewhere
+//          else in the meantime) once our UI is unblocked, unless a dialog is shown (since it then has the keyboard
+//          focus).
+
+let elementFocusedBeforeUiBlocked: HTMLElement | null = null;
+
+const inertElements = (): HTMLElement[] => {
+  return [mainMenuRef.value?.$el, contentsRef.value?.$el].filter((element): element is HTMLElement => {
+    return element instanceof HTMLElement;
+  });
+};
+
+const restoreFocusAfterUiUnblocked = async (element: HTMLElement): Promise<void> => {
+  await vue.nextTick();
+
+  const activeElement = document.activeElement;
+
+  if (
+    (!activeElement || activeElement === document.body) &&
+    element.isConnected &&
+    element.getClientRects().length > 0 &&
+    !element.matches(':disabled')
+  ) {
+    element.focus();
+  }
+};
+
+const updateInertElements = (): void => {
+  const elements = inertElements();
+  const inert = compBlockUiEnabled.value && !isDialogActive.value;
+
+  if (inert) {
+    const activeElement = document.activeElement;
+
+    if (
+      !elementFocusedBeforeUiBlocked &&
+      activeElement instanceof HTMLElement &&
+      elements.some((element: HTMLElement) => element.contains(activeElement))
+    ) {
+      elementFocusedBeforeUiBlocked = activeElement;
+    }
+  }
+
+  for (const element of elements) {
+    element.inert = inert;
+  }
+
+  if (!compBlockUiEnabled.value) {
+    const element = elementFocusedBeforeUiBlocked;
+
+    elementFocusedBeforeUiBlocked = null;
+
+    if (element && !isDialogActive.value) {
+      void restoreFocusAfterUiUnblocked(element);
+    }
+  }
+};
+
+vue.watch([compBlockUiEnabled, isDialogActive], updateInertElements, { flush: 'sync' });
+
+vue.onMounted(updateInertElements);
+
 // Enable/disable our main menu (in OpenCOR) whenever our UI gets enabled/disabled.
 // Note: our main menu must not be usable while our UI is blocked (e.g., while a remote model is being loaded) or while
 //       a dialog is open. Local files, however, don't block our UI while they are being opened, so a local file may get
@@ -571,6 +655,28 @@ const addToast = (options: Parameters<typeof toast.add>[0]) => {
 };
 
 provideOpenCORToast(addToast);
+
+// Note: PrimeVue only pauses the life of a toast while it is hovered if it has some mouse enter and leave handlers, so
+//       we give it some (that don't need to do anything), so that the user has time to read a toast that they hover.
+
+const onToastHover = (): void => {};
+
+// Our toasts are positioned within OpenCOR (rather than within the page) and shown/hidden without any animation, and
+// their messages are rendered by ToastMessageWidget.vue, hence we remove the styling of PrimeVue's messages.
+// Note: we must use a pt object (rather than some pt: attributes) since PrimeVue's Toast component only passes its pt
+//       object to its messages.
+
+const TOAST_PT = {
+  root: {
+    style: { position: 'absolute', top: '0.75rem', right: '0.75rem', width: 'min(24rem, calc(100% - 1.5rem))' }
+  },
+  message: {
+    style: { margin: '0 0 0.5rem', border: 'none', background: 'none', boxShadow: 'none', backdropFilter: 'none' }
+  },
+  transition: {
+    css: false
+  }
+};
 
 // Finish initialising OpenCOR.
 
@@ -867,6 +973,64 @@ if (!electronApi) {
   });
 }
 
+// Remove the keyboard focus when the user presses the Escape key, so that whatever has it no longer looks focused
+// (e.g., with a focus ring), unless something is open (e.g., a menu or a popover), in which case the Escape key is for
+// closing it.
+// Note #1: we only do this for our instance of OpenCOR, and only if it is active and its UI is enabled (i.e. our UI is
+//          neither blocked nor showing a dialog, see compUiEnabled).
+// Note #2: we listen to the Escape key during the capture phase of our window, i.e. before PrimeVue components get it,
+//          since some of them (e.g., a select) stop its propagation even when they have nothing to close.
+// Note #3: a text entry (e.g., the input of an input widget or the range editor of a graph panel) and CellDL Editor may
+//          use the Escape key themselves (e.g., to discard a value being edited or to cancel what the user is doing),
+//          so we leave the keyboard focus alone if it is within one of them. Otherwise, blurring a text entry could,
+//          for instance, commit the value being edited rather than discard it.
+// Note #4: an open element may have a fixed position (in which case its offsetParent is null), so we check whether it
+//          is rendered using its client rects.
+
+const ESCAPE_KEY_OPEN_ELEMENTS = '.p-popover, .p-select-overlay, .p-contextmenu, .p-menubar-submenu';
+const ESCAPE_KEY_TEXT_ENTRIES =
+  'textarea, input:not([type="button"], [type="checkbox"], [type="color"], [type="file"], [type="radio"], [type="range"], [type="reset"], [type="submit"])';
+
+const onEscapeKeyDown = (event: KeyboardEvent): void => {
+  if (
+    event.key !== 'Escape' ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    !compIsActiveApp.value ||
+    !compUiEnabled.value
+  ) {
+    return;
+  }
+
+  const root = (safeBlockUiRef.value as unknown as { $el?: HTMLElement } | null)?.$el;
+  const focusedElement = document.activeElement;
+
+  if (
+    !root ||
+    !(focusedElement instanceof HTMLElement) ||
+    !root.contains(focusedElement) ||
+    !focusedElement.matches(':focus-visible') ||
+    focusedElement.isContentEditable ||
+    focusedElement.matches(ESCAPE_KEY_TEXT_ENTRIES) ||
+    focusedElement.closest('.celldl-editor-container') ||
+    Array.from(root.querySelectorAll<HTMLElement>(ESCAPE_KEY_OPEN_ELEMENTS)).some(
+      (element) => element.getClientRects().length
+    )
+  ) {
+    return;
+  }
+
+  focusedElement.blur();
+};
+
+window.addEventListener('keydown', onEscapeKeyDown, { capture: true });
+
+trackCleanup(() => {
+  window.removeEventListener('keydown', onEscapeKeyDown, { capture: true });
+});
+
 // Auto update.
 
 trackCleanup(
@@ -885,7 +1049,7 @@ const onUpdateErrorDialogClose = (): void => {
 };
 
 // Note: our update available dialog is used by both OpenCOR (when our main process lets us know that an update is
-//       available) and OpenCOR's Web app (when the user clicks on our main menu's "New version available!" button, see
+//       available) and OpenCOR's Web app (when the user clicks on our main menu's "New version available" button, see
 //       onUpdateAvailable() below). We keep track of the version to update to, so that it doesn't change while our
 //       dialog is shown (e.g., if an even newer version of OpenCOR's Web app gets released in the meantime), which
 //       means that it always matches the changes that our dialog lists.
@@ -894,6 +1058,9 @@ const updateAvailableVisible = vue.ref<boolean>(false);
 const updateDownloadProgressVisible = vue.ref<boolean>(false);
 const updateVersion = vue.ref<string>('');
 const updateDownloadPercent = vue.ref<number>(0);
+const updateDownloadTransferred = vue.ref<number>(0);
+const updateDownloadTotal = vue.ref<number>(0);
+const updateInstalling = vue.ref<boolean>(false);
 
 trackCleanup(
   electronApi?.onUpdateAvailable((version: string) => {
@@ -904,6 +1071,9 @@ trackCleanup(
 
 const onDownloadAndInstall = (): void => {
   updateDownloadPercent.value = 0; // Just to be on the safe side.
+  updateDownloadTransferred.value = 0;
+  updateDownloadTotal.value = 0;
+  updateInstalling.value = false;
   updateDownloadProgressVisible.value = true;
   updateAvailableVisible.value = false;
 
@@ -912,7 +1082,11 @@ const onDownloadAndInstall = (): void => {
 
 trackCleanup(
   electronApi?.onUpdateDownloadError((issue: string) => {
-    updateErrorTitle.value = 'Downloading Update...';
+    // Note: our update download progress dialog can't be closed by the user, so we must close it ourselves.
+
+    updateDownloadProgressVisible.value = false;
+
+    updateErrorTitle.value = 'Downloading Update';
     updateErrorIssue.value = `An error occurred while downloading the update (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
   })
@@ -921,8 +1095,10 @@ trackCleanup(
 trackCleanup(
   electronApi?.onUpdateInstallError((issue: string) => {
     userInputBlocked.value = false;
+    updateInstalling.value = false;
+    updateDownloadProgressVisible.value = false;
 
-    updateErrorTitle.value = 'Installing Update...';
+    updateErrorTitle.value = 'Installing Update';
     updateErrorIssue.value = `An error occurred while installing the update (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
   })
@@ -933,15 +1109,20 @@ trackCleanup(
 //       MainWindow.ts).
 
 trackCleanup(
-  electronApi?.onUpdateDownloadProgress((percent: number) => {
+  electronApi?.onUpdateDownloadProgress((percent: number, transferred: number, total: number) => {
     updateDownloadPercent.value = percent;
+    updateDownloadTransferred.value = transferred;
+    updateDownloadTotal.value = total;
     updateDownloadProgressVisible.value = true;
   })
 );
 
 trackCleanup(
   electronApi?.onUpdateDownloaded(async () => {
-    updateDownloadPercent.value = 100; // Just to be on the safe side.
+    // Just to be on the safe side, since the last download progress we were told about may not be for 100%.
+
+    updateDownloadPercent.value = 100;
+    updateDownloadTransferred.value = updateDownloadTotal.value;
 
     // Installing the update restarts OpenCOR, so ask the user whether to save the files that have been modified first.
     // If the user cancels, then the update will be installed when OpenCOR gets quit (see autoInstallOnAppQuit in
@@ -949,14 +1130,30 @@ trackCleanup(
 
     if ((await saveModifiedFiles('Install Update')) !== null) {
       userInputBlocked.value = true;
+      updateInstalling.value = true;
 
       if (!(await electronApi?.installUpdateAndRestart())) {
         userInputBlocked.value = false;
+        updateInstalling.value = false;
         updateDownloadProgressVisible.value = false;
       }
     } else {
       updateDownloadProgressVisible.value = false;
     }
+  })
+);
+
+// Note: we are told that an update is being installed if we have been reloaded (e.g., after a crash) after having asked
+//       for it to be installed (see resendUpdateState() in MainWindow.ts), in which case OpenCOR is about to be quit,
+//       so we only need to show it (and block our UI), as when we ask for an update to be installed (see above).
+
+trackCleanup(
+  electronApi?.onUpdateInstalling(() => {
+    updateDownloadPercent.value = 100;
+    updateDownloadTransferred.value = updateDownloadTotal.value;
+    userInputBlocked.value = true;
+    updateInstalling.value = true;
+    updateDownloadProgressVisible.value = true;
   })
 );
 
@@ -970,7 +1167,7 @@ trackCleanup(
 
 trackCleanup(
   electronApi?.onUpdateCheckError((issue: string) => {
-    updateErrorTitle.value = 'Checking For Updates...';
+    updateErrorTitle.value = 'Check for Updates';
     updateErrorIssue.value = `An error occurred while checking for updates (${common.formatMessage(issue, false)}).`;
     updateErrorVisible.value = true;
   })
@@ -1180,7 +1377,7 @@ const processFile = async (
 ): Promise<IFileInfo | null> => {
   // Check whether we were passed a ZIP-CellML data URL.
   // Note: we may also have been passed the contents of a file that was opened using a data URL and then closed, along
-  //       with its name, so that it can be reopened under that name (see onReopenMenu() and electronApi.onOpen()).
+  //       with its name, so that it can be reopened under that name (see onReopenMenu() and electronApi.onOpenFile()).
 
   let omexDataUrlCounter: number = 0;
 
@@ -1494,21 +1691,104 @@ const onChange = (event: Event): void => {
 };
 
 // Drag and drop.
+// Note #1: once our drop zone is shown, it covers the whole of OpenCOR (including any overlay that is open) and its
+//          contents ignore pointer events (see DragNDropComponent.vue), so it is normally the only target of our drag
+//          events. This means that we normally know that the files being dragged have left OpenCOR (or that the drag
+//          has been cancelled) as soon as our drop zone gets left, without having to keep track of the (nested)
+//          elements that are being entered and left.
+// Note #2: if the files being dragged leave OpenCOR straight after our drop zone has been shown (e.g., if they are
+//          quickly dragged across a corner of OpenCOR), then it is the element that was entered (rather than our drop
+//          zone) that gets left, meaning that our drop zone would remain shown (and block the mouse). So, we also hide
+//          our drop zone if we haven't been told for a while that files are still being dragged over us (a dragover
+//          event is normally fired every 350 ms ± 200 ms while files are being dragged over us, even if they are not
+//          moved).
+// Note #3: some browsers only fire a dragover event when the files being dragged are moved (e.g., Chromium on Linux),
+//          in which case our drop zone gets hidden if the files are held still for a while. So, we show our drop zone
+//          again as soon as the files are moved again, and we still open the files if they are dropped while our drop
+//          zone is hidden (as long as they could have been dropped onto our drop zone, see canDropFiles()).
 
-const dragAndDropCounter = vue.ref<number>(0);
+const DRAG_OVER_TIMEOUT = 1000;
+
+const dragAndDropVisible = vue.ref<boolean>(false);
+const dragAndDropFileCount = vue.ref<number>(0);
+let dragOverTimer: number | undefined;
+
+const restartDragOverTimer = (): void => {
+  window.clearTimeout(dragOverTimer);
+
+  dragOverTimer = window.setTimeout(() => {
+    dragOverTimer = undefined;
+
+    dragAndDropVisible.value = false;
+  }, DRAG_OVER_TIMEOUT);
+};
+
+vue.watch(dragAndDropVisible, (visible: boolean) => {
+  if (!visible) {
+    window.clearTimeout(dragOverTimer);
+
+    dragOverTimer = undefined;
+  }
+});
+
+trackCleanup(() => {
+  window.clearTimeout(dragOverTimer);
+});
+
+// Hide our drop zone if our UI gets disabled while files are being dragged (e.g., if a dialog gets opened), so that
+// they don't get opened if they are then dropped.
+
+vue.watch(compUiEnabled, (uiEnabled: boolean) => {
+  if (!uiEnabled) {
+    dragAndDropVisible.value = false;
+  }
+});
+
+// Whether the files being dragged can be dropped onto us, i.e. whether our UI is enabled and it is an external (file)
+// drag rather than an internal one (e.g., a tab reorder drag).
+
+const canDropFiles = (event: DragEvent): boolean => {
+  return compUiEnabled.value && !props.omex && !!event.dataTransfer?.types.includes('Files');
+};
+
+// Show our drop zone, keeping track of the number of files being dragged, if known (see DragNDropComponent.vue).
+
+const showDropZone = (event: DragEvent): void => {
+  dragAndDropFileCount.value = Array.from(event.dataTransfer?.items ?? []).filter(
+    (item) => item.kind === 'file'
+  ).length;
+  dragAndDropVisible.value = true;
+
+  restartDragOverTimer();
+};
 
 const onDragEnter = (event: DragEvent): void => {
-  if (!compUiEnabled.value || props.omex) {
-    return;
+  if (!dragAndDropVisible.value && canDropFiles(event)) {
+    showDropZone(event);
+  }
+};
+
+const onDragOver = (event: DragEvent): void => {
+  event.preventDefault();
+
+  // Show our drop zone again if it got hidden while files are still being dragged over us (see Note #3 above).
+
+  if (!dragAndDropVisible.value && canDropFiles(event)) {
+    showDropZone(event);
   }
 
-  // Only react to external (file) drags, not internal ones (e.g., tab reorder drags).
+  // Let the user know whether the files being dragged would get opened if they were to be dropped, i.e. whether we are
+  // showing our drop zone (we are not if our UI is disabled, for instance).
 
-  if (!event.dataTransfer?.types.includes('Files')) {
-    return;
+  if (event.dataTransfer?.types.includes('Files')) {
+    event.dataTransfer.dropEffect = dragAndDropVisible.value ? 'copy' : 'none';
   }
 
-  ++dragAndDropCounter.value;
+  // Our files are still being dragged over us, so make sure that our drop zone doesn't get hidden (see Note #2 above).
+
+  if (dragAndDropVisible.value) {
+    restartDragOverTimer();
+  }
 };
 
 // Retrieve the file handle of a dropped file, if possible, so that the file can be saved where it is (see
@@ -1542,11 +1822,14 @@ const droppedFileHandle = (item: DataTransferItem): Promise<FileSystemFileHandle
 };
 
 const onDrop = async (event: DragEvent): Promise<void> => {
-  if (!dragAndDropCounter.value) {
+  // Open the dropped files if our drop zone is shown or if it got hidden while the files were held still (see Note #3
+  // above).
+
+  if (!dragAndDropVisible.value && !canDropFiles(event)) {
     return;
   }
 
-  dragAndDropCounter.value = 0;
+  dragAndDropVisible.value = false;
 
   // Retrieve the dropped files and their file handle.
   // Note: this must be done before we await anything since the dropped items can only be accessed while the drop
@@ -1577,18 +1860,10 @@ const onDrop = async (event: DragEvent): Promise<void> => {
   openFiles(files);
 };
 
-const onDragLeave = (): void => {
-  if (!dragAndDropCounter.value) {
-    return;
-  }
-
-  dragAndDropCounter.value -= 1;
-};
-
 // Open.
 
 trackCleanup(
-  electronApi?.onOpen((filePath: string) => {
+  electronApi?.onOpenFile((filePath: string) => {
     handleExternalRequest(() => {
       // Note: our main process may ask us to reopen a file that was opened using a data URL (through its File|Reopen
       //       menu), in which case we reopen it using the contents that we kept for it (see addRecentFile()).
@@ -1635,25 +1910,37 @@ const onOpenMenu = (): void => {
   filesRef.value?.click();
 };
 
-// Open remote.
+// Open action, i.e. from our background (see BackgroundComponent.vue).
+// Note: OpenCOR shows its native open dialog (which allows it to keep track of the files that are opened), while
+//       OpenCOR's Web app does the same as when using our main menu.
 
-const openRemoteVisible = vue.ref<boolean>(false);
+const onOpenAction = (): void => {
+  if (electronApi) {
+    electronApi.showOpenDialog();
+  } else {
+    onOpenMenu();
+  }
+};
+
+// Open location.
+
+const openLocationVisible = vue.ref<boolean>(false);
 
 trackCleanup(
-  electronApi?.onOpenRemote(() => {
-    openRemoteVisible.value = true;
+  electronApi?.onOpenLocation(() => {
+    openLocationVisible.value = true;
   })
 );
 
-const onOpenRemoteMenu = (): void => {
+const onOpenLocationMenu = (): void => {
   if (props.omex) {
     return;
   }
 
-  openRemoteVisible.value = true;
+  openLocationVisible.value = true;
 };
 
-const onOpenRemote = (url: string): void => {
+const onOpenLocation = (url: string): void => {
   // Note: no matter whether this is OpenCOR or OpenCOR's Web app, we always retrieve the file contents of a remote
   //       file. We could, in OpenCOR, rely on libOpenCOR to retrieve it for us, but this would block the UI. To
   //       retrieve the file here means that it is done asynchronously, which in turn means that the UI is not blocked
@@ -1814,6 +2101,50 @@ trackCleanup(
 const onClearRecentFilesMenu = (): void => {
   recentFiles.value = [];
 };
+
+// Recent files, as listed on our start screen (see BackgroundComponent.vue).
+// Note: in OpenCOR, our recent files are kept by our main process, which lets us know about them (see
+//       recentFilePathsUpdated() in MainWindow.ts) and which must be the one to reopen them (as if they were reopened
+//       using its Reopen menu, see reopenRecentFile() in MainWindow.ts). In OpenCOR's Web app, they are those of our
+//       Reopen menu.
+
+const mainProcessRecentFilePaths = vue.ref<string[]>([]);
+
+trackCleanup(
+  electronApi?.onRecentFiles((filePaths: string[]) => {
+    mainProcessRecentFilePaths.value = filePaths;
+  })
+);
+
+const startScreenRecentFilePaths = vue.computed<string[]>(() => {
+  return electronApi ? mainProcessRecentFilePaths.value : recentFilePaths.value;
+});
+
+const onOpenRecentFileAction = (filePath: string): void => {
+  if (electronApi) {
+    electronApi.reopenRecentFile(filePath);
+  } else {
+    void onReopenMenu(filePath);
+  }
+};
+
+// Actions of our start screen (see BackgroundComponent.vue).
+// Note: unlike our main menu, our start screen is not disabled while our UI is not enabled, and our contents are only
+//       inert while our UI is blocked and no dialog is shown (see updateInertElements()), so its actions may still get
+//       triggered while our UI is not enabled, in which case we ignore them.
+
+const startScreenAction = <T extends unknown[]>(action: (...args: T) => void): ((...args: T) => void) => {
+  return (...args: T): void => {
+    if (compUiEnabled.value) {
+      action(...args);
+    }
+  };
+};
+
+const onStartScreenOpen = startScreenAction(onOpenAction);
+const onStartScreenOpenRecentFile = startScreenAction(onOpenRecentFileAction);
+const onStartScreenOpenLocation = startScreenAction(onOpenLocationMenu);
+const onStartScreenOpenSampleLorenz = startScreenAction(onOpenSampleLorenzMenu);
 
 // Save.
 
@@ -2318,8 +2649,18 @@ const onGitHubButtonClick = async (): Promise<void> => {
     padding-top: var(--main-menu-height) !important;
   }
 
-  :deep(.p-message) {
-    margin-top: calc(0.5 * var(--main-menu-height)) !important;
+  /**
+   * Note #1: only our own blocking messages are shifted down since they are centred over the whole of OpenCOR (i.e.
+   *          also over our main menu), unlike the blocking message of a view (e.g., CellDL Editor's loading message),
+   *          which is centred over the view itself (and therefore already below our main menu).
+   * Note #2: our initialising message is not shifted down since it replaces the message that is shown until OpenCOR has
+   *          been loaded (see index.html), which is centred over the whole window (since it cannot know whether there
+   *          will be a main menu and, if so, how tall it will be), so that both look like a single step (rather than
+   *          our message jumping down once OpenCOR has been loaded).
+   */
+
+  :deep(.app-blocking-message:not(.initialising-opencor-message)) {
+    margin-top: calc(0.5 * var(--main-menu-height));
   }
 }
 </style>

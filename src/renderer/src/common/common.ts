@@ -14,13 +14,21 @@ export interface ISettings {
   general: ISettingsGeneral;
 }
 
+export interface ISystemDetails {
+  cpuModel: string;
+  logicalCoreCount: number;
+  totalMemory: number;
+  electronVersion: string;
+  chromiumVersion: string;
+}
+
 // Some methods to determine the operating system, whether the application is running on a mobile device, etc.
 // Note: the order of the checks in osName() is important. For instance, we need to check for "iPhone" before checking
 //       for "Mac" since the user agent of iPhones contains both "iPhone" and "Mac".
 
 let _osName: string | null = null;
 
-const osName = (): string => {
+export const osName = (): string => {
   if (_osName) {
     return _osName;
   }
@@ -70,6 +78,29 @@ export const isDesktop = (): boolean => {
 
 export const isCtrlOrCmd = (event: KeyboardEvent): boolean => {
   return isMacOs() ? event.metaKey : event.ctrlKey;
+};
+
+// A method to determine whether a keydown event is processed by an input method editor (IME), e.g., for Chinese or
+// Japanese, in which case it is not for us to handle (e.g., Enter to confirm some text being composed).
+// Note: Safari ends a composition before dispatching the keydown event that confirms it, so that event isn't flagged as
+//       composing, but its key code is 229 (as for any keydown event that is processed by an IME).
+
+export const isImeKeyDown = (event: KeyboardEvent): boolean => {
+  return event.isComposing || event.keyCode === 229;
+};
+
+// Some methods to let OpenCOR own the title of its document (e.g., to show the name of the selected file in it, see
+// ContentsComponent.vue), which is only the case when OpenCOR is not used as a library (see main.ts) since the title
+// of a page that embeds OpenCOR is not ours to change.
+
+let _documentTitleOwned = false;
+
+export const ownDocumentTitle = (): void => {
+  _documentTitleOwned = true;
+};
+
+export const isDocumentTitleOwned = (): boolean => {
+  return _documentTitleOwned;
 };
 
 // A method to enable/disable the main menu.
@@ -341,6 +372,49 @@ export const waitForNextAnimationFrame = (): Promise<number> => {
   return new Promise((resolve: FrameRequestCallback) => {
     requestAnimationFrame(resolve);
   });
+};
+
+// A method to wait for our UI to be painted.
+// Note #1: we wait for two animation frames since the first one is just before the next paint while the second one is
+//          after it (i.e. just before the following paint).
+// Note #2: there is no need to wait for vue.nextTick() first since Vue updates the DOM in a microtask, i.e. before the
+//          next animation frame.
+// Note #3: no animation frames are run while our document is hidden (e.g., when our window is minimised), in which case
+//          there is nothing to paint for people to see, so we don't wait (or stop waiting) for our UI to be painted.
+//          Otherwise, we would wait until our document is visible again (e.g., a simulation run would only finish
+//          once our window is restored).
+
+const waitForNextAnimationFrameUnlessHidden = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (document.visibilityState === 'hidden') {
+      resolve();
+
+      return;
+    }
+
+    const onDone = (): void => {
+      cancelAnimationFrame(frame);
+
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+
+      resolve();
+    };
+
+    const onVisibilityChange = (): void => {
+      if (document.visibilityState === 'hidden') {
+        onDone();
+      }
+    };
+
+    const frame = requestAnimationFrame(onDone);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  });
+};
+
+export const waitForNextPaint = async (): Promise<void> => {
+  await waitForNextAnimationFrameUnlessHidden();
+  await waitForNextAnimationFrameUnlessHidden();
 };
 
 // Some constants related to simulation data values.

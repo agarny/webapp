@@ -1,6 +1,6 @@
 import type { OpenCORTheme } from '../../index';
 
-import type { ISettings } from './common';
+import type { ISettings, ISystemDetails } from './common';
 
 interface IElectronApi {
   // Note: this must be in sync with src/preload/index.ts.
@@ -8,6 +8,7 @@ interface IElectronApi {
   // Some general methods.
 
   operatingSystem: () => string;
+  systemDetails: () => ISystemDetails;
 
   // Renderer process asking the main process to do something for it.
 
@@ -35,11 +36,13 @@ interface IElectronApi {
   loadSettings: () => Promise<ISettings>;
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) => void;
   rendererReady: () => Promise<void>;
+  reopenRecentFile: (filePath: string) => void;
   resetAll: () => void;
   saveFile: (filePath: string, contents: Uint8Array) => Promise<void>;
   saveFileAs: (defaultFilePath: string) => Promise<string | null>;
   saveGitHubAccessToken: (token: string) => Promise<boolean>;
   saveSettings: (settings: ISettings) => void;
+  showOpenDialog: () => void;
 
   // Renderer process listening to the main process.
 
@@ -50,9 +53,10 @@ interface IElectronApi {
   onCheckForUpdates: (callback: () => void) => () => void;
   onClearRecentFiles: (callback: () => void) => () => void;
   onEnableDisableUi: (callback: (enable: boolean) => void) => () => void;
-  onOpen: (callback: (filePath: string) => void) => () => void;
-  onOpenRemote: (callback: () => void) => () => void;
+  onOpenFile: (callback: (filePath: string) => void) => () => void;
+  onOpenLocation: (callback: () => void) => () => void;
   onOpenSampleLorenz: (callback: () => void) => () => void;
+  onRecentFiles: (callback: (filePaths: string[]) => void) => () => void;
   onClose: (callback: () => void) => () => void;
   onCloseAll: (callback: () => void) => () => void;
   onConfirmClose: (callback: () => void) => () => void;
@@ -66,7 +70,8 @@ interface IElectronApi {
   onUpdateDownloaded: (callback: () => void) => () => void;
   onUpdateDownloadError: (callback: (issue: string) => void) => () => void;
   onUpdateInstallError: (callback: (issue: string) => void) => () => void;
-  onUpdateDownloadProgress: (callback: (percent: number) => void) => () => void;
+  onUpdateInstalling: (callback: () => void) => () => void;
+  onUpdateDownloadProgress: (callback: (percent: number, transferred: number, total: number) => void) => () => void;
   onUpdateNotAvailable: (callback: () => void) => () => void;
 }
 

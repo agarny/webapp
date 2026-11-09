@@ -1,27 +1,24 @@
 <template>
   <div class="toolbar-based-view relative h-full flex flex-col">
-    <Toolbar class="p-1! shrink-0">
+    <Toolbar class="shrink-0">
       <template #start>
-        <Button class="p-1! toolbar-button"
+        <ToolbarButtonWidget
           icon="pi pi-info-circle"
-          text severity="secondary"
-          title="Limitations"
+          label="Limitations"
           @click="limitationsVisible = true"
         />
       </template>
       <template #end>
         <div class="flex gap-1">
-          <Button class="p-1! toolbar-button"
+          <ToolbarButtonWidget
             icon="pi pi-chart-line"
-            text severity="secondary"
-            title="Standard simulation"
+            label="Standard simulation"
             :disabled="!client.loaded"
             @click="onExportCombineArchive(EXPORT_KIND_SIMULATE)"
           />
-          <Button class="p-1! toolbar-button"
+          <ToolbarButtonWidget
             icon="pi pi-download"
-            text severity="secondary"
-            title="Export COMBINE archive"
+            label="Export COMBINE archive"
             :disabled="!client.loaded"
             @click="onExportCombineArchive(EXPORT_KIND_DOWNLOAD)"
           />
@@ -30,26 +27,27 @@
     </Toolbar>
     <div class="grow min-h-0 relative">
       <IssuesView v-if="issues.length" class="m-4" style="height: calc(100% - 2rem);" :issues="issues" />
-      <div v-show="!issues.length" ref="containerRef" class="h-full" />
+      <div v-show="!issues.length" ref="containerRef" class="celldl-editor-container h-full" />
       <BlockingMessageComponent v-if="!client.loaded && !issues.length" message="Loading CellDL Editor..." />
     </div>
-    <BaseDialog v-model:visible="exportIssuesVisible" header="Generating CellML" style="width: 39rem">
-      <IssuesView :issues="exportIssues" />
+    <BaseDialog v-model:visible="exportIssuesVisible" :header="exportIssuesTitle" class="w-156">
+      <p class="export-issues-text">The diagram couldn't be converted to CellML, so it couldn't be {{ exportIssuesKind === EXPORT_KIND_SIMULATE ? 'simulated' : 'exported' }}.</p>
+      <div class="export-issues">
+        <IssuesView :issues="exportIssues" :extraSpace="false" />
+      </div>
       <template #footer>
         <Button autofocus label="OK" @click="exportIssuesVisible = false" />
       </template>
     </BaseDialog>
-    <BaseDialog v-model:visible="limitationsVisible" header="Limitations" style="width: 39rem">
-      <div class="mt-2 mb-4 space-y-2">
-        <div>The <strong>CellDL Editor view</strong> currently has the following limitations inherent to the <a href="https://github.com/CellDL/CellDLEditorComponent" target="_blank" rel="noopener noreferrer">CellDL Editor component</a>:</div>
-        <ul class="list-disc ml-6 space-y-1">
-          <li v-for="(limitation, index) in LIMITATIONS" :key="index">{{ limitation }}</li>
-        </ul>
-      </div>
-      <template #footer>
-        <Button autofocus label="OK" @click="limitationsVisible = false" />
-      </template>
-    </BaseDialog>
+    <OkMessageDialog v-model:visible="limitationsVisible" title="Limitations" @ok="limitationsVisible = false">
+      <p class="m-0">
+        The CellDL Editor view has the following limitations, which come from the
+        <a href="https://github.com/CellDL/CellDLEditorComponent" target="_blank" rel="noopener noreferrer">CellDL Editor component</a>:
+      </p>
+      <ul class="limitations-list">
+        <li v-for="(limitation, index) in LIMITATIONS" :key="index">{{ limitation }}</li>
+      </ul>
+    </OkMessageDialog>
   </div>
 </template>
 
@@ -88,8 +86,7 @@ const emit = defineEmits<{
 
 const LIMITATIONS = [
   'Only adding, deleting, and moving can be undone.',
-  "Undoing all changes doesn't make a file unmodified.",
-  'Safari and Firefox draw diagrams differently.'
+  "Undoing all changes doesn't make a file unmodified."
 ];
 
 const opencorMessage = useOpenCORMessage();
@@ -97,6 +94,10 @@ const containerRef = vue.shallowRef<HTMLElement | null>(null);
 const issues = vue.ref<locApi.IIssue[]>([]);
 const editCount = vue.ref<number>(0);
 const exportIssues = vue.ref<locApi.IIssue[]>([]);
+const exportIssuesKind = vue.ref<string>(EXPORT_KIND_DOWNLOAD);
+const exportIssuesTitle = vue.computed<string>(() => {
+  return exportIssuesKind.value === EXPORT_KIND_SIMULATE ? 'Standard Simulation' : 'Export COMBINE Archive';
+});
 const exportIssuesVisible = vue.ref<boolean>(false);
 const limitationsVisible = vue.ref<boolean>(false);
 const celldlFileName = common.fileName(props.file.canonicalPath());
@@ -310,6 +311,7 @@ const onExportCombineArchive = async (kind: string): Promise<void> => {
           description: issue
         };
       });
+      exportIssuesKind.value = kind;
       exportIssuesVisible.value = true;
 
       return;
@@ -335,3 +337,34 @@ const onExportCombineArchive = async (kind: string): Promise<void> => {
   }
 };
 </script>
+
+<style scoped>
+.export-issues-text {
+  margin: 0 0 0.75rem;
+  color: var(--p-text-color);
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+}
+
+/**
+ * Note: there may be many issues, in which case they scroll rather than making our dialog taller than our window. Our
+ *       issues view scrolls its issues when it is given a height, but not when it is only given a maximum height, so we
+ *       let a container scroll it instead (as for the issues popover of our settings dialog, see
+ *       SimulationExperimentInteractiveViewSettingsDialog.vue).
+ */
+
+.export-issues {
+  max-height: min(20rem, 40vh);
+  overflow-y: auto;
+}
+
+.limitations-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.limitations-list li + li {
+  margin-top: 0.25rem;
+}
+</style>

@@ -39,7 +39,8 @@ export const canCheckForUpdates = (): boolean => {
   return _canCheckForUpdates;
 };
 
-// Keep track of the state of an update, i.e. whether it is being downloaded, has been downloaded, or is being installed.
+// Keep track of the state of an update, i.e. whether it is being downloaded, has been downloaded, or is being
+// installed.
 // Note: our renderer process may be reloaded while an update is being downloaded or installed (e.g., after it crashed),
 //       in which case we must not check for updates (e.g., at startup) since an issue with checking for updates could
 //       get forwarded as an issue with installing the update (see below) and the update could be offered (and
@@ -49,6 +50,8 @@ type UpdateState = 'idle' | 'downloading' | 'downloaded' | 'installing';
 
 let updateState: UpdateState = 'idle';
 let updateDownloadPercent = 0;
+let updateDownloadTransferred = 0;
+let updateDownloadTotal = 0;
 
 export const checkForUpdates = (atStartup: boolean): void => {
   // An update has already been downloaded, but the user cancelled its installation (when asked whether to save the
@@ -93,8 +96,10 @@ export const checkForUpdates = (atStartup: boolean): void => {
 autoUpdater.on('download-progress', (info: ProgressInfo) => {
   if (updateState === 'downloading') {
     updateDownloadPercent = info.percent;
+    updateDownloadTransferred = info.transferred;
+    updateDownloadTotal = info.total;
 
-    MainWindow.instance?.send('update-download-progress', info.percent);
+    MainWindow.instance?.send('update-download-progress', info.percent, info.transferred, info.total);
   }
 });
 
@@ -125,12 +130,15 @@ autoUpdater.on('error', (error: Error) => {
 export const downloadAndInstallUpdate = (): void => {
   updateState = 'downloading';
   updateDownloadPercent = 0;
+  updateDownloadTransferred = 0;
+  updateDownloadTotal = 0;
 
   autoUpdater
     .downloadUpdate()
     .then(() => {
       updateState = 'downloaded';
       updateDownloadPercent = 100;
+      updateDownloadTransferred = updateDownloadTotal;
 
       MainWindow.instance?.send('update-downloaded');
     })
@@ -172,17 +180,25 @@ export const installUpdateAndRestart = (): boolean => {
 const resendUpdateState = (): void => {
   // Let our renderer know about the update that is being downloaded or installed, if any.
   // Note: this is needed when our renderer has been reloaded (e.g., after it crashed), so that it can show the progress
-  //       of the update (and block its UI) and ask us to install the update once it has been downloaded (in case our
-  //       previous renderer didn't get a chance to do so).
+  //       of the update (and block its UI), ask us to install the update once it has been downloaded (in case our
+  //       previous renderer didn't get a chance to do so), or show that the update is being installed (and block its
+  //       UI) if we have already been asked to install it (in which case OpenCOR is about to be quit).
 
   if (updateState === 'idle') {
     return;
   }
 
-  MainWindow.instance?.send('update-download-progress', updateDownloadPercent);
+  MainWindow.instance?.send(
+    'update-download-progress',
+    updateDownloadPercent,
+    updateDownloadTransferred,
+    updateDownloadTotal
+  );
 
   if (updateState === 'downloaded') {
     MainWindow.instance?.send('update-downloaded');
+  } else if (updateState === 'installing') {
+    MainWindow.instance?.send('update-installing');
   }
 };
 
@@ -233,9 +249,18 @@ export const resetAll = (): void => {
 
 let recentFilePaths: string[] = [];
 
+const recentFilePathsUpdated = (): void => {
+  // Let our Reopen menu and our renderer (which lists our most recent files on its start screen, see
+  // mainProcessRecentFilePaths in OpenCOR.vue) know about our (updated) recent file paths.
+
+  updateReopenMenu(recentFilePaths);
+
+  MainWindow.instance?.send('recent-files', [...recentFilePaths]);
+};
+
 const removeRecentFilePath = (filePath: string): boolean => {
   // Remove the given file path from our recent file paths and return whether it was removed (in which case our Reopen
-  // menu needs to be updated).
+  // menu and our renderer need to be updated, see recentFilePathsUpdated()).
 
   let res = false;
 
@@ -253,7 +278,7 @@ const removeRecentFilePath = (filePath: string): boolean => {
 export const clearRecentFiles = (): void => {
   recentFilePaths = [];
 
-  updateReopenMenu(recentFilePaths);
+  recentFilePathsUpdated();
 
   // Let our renderer know that our recent files have been cleared, so that it can release the contents that it kept for
   // the files that were opened using a data URL and then closed (see OpenCOR.addRecentFile()).
@@ -276,7 +301,7 @@ const forgetDataUrlRecentFilePaths = (): void => {
   if (filePaths.length !== recentFilePaths.length) {
     recentFilePaths = filePaths;
 
-    updateReopenMenu(recentFilePaths);
+    recentFilePathsUpdated();
   }
 };
 
@@ -289,7 +314,18 @@ export const fileClosed = (filePath: string): void => {
     recentFilePaths.length = MAX_RECENT_FILES;
   }
 
-  updateReopenMenu(recentFilePaths);
+  recentFilePathsUpdated();
+};
+
+// Reopen the given recent file, i.e. as if it was reopened using our Reopen menu.
+// Note: we only reopen a file that is one of our recent files since our renderer (which asks us to reopen it, see
+//       onOpenRecentFileAction() in OpenCOR.vue) could otherwise use this to be allowed to save any file (see
+//       openFile()).
+
+export const reopenRecentFile = (filePath: string): void => {
+  if (recentFilePaths.includes(filePath)) {
+    MainWindow.instance?.openFile(filePath);
+  }
 };
 
 export const recentFilePathCanonicalised = (filePath: string, canonicalFilePath: string): void => {
@@ -323,7 +359,7 @@ export const recentFilePathCanonicalised = (filePath: string, canonicalFilePath:
     }
   }
 
-  updateReopenMenu(recentFilePaths);
+  recentFilePathsUpdated();
 };
 
 // Note: for fileIssue() and fileOpened(), filePath is the path that was used to (try to) open the file, which may be
@@ -340,15 +376,15 @@ const removeRecentFilePaths = (filePath: string, canonicalFilePath: string): voi
   const canonicalFilePathRemoved = removeRecentFilePath(canonicalFilePath);
 
   if (filePathRemoved || canonicalFilePathRemoved) {
-    updateReopenMenu(recentFilePaths);
+    recentFilePathsUpdated();
   }
 };
 
 export const fileIssue = (filePath: string, canonicalFilePath: string): void => {
   removeRecentFilePaths(filePath, canonicalFilePath);
 
-  // A file couldn't be opened, possibly while reopening files during OpenCOR startup, in which case we need to make sure
-  // that it doesn't get selected and reopen the next file.
+  // A file couldn't be opened, possibly while reopening files during OpenCOR startup, in which case we need to make
+  // sure that it doesn't get selected and reopen the next file.
 
   MainWindow.instance?.fileOpenedOrNot(filePath, false);
 };
@@ -692,6 +728,7 @@ export class MainWindow extends ApplicationWindow {
   private _notRespondingAbortController: AbortController | null = null;
   private _rendererGone = false;
   private _rendererGoneCount = 0;
+  private _openDialogShown = false;
   private _pendingArguments: string[] = [];
   private _recentFilePathsToCanonicalise: string[] = [];
   private _filesToReopen: IFilesToReopen | null = null;
@@ -803,7 +840,7 @@ export class MainWindow extends ApplicationWindow {
 
     recentFilePaths = electronConf.get('app.files.recent');
 
-    updateReopenMenu(recentFilePaths);
+    recentFilePathsUpdated();
 
     // Handle our command line, which will effectively be done once our renderer is ready (see rendererReady()).
 
@@ -1106,8 +1143,8 @@ export class MainWindow extends ApplicationWindow {
     forgetDataUrlRecentFilePaths();
 
     // Ignore our renderer being gone if we are being closed (e.g., because OpenCOR is being quit), whatever the reason.
-    // Indeed, our renderer will normally exit cleanly in that case, but it may also be killed (e.g., when logging off or
-    // shutting down the system) or crash while being torn down. Either way, there is nothing to recover since we are
+    // Indeed, our renderer will normally exit cleanly in that case, but it may also be killed (e.g., when logging off
+    // or shutting down the system) or crash while being torn down. Either way, there is nothing to recover since we are
     // going away, so we must not offer to reload OpenCOR.
     // Note: our renderer may also exit cleanly on its own (e.g., if the native libOpenCOR module calls exit(0)), in
     //       which case it is gone just as if it had crashed, so we handle it as such.
@@ -1186,9 +1223,9 @@ export class MainWindow extends ApplicationWindow {
     //          should OpenCOR be quit before any file gets opened, i.e. reopen the files that might have caused the
     //          crash the next time OpenCOR is started.
     // Note #2: similarly, our reloaded renderer has no files to start with, so our File|Save, File|Save As, File|Close,
-    //          and File|Close All menu items must be disabled (they will get enabled again once a file gets (re)opened).
-    //          Also, the changes that were made to the files that were open are lost, so there is no point in asking
-    //          our reloaded renderer to save them when we get closed (see the constructor).
+    //          and File|Close All menu items must be disabled (they will get enabled again once a file gets
+    //          (re)opened). Also, the changes that were made to the files that were open are lost, so there is no point
+    //          in asking our reloaded renderer to save them when we get closed (see the constructor).
 
     filesOpened([]);
     filesModified([]);
@@ -1252,9 +1289,9 @@ export class MainWindow extends ApplicationWindow {
       fileClosed(filesNotToReopen.selected);
     }
 
-    // Discard the files that we were going to reopen and the arguments that we were asked to handle, so that neither our
-    // reloaded renderer nor OpenCOR, the next time it is started, reopens the files that might have caused the crash
-    // or handles the arguments that our (crashed) renderer never handled.
+    // Discard the files that we were going to reopen and the arguments that we were asked to handle, so that neither
+    // our reloaded renderer nor OpenCOR, the next time it is started, reopens the files that might have caused the
+    // crash or handles the arguments that our (crashed) renderer never handled.
 
     this._filesToReopen = { opened: [], selected: '' };
     this._pendingArguments = [];
@@ -1263,9 +1300,13 @@ export class MainWindow extends ApplicationWindow {
   // Our renderer is ready, so reopen previously opened files, if any, select the previously selected file, and handle
   // any arguments that we were asked to handle until now (e.g., our command line).
   // Note: our renderer may get reloaded (e.g., during development), in which case it will let us know again that it is
-  //       ready, but there is nothing more for us to do then.
+  //       ready, but there is nothing more for us to do then, except let it know about our recent file paths.
 
   rendererReady(): void {
+    // Let our (possibly reloaded) renderer know about our recent file paths (see recentFilePathsUpdated()).
+
+    this.send('recent-files', [...recentFilePaths]);
+
     if (this._rendererReady) {
       return;
     }
@@ -1422,7 +1463,7 @@ export class MainWindow extends ApplicationWindow {
   openFile(filePath: string): void {
     allowSavingFile(filePath);
 
-    this.send('open', filePath);
+    this.send('open-file', filePath);
   }
 
   // Enable/disable our UI.
@@ -1439,13 +1480,23 @@ export class MainWindow extends ApplicationWindow {
   //       handleArguments()). Similarly, we must not enable our UI in that case since our reloaded renderer will enable
   //       it once it is ready (see onRenderProcessGone()). Otherwise, we must enable our UI, even if our renderer isn't
   //       ready, i.e. if its initialisation failed (in which case it never tells us that it is ready), or our UI would
-  //       remain disabled.
+  //       remain disabled. Also, our renderer may ask us to show our open dialog (see onOpenAction() in OpenCOR.vue)
+  //       while it is already shown (e.g., if the user double clicks on the Open... action of our start screen before
+  //       our UI gets disabled), in which case we ignore the request.
 
-  open(): void {
+  showOpenDialog(): void {
+    if (this._openDialogShown) {
+      return;
+    }
+
+    this._openDialogShown = true;
+
     this.enableDisableUi(false);
 
     const rendererGoneCount = this._rendererGoneCount;
-    const enableUiIfRendererNotGone = (): void => {
+    const openDialogClosed = (): void => {
+      this._openDialogShown = false;
+
       if (this._rendererGoneCount === rendererGoneCount) {
         this.enableDisableUi(true);
       }
@@ -1458,18 +1509,18 @@ export class MainWindow extends ApplicationWindow {
       .then(({ filePaths }) => {
         this.handleArguments(filePaths);
 
-        enableUiIfRendererNotGone();
+        openDialogClosed();
       })
       .catch((error: unknown) => {
         console.warn('OpenCOR: failed to open file(s):', formatError(error));
 
-        enableUiIfRendererNotGone();
+        openDialogClosed();
       });
   }
 
   // Handle our renderer's File|Save As menu, i.e. let the user choose where to save a file and return the chosen file
   // path, which our renderer may then save (see canSaveFile()), or null if the user cancelled.
-  // Note: same as for open() when it comes to the enabling of our UI.
+  // Note: same as for showOpenDialog() when it comes to the enabling of our UI.
 
   async saveAs(defaultFilePath: string): Promise<string | null> {
     this.enableDisableUi(false);
@@ -1543,8 +1594,8 @@ export class MainWindow extends ApplicationWindow {
   //          twice in a row).
   // Note #2: our message box gets closed if our renderer receives our request after all, since it then asks the user
   //          whether to save those files.
-  // Note #3: closing ourselves normally would require our renderer to respond (e.g., to handle beforeunload), so we kill
-  //          it first, making sure that we ignore it being gone (see onRenderProcessGone()).
+  // Note #3: closing ourselves normally would require our renderer to respond (e.g., to handle beforeunload), so we
+  //          kill it first, making sure that we ignore it being gone (see onRenderProcessGone()).
 
   private waitForCloseRequestReceived(): void {
     if (this._closeRequestTimeoutId !== null || this._notRespondingAbortController) {

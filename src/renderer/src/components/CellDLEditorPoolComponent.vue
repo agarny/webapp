@@ -52,8 +52,8 @@ const onEditorReady = (editor: IPooledCellDLEditor): void => {
 // Let our pool know if CellDL Editor fails to get ready.
 // Note: CellDL Editor initialises itself before loading its actual component (e.g., it instantiates Oxigraph from a
 //       data URL, which a host application's Content Security Policy may not allow), and if that fails then it will
-//       never be ready. Our pool only considers errors that occur before a CellDL Editor is ready (see setFailed()), and
-//       we let them propagate, so that they still get logged.
+//       never be ready. Our pool only considers errors that occur before a CellDL Editor is ready (see setFailed()),
+//       and we let them propagate, so that they still get logged.
 
 vue.onErrorCaptured((error: unknown) => {
   setFailed(error);

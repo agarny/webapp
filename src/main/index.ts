@@ -47,6 +47,7 @@ import {
   MainWindow,
   normaliseCommandLine,
   recentFilePathCanonicalised,
+  reopenRecentFile,
   reportFatalErrorAndQuit,
   resetAll,
   saveFile,
@@ -553,6 +554,9 @@ electron.app
             recentFilePathCanonicalised(filePath, canonicalFilePath);
           }
         );
+        electron.ipcMain.handle('reopen-recent-file', (_event, filePath: string) => {
+          reopenRecentFile(filePath);
+        });
         electron.ipcMain.handle('renderer-ready', () => {
           MainWindow.instance?.rendererReady();
         });
@@ -570,6 +574,9 @@ electron.app
 */
         electron.ipcMain.handle('save-settings', (_event, settings: ISettings) => {
           saveSettings(settings);
+        });
+        electron.ipcMain.handle('show-open-dialog', () => {
+          MainWindow.instance?.showOpenDialog();
         });
 
         // Create our main window and pass to it our command line arguments.
