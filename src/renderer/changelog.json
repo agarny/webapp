@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.20261111.0",
+    "changes": [
+      {
+        "type": "improved",
+        "description": "Upgraded libOpenCOR to version 1.20261111.0, which includes support for CellML imports."
+      }
+    ]
+  },
+  {
     "version": "1.20261109.0",
     "changes": [
       {
