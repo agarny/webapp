@@ -307,20 +307,112 @@ vue.onMounted(() => {
 
     document.addEventListener('click', onClick);
 
-    // Clean up the mutation observer and event listener when the component is unmounted.
+    // Return the keyboard focus to where it was before our main menu got it using our keyboard shortcut (see
+    // focusMainMenu() below) when pressing Escape with no submenu shown (when one is shown, PrimeVue closes it).
+    // Note #1: we listen to the Escape key during the capture phase, i.e. before PrimeVue closes the submenu, if any.
+    // Note #2: our main menu may have been given the keyboard focus otherwise (e.g., using Tab), in which case there is
+    //          nowhere to return to, so we just remove the keyboard focus from it (as for other elements, see
+    //          onEscapeKeyDown() in OpenCOR.vue).
+
+    const rootListElement = menuBarElement.querySelector<HTMLElement>('.p-menubar-root-list');
+
+    const onRootListKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        rootListElement?.querySelector('.p-menubar-item-active')
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      blurMainMenu();
+    };
+
+    // Forget where the keyboard focus was before our main menu got it as soon as our main menu loses it (e.g., when
+    // using Tab or clicking elsewhere).
+
+    const onRootListFocusOut = () => {
+      previouslyFocusedElement = null;
+    };
+
+    // Let assistive technologies know about our keyboard shortcut.
+
+    rootListElement?.setAttribute('aria-keyshortcuts', 'Control+Alt+M');
+
+    rootListElement?.addEventListener('keydown', onRootListKeyDown, { capture: true });
+    rootListElement?.addEventListener('focusout', onRootListFocusOut);
+
+    // Clean up the mutation observer and event listeners when the component is unmounted.
 
     vue.onBeforeUnmount(() => {
       mutationObserver.disconnect();
 
       document.removeEventListener('click', onClick);
+
+      rootListElement?.removeEventListener('keydown', onRootListKeyDown, { capture: true });
+      rootListElement?.removeEventListener('focusout', onRootListFocusOut);
     });
   }
 });
 
+// Give the keyboard focus to our main menu or return it to where it was.
+// Note: desktop applications let people access their main menu using Alt or F10 (Windows and Linux) or Ctrl+F2
+//       (macOS), but those shortcuts are used by Web browsers or the operating system, so we use our own shortcut (see
+//       below), i.e. Ctrl+Alt+M on all platforms. On macOS, we don't use Cmd+Alt+M (as for our other shortcuts) since
+//       it is used to minimise all the windows of the Web browser, but Ctrl+Alt+M, which is also in line with Ctrl+F2.
+
+let previouslyFocusedElement: HTMLElement | null = null;
+
+const mainMenuRootList = (): HTMLElement | null => {
+  return menuBarRef.value?.$el.querySelector<HTMLElement>('.p-menubar-root-list') ?? null;
+};
+
+const focusMainMenu = (): void => {
+  const rootListElement = mainMenuRootList();
+
+  if (!rootListElement) {
+    return;
+  }
+
+  const focusedElement = document.activeElement;
+
+  rootListElement.focus();
+
+  previouslyFocusedElement =
+    focusedElement instanceof HTMLElement && focusedElement !== document.body && focusedElement !== rootListElement
+      ? focusedElement
+      : null;
+};
+
+const blurMainMenu = (): void => {
+  const elementToFocus = previouslyFocusedElement;
+
+  menuBarRef.value?.hide();
+
+  if (elementToFocus?.isConnected) {
+    elementToFocus.focus({ preventScroll: true });
+  } else {
+    mainMenuRootList()?.blur();
+  }
+};
+
 // Keyboard shortcuts.
 
 useOpenCORKeyStroke((event: KeyboardEvent) => {
-  if (common.isCtrlOrCmd(event) && !event.shiftKey && event.altKey && event.code === 'KeyO') {
+  if (event.ctrlKey && !event.metaKey && !event.shiftKey && event.altKey && event.code === 'KeyM') {
+    event.preventDefault();
+
+    if (mainMenuRootList() === document.activeElement) {
+      blurMainMenu();
+    } else {
+      focusMainMenu();
+    }
+  } else if (common.isCtrlOrCmd(event) && !event.shiftKey && event.altKey && event.code === 'KeyO') {
     event.preventDefault();
 
     emit('open');

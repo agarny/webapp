@@ -986,6 +986,8 @@ if (!electronApi) {
 //          for instance, commit the value being edited rather than discard it.
 // Note #4: an open element may have a fixed position (in which case its offsetParent is null), so we check whether it
 //          is rendered using its client rects.
+// Note #5: our main menu handles the Escape key itself, so that it can return the keyboard focus to where it was before
+//          it got it using its keyboard shortcut (see MainMenu.vue).
 
 const ESCAPE_KEY_OPEN_ELEMENTS = '.p-popover, .p-select-overlay, .p-contextmenu, .p-menubar-submenu';
 const ESCAPE_KEY_TEXT_ENTRIES =
@@ -1015,6 +1017,7 @@ const onEscapeKeyDown = (event: KeyboardEvent): void => {
     focusedElement.isContentEditable ||
     focusedElement.matches(ESCAPE_KEY_TEXT_ENTRIES) ||
     focusedElement.closest('.celldl-editor-container') ||
+    focusedElement.matches('.p-menubar-root-list') ||
     Array.from(root.querySelectorAll<HTMLElement>(ESCAPE_KEY_OPEN_ELEMENTS)).some(
       (element) => element.getClientRects().length
     )
