@@ -453,9 +453,12 @@ const blurMainMenu = (): void => {
 };
 
 // Keyboard shortcuts.
+// Note: we match the letter of a shortcut rather than its physical key (see common.shortcutLetter()).
 
 useOpenCORKeyStroke((event: KeyboardEvent) => {
-  if (event.ctrlKey && !event.metaKey && !event.shiftKey && event.altKey && event.code === 'KeyM') {
+  const letter = common.shortcutLetter(event);
+
+  if (event.ctrlKey && !event.metaKey && !event.shiftKey && event.altKey && letter === 'M') {
     event.preventDefault();
 
     if (mainMenuRootList() === document.activeElement) {
@@ -463,15 +466,15 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
     } else {
       focusMainMenu();
     }
-  } else if (common.isCtrlOrCmd(event) && !event.shiftKey && event.altKey && event.code === 'KeyO') {
+  } else if (common.isCtrlOrCmd(event) && !event.shiftKey && event.altKey && letter === 'O') {
     event.preventDefault();
 
     emit('open');
-  } else if (common.isCtrlOrCmd(event) && event.shiftKey && event.altKey && event.code === 'KeyO') {
+  } else if (common.isCtrlOrCmd(event) && event.shiftKey && event.altKey && letter === 'O') {
     event.preventDefault();
 
     emit('openLocation');
-  } else if (common.isCtrlOrCmd(event) && event.shiftKey && event.altKey && event.code === 'KeyT') {
+  } else if (common.isCtrlOrCmd(event) && event.shiftKey && event.altKey && letter === 'T') {
     event.preventDefault();
 
     reopenMostRecentFile();
@@ -481,7 +484,7 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
     common.isCtrlOrCmd(event) &&
     !event.shiftKey &&
     event.altKey &&
-    event.code === 'KeyS'
+    letter === 'S'
   ) {
     event.preventDefault();
 
@@ -492,7 +495,7 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
     common.isCtrlOrCmd(event) &&
     event.shiftKey &&
     event.altKey &&
-    event.code === 'KeyS'
+    letter === 'S'
   ) {
     event.preventDefault();
 
@@ -503,12 +506,12 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
     common.isCtrlOrCmd(event) &&
     !event.shiftKey &&
     event.altKey &&
-    event.code === 'KeyS'
+    letter === 'S'
   ) {
     event.preventDefault();
 
     emit('download');
-  } else if (props.hasFiles && common.isCtrlOrCmd(event) && !event.shiftKey && event.altKey && event.code === 'KeyW') {
+  } else if (props.hasFiles && common.isCtrlOrCmd(event) && !event.shiftKey && event.altKey && letter === 'W') {
     event.preventDefault();
 
     emit('close');

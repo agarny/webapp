@@ -89,6 +89,35 @@ export const isImeKeyDown = (event: KeyboardEvent): boolean => {
   return event.isComposing || event.keyCode === 229;
 };
 
+// A method to determine the letter (in upper case) of a keyboard shortcut (e.g., "O" for Ctrl+Alt+O), if any.
+// Note #1: we rely on the character that is produced by the key (i.e. event.key) rather than on its physical position
+//          (i.e. event.code), so that our shortcuts are the letter printed on the key whatever the keyboard layout
+//          (e.g., Ctrl+Alt+W is the key labelled W on an AZERTY keyboard, not the one labelled Z), as for the
+//          accelerators of OpenCOR's main menu (see src/main/MainMenu.ts).
+// Note #2: on Windows and Linux, AltGr (which is reported as Ctrl+Alt on Windows) is used to type some characters
+//          (e.g., AltGr+O produces "ó" on a Polish keyboard), in which case the key is for typing that character rather
+//          than for a keyboard shortcut.
+// Note #3: the key may otherwise produce a character that is not a letter (from A to Z) in two cases, in which case we
+//          rely on the physical position of the key: on macOS, the Option key changes the character that is produced
+//          by a key (e.g., Option+O produces "ø"), while with a non-Latin keyboard layout (e.g., a Russian one), the
+//          key produces a non-Latin character (e.g., "щ").
+
+export const shortcutLetter = (event: KeyboardEvent): string | null => {
+  if (isImeKeyDown(event)) {
+    return null;
+  }
+
+  if (/^[a-z]$/i.test(event.key)) {
+    return event.key.toUpperCase();
+  }
+
+  if (!isMacOs() && event.getModifierState('AltGraph')) {
+    return null;
+  }
+
+  return /^Key([A-Z])$/.exec(event.code)?.[1] ?? null;
+};
+
 // Some methods to let OpenCOR own the title of its document (e.g., to show the name of the selected file in it, see
 // ContentsComponent.vue), which is only the case when OpenCOR is not used as a library (see main.ts) since the title
 // of a page that embeds OpenCOR is not ours to change.
