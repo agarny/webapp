@@ -126,6 +126,18 @@ body {
     }
 
     /**
+     * Only transition the properties of a float label that change when it floats.
+     * Note: PrimeVue transitions all the properties of a float label, including its visibility, which it inherits. So,
+     *       when an ancestor of a float label gets hidden or shown (e.g., the panel of a file tab when switching
+     *       between file tabs), the float label would remain visible for a split second after the rest of its input
+     *       field has been hidden, or become visible a frame after it.
+     */
+
+    .p-floatlabel label {
+      transition-property: top, transform, font-size, font-weight, color, background, border-radius, padding;
+    }
+
+    /**
      * Show a focus ring when a PrimeVue component (or a link) gets the keyboard focus.
      * Note #1: PrimeVue's focus rings are outlines, which we remove above (so that the browser's focus outline doesn't
      *          get shown on top of the focus rings that we draw for our own controls), so we draw them using a box
