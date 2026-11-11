@@ -1089,21 +1089,9 @@ const parameterValueTooltip = (): string => {
 };
 
 const traceName = (plot: locApi.IUiJsonOutputPlot, traceIndex: number): string => {
-  const actualTraceName = (
-    name: string | undefined,
-    xValue: string | undefined,
-    yValue: string | undefined
-  ): string => {
-    return name || (xValue && yValue ? `${common.escapeHtml(yValue)} <i>vs.</i> ${common.escapeHtml(xValue)}` : '???');
-  };
+  const trace = traceIndex === -1 ? plot : plot.additionalTraces?.[traceIndex];
 
-  if (traceIndex === -1) {
-    return actualTraceName(plot.name, plot.xValue, plot.yValue);
-  }
-
-  const additionalTrace = plot.additionalTraces?.[traceIndex];
-
-  return actualTraceName(additionalTrace?.name, additionalTrace?.xValue, additionalTrace?.yValue);
+  return vueCommon.traceName(trace?.name, trace?.xValue, trace?.yValue);
 };
 
 const addInput = () => {

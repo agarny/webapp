@@ -522,10 +522,17 @@ export const waitWhileRunning = (
 };
 
 // A helper function to generate a trace name from optional name and X/Y values.
-// Note: a trace name is rendered as HTML, so our X/Y values (which are expressions, e.g., "a < b") are escaped while our
-//       name, which may contain some HTML (e.g., "<i>I<sub>Na</sub></i>"), is to be sanitised when rendered (see
-//       common.sanitiseHtml()).
+// Note #1: an empty (or blank) name means that a name is to be generated from our X/Y values (e.g., when the user
+//          clears the name of a trace in the settings of the Interactive Simulation Experiment view), or "???" if we
+//          don't have both of them (e.g., while the user is editing them).
+// Note #2: a trace name is rendered as HTML, so our X/Y values (which are expressions, e.g., "a < b") are escaped while
+//          our name, which may contain some HTML (e.g., "<i>I<sub>Na</sub></i>"), is to be sanitised when rendered (see
+//          common.sanitiseHtml()).
 
-export const traceName = (name: string | undefined, xValue: string, yValue: string): string => {
-  return name ?? `${common.escapeHtml(yValue)} <i>vs.</i> ${common.escapeHtml(xValue)}`;
+export const traceName = (name: string | undefined, xValue: string | undefined, yValue: string | undefined): string => {
+  if (name?.trim()) {
+    return name;
+  }
+
+  return xValue && yValue ? `${common.escapeHtml(yValue)} <i>vs.</i> ${common.escapeHtml(xValue)}` : '???';
 };
