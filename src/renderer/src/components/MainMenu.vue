@@ -274,6 +274,20 @@ const items = vue.computed(() => [
   }
 ]);
 
+// Some of the internal state of PrimeVue's Menubar component, which we need to handle some keys ourselves (see
+// onRootListKeyDown() below).
+
+interface IMenubarProcessedItem {
+  index: number;
+  level: number;
+  parentKey: string;
+}
+
+interface IMenubarInternals {
+  activeItemPath: IMenubarProcessedItem[];
+  focusedItemInfo: { index: number; level?: number; parentKey: string };
+}
+
 // A few things that can only be done when the component is mounted.
 
 const menuBarRef = vue.shallowRef<(InstanceType<typeof Menubar> & { hide: () => void; $el: HTMLElement }) | null>(null);
@@ -307,30 +321,67 @@ vue.onMounted(() => {
 
     document.addEventListener('click', onClick);
 
-    // Return the keyboard focus to where it was before our main menu got it using our keyboard shortcut (see
-    // focusMainMenu() below) when pressing Escape with no submenu shown (when one is shown, PrimeVue closes it).
-    // Note #1: we listen to the Escape key during the capture phase, i.e. before PrimeVue closes the submenu, if any.
-    // Note #2: our main menu may have been given the keyboard focus otherwise (e.g., using Tab), in which case there is
-    //          nowhere to return to, so we just remove the keyboard focus from it (as for other elements, see
-    //          onEscapeKeyDown() in OpenCOR.vue).
+    // Handle some keys ourselves, before PrimeVue gets them (hence we listen to them during the capture phase):
+    //  - Escape:
+    //     - with no submenu shown: return the keyboard focus to where it was before our main menu got it using our
+    //       keyboard shortcut (see focusMainMenu() below). Our main menu may, however, have been given the keyboard
+    //       focus otherwise (e.g., using Tab), in which case there is nowhere to return to, so we just remove the
+    //       keyboard focus from it (as for other elements, see onEscapeKeyDown() in OpenCOR.vue).
+    //     - with a submenu of a submenu shown: only close that submenu (and select the item that opened it), as in a
+    //       native menu and as recommended by the WAI-ARIA menu pattern, rather than close all our submenus (and select
+    //       the root item), as PrimeVue does.
+    //  - ArrowLeft, ArrowUp, and ArrowDown, with a submenu shown that has no item that can be selected (e.g., our
+    //    Reopen submenu when there are no recent files, i.e. when its only item is disabled): PrimeVue doesn't handle
+    //    that case (i.e. ArrowLeft does nothing while ArrowUp throws an exception), so we close that submenu (and
+    //    select the item that opened it) for ArrowLeft and do nothing for ArrowUp and ArrowDown.
+    // Note: with only the submenu of a root item shown, PrimeVue already does the right thing for Escape and
+    //       ArrowLeft, i.e. close that submenu and select its root item, or select the previous root item.
 
     const rootListElement = menuBarElement.querySelector<HTMLElement>('.p-menubar-root-list');
 
-    const onRootListKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key !== 'Escape' ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey ||
-        rootListElement?.querySelector('.p-menubar-item-active')
-      ) {
+    const closeInnermostSubmenu = (menubar: IMenubarInternals): void => {
+      const parentItem = menubar.activeItemPath[menubar.activeItemPath.length - 1];
+
+      if (!parentItem) {
         return;
       }
 
-      event.preventDefault();
+      menubar.activeItemPath = menubar.activeItemPath.slice(0, -1);
+      menubar.focusedItemInfo = { index: parentItem.index, level: parentItem.level, parentKey: parentItem.parentKey };
+    };
 
-      blurMainMenu();
+    const onRootListKeyDown = (event: KeyboardEvent) => {
+      const menubar = menuBarRef.value as unknown as IMenubarInternals | null;
+
+      if (!menubar || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+
+      const handled = (): void => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      };
+      const noSelectableItem = menubar.focusedItemInfo.index === -1 && menubar.focusedItemInfo.parentKey !== '';
+
+      if (event.key === 'Escape') {
+        if (!menubar.activeItemPath.length) {
+          handled();
+
+          blurMainMenu();
+        } else if (menubar.activeItemPath.length > 1 || noSelectableItem) {
+          handled();
+
+          closeInnermostSubmenu(menubar);
+        }
+      } else if (noSelectableItem) {
+        if (event.key === 'ArrowLeft') {
+          handled();
+
+          closeInnermostSubmenu(menubar);
+        } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          handled();
+        }
+      }
     };
 
     // Forget where the keyboard focus was before our main menu got it as soon as our main menu loses it (e.g., when
