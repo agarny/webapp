@@ -174,12 +174,12 @@ const xParameter = vue.ref(instanceTask ? instanceTask.voiName() : '');
 const yParameter = vue.ref(instanceTask ? instanceTask.stateName(0) : '');
 
 const data = vue.ref<IGraphPanelData>({
-  xAxisTitle: instanceTask ? xParameter.value : undefined,
-  yAxisTitle: instanceTask ? yParameter.value : undefined,
+  xAxisTitle: instanceTask ? common.escapeHtml(xParameter.value) : undefined,
+  yAxisTitle: instanceTask ? common.escapeHtml(yParameter.value) : undefined,
   traces: []
 });
 
-const initialConsoleContents = `<b>${props.file.path()}</b>`;
+const initialConsoleContents = `<b>${common.escapeHtml(props.file.path())}</b>`;
 const consoleContents = vue.ref<string>(initialConsoleContents);
 const progress = vue.ref<number>(0);
 const simulationStatus = vue.ref<locSedApi.ESedInstanceStatus>(instance?.status() ?? locSedApi.ESedInstanceStatus.IDLE);
@@ -503,8 +503,8 @@ const updatePlot = (dataSize: number = 0): void => {
   }
 
   data.value = {
-    xAxisTitle: xParameter.value,
-    yAxisTitle: yParameter.value,
+    xAxisTitle: common.escapeHtml(xParameter.value),
+    yAxisTitle: common.escapeHtml(yParameter.value),
     xAxisRange,
     yAxisRange,
     traces: [
@@ -642,7 +642,7 @@ const scrollConsoleToBottom = (): void => {
 // A helper function to report an error in our console.
 
 const addConsoleError = (error: unknown): void => {
-  consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${colors.REVERTED_PALETTE.Red};"><strong>Error:</strong> ${common.formatMessage(common.formatError(error))}</span>`;
+  consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${colors.REVERTED_PALETTE.Red};"><strong>Error:</strong> ${common.escapeHtml(common.formatMessage(common.formatError(error)))}</span>`;
 
   scrollConsoleToBottom();
 };
@@ -659,7 +659,7 @@ const addConsoleIssues = (issues: locApi.IIssue[]): void => {
           : colors.REVERTED_PALETTE.Blue;
     const issueType =
       issue.type === locApi.EIssueType.ERROR ? 'Error' : issue.type === locApi.EIssueType.WARNING ? 'Warning' : 'Info';
-    const issueDescription = issue.description.replace('Task | ', '');
+    const issueDescription = common.sanitiseHtml(issue.description.replace('Task | ', ''));
 
     consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${color};"><strong>${issueType}:</strong> ${issueDescription}</span>`;
   });

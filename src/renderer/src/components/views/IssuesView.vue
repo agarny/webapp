@@ -37,7 +37,7 @@
           <div v-for="(issue, index) in issues" :key="`issue_${index}`" class="issue" :class="ISSUE_TYPES[issue.type].class">
             <i :class="ISSUE_TYPES[issue.type].icon" class="issue-icon" aria-hidden="true" />
             <span class="sr-only">{{ ISSUE_TYPES[issue.type].label }}: </span>
-            <span class="issue-description" v-html="issue.description" />
+            <span class="issue-description" v-html="common.sanitiseHtml(issue.description)" />
           </div>
         </div>
       </ScrollPanel>
@@ -48,6 +48,7 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
+import * as common from '../../common/common';
 import * as vueCommon from '../../common/vueCommon';
 import * as locApi from '../../libopencor/locApi';
 

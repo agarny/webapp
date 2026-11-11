@@ -349,6 +349,89 @@ export const escapeHtml = (text: string): string => {
   return text.replace(/[&<>"']/g, (character: string) => `&#${character.charCodeAt(0)};`);
 };
 
+// A method to sanitise some HTML that may come from an untrusted source (e.g., the name of a trace or the title of an
+// axis in a UI JSON file, or the description of an issue), so that it can be rendered as HTML (e.g., using v-html).
+// Note #1: only a few formatting elements are kept (e.g., "<i>I<sub>K,r</sub></i>"), without any of their attributes,
+//          except for the class of a PrimeIcons icon (e.g., <i class="pi pi-cog"></i>). Any other element is replaced
+//          with its contents, unless its contents are not meant to be shown as text (e.g., a script), in which case it
+//          is removed altogether.
+// Note #2: our HTML is parsed in a separate document, so that nothing in it gets loaded or run (e.g., an image).
+// Note #3: the same HTML tends to be sanitised over and over again (e.g., the name of a trace each time the legend of a
+//          plot is rendered), so we cache our results.
+
+const SANITISE_HTML_ALLOWED_ELEMENTS = new Set<string>(['b', 'br', 'code', 'em', 'i', 'strong', 'sub', 'sup']);
+const SANITISE_HTML_REMOVED_ELEMENTS = new Set<string>([
+  'embed',
+  'iframe',
+  'noscript',
+  'object',
+  'script',
+  'select',
+  'style',
+  'template',
+  'textarea',
+  'title'
+]);
+const SANITISE_HTML_ICON_CLASS_REGEX = /^\s*pi(\s+pi-[a-z0-9-]+)+\s*$/;
+const SANITISE_HTML_CACHE_SIZE = 256;
+
+const sanitiseHtmlCache = new Map<string, string>();
+
+const sanitiseHtmlNode = (node: Node, parent: Node, document: Document): void => {
+  for (const childNode of Array.from(node.childNodes)) {
+    if (childNode.nodeType === Node.TEXT_NODE) {
+      parent.appendChild(document.createTextNode(childNode.textContent ?? ''));
+    } else if (childNode.nodeType === Node.ELEMENT_NODE) {
+      const element = childNode as Element;
+      const elementName = element.localName;
+
+      if (SANITISE_HTML_ALLOWED_ELEMENTS.has(elementName)) {
+        const sanitisedElement = document.createElement(elementName);
+        const elementClass = element.getAttribute('class');
+
+        if (elementName === 'i' && elementClass && SANITISE_HTML_ICON_CLASS_REGEX.test(elementClass)) {
+          sanitisedElement.setAttribute('class', elementClass.trim());
+        }
+
+        sanitiseHtmlNode(element, sanitisedElement, document);
+
+        parent.appendChild(sanitisedElement);
+      } else if (!SANITISE_HTML_REMOVED_ELEMENTS.has(elementName)) {
+        sanitiseHtmlNode(element, parent, document);
+      }
+    }
+  }
+};
+
+export const sanitiseHtml = (html: string | undefined): string => {
+  // Some text without any markup or character reference is already safe.
+
+  if (!html || !/[<&]/.test(html)) {
+    return html ?? '';
+  }
+
+  const cachedSanitisedHtml = sanitiseHtmlCache.get(html);
+
+  if (cachedSanitisedHtml !== undefined) {
+    return cachedSanitisedHtml;
+  }
+
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  const container = document.createElement('div');
+
+  sanitiseHtmlNode(document.body, container, document);
+
+  const res = container.innerHTML;
+
+  if (sanitiseHtmlCache.size >= SANITISE_HTML_CACHE_SIZE) {
+    sanitiseHtmlCache.clear();
+  }
+
+  sanitiseHtmlCache.set(html, res);
+
+  return res;
+};
+
 // A method to get the file name from a file path.
 // Note: the file path should be a canonical path (see locApi.File.canonicalPath()), i.e. a path that libOpenCOR has
 //       already decoded, if needed (e.g., "https://example.com/my%20model.cellml" becomes

@@ -561,7 +561,7 @@
                       <div v-for="(trace, traceIndex) in plotTraces(plot)" :key="`trace_${plotIndex}_${traceIndex}`" class="trace-item">
                         <div class="trace-header">
                           <span class="item-index">{{ Number(traceIndex) + 1 }}</span>
-                          <span class="trace-name truncate" v-html="traceName(plot, traceIndex - 1)" />
+                          <span class="trace-name truncate" v-html="common.sanitiseHtml(traceName(plot, traceIndex - 1))" />
                           <ToolbarButtonWidget class="remove-button ml-auto"
                             icon="pi pi-times"
                             small
@@ -1094,7 +1094,7 @@ const traceName = (plot: locApi.IUiJsonOutputPlot, traceIndex: number): string =
     xValue: string | undefined,
     yValue: string | undefined
   ): string => {
-    return name || (xValue && yValue ? `${yValue} <i>vs.</i> ${xValue}` : '???');
+    return name || (xValue && yValue ? `${common.escapeHtml(yValue)} <i>vs.</i> ${common.escapeHtml(xValue)}` : '???');
   };
 
   if (traceIndex === -1) {

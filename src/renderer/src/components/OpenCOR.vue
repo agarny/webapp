@@ -1087,7 +1087,7 @@ trackCleanup(
     updateDownloadProgressVisible.value = false;
 
     updateErrorTitle.value = 'Downloading Update';
-    updateErrorIssue.value = `An error occurred while downloading the update (${common.formatMessage(issue, false)}).`;
+    updateErrorIssue.value = `An error occurred while downloading the update (${common.escapeHtml(common.formatMessage(issue, false))}).`;
     updateErrorVisible.value = true;
   })
 );
@@ -1099,7 +1099,7 @@ trackCleanup(
     updateDownloadProgressVisible.value = false;
 
     updateErrorTitle.value = 'Installing Update';
-    updateErrorIssue.value = `An error occurred while installing the update (${common.formatMessage(issue, false)}).`;
+    updateErrorIssue.value = `An error occurred while installing the update (${common.escapeHtml(common.formatMessage(issue, false))}).`;
     updateErrorVisible.value = true;
   })
 );
@@ -1168,7 +1168,7 @@ trackCleanup(
 trackCleanup(
   electronApi?.onUpdateCheckError((issue: string) => {
     updateErrorTitle.value = 'Check for Updates';
-    updateErrorIssue.value = `An error occurred while checking for updates (${common.formatMessage(issue, false)}).`;
+    updateErrorIssue.value = `An error occurred while checking for updates (${common.escapeHtml(common.formatMessage(issue, false))}).`;
     updateErrorVisible.value = true;
   })
 );

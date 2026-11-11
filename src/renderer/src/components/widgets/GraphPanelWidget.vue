@@ -69,7 +69,7 @@
             fontSize: `${TITLE_FONT_SIZE}px`,
             transform: 'translateX(-50%)'
           }"
-          v-html="data.xAxisTitle"
+          v-html="common.sanitiseHtml(data.xAxisTitle)"
         />
         <div v-if="data.yAxisTitle" ref="yAxisTitleRef" class="axis-title"
           :style="{
@@ -79,7 +79,7 @@
             writingMode: 'vertical-rl',
             transform: 'translateY(-50%) rotate(180deg)'
           }"
-          v-html="data.yAxisTitle"
+          v-html="common.sanitiseHtml(data.yAxisTitle)"
         />
       </template>
       <svg v-if="hover && plotRect" class="absolute z-3 pointer-events-none"
@@ -123,7 +123,7 @@
           <span class="legend-swatch" :style="{ backgroundColor: legendItem.visible ? legendItem.color : themeColors.hiddenTrace }">
             <span v-if="legendItem.markers" class="legend-marker" />
           </span>
-          <span v-html="legendItem.name" />
+          <span v-html="common.sanitiseHtml(legendItem.name)" />
         </button>
       </div>
     </div>
@@ -131,12 +131,12 @@
     <Teleport v-if="hover" :to="appendTarget ?? 'body'">
       <div ref="hoverTooltipRef" class="hover-tooltip">
         <div class="hover-tooltip-header">
-          <span v-if="data.xAxisTitle" class="hover-tooltip-name" v-html="data.xAxisTitle" />
+          <span v-if="data.xAxisTitle" class="hover-tooltip-name" v-html="common.sanitiseHtml(data.xAxisTitle)" />
           <span class="hover-tooltip-value">{{ hover.x }}</span>
         </div>
         <div v-for="row in hover.rows" :key="row.seriesIndex" class="hover-tooltip-row">
           <span class="hover-tooltip-swatch" :style="{ backgroundColor: row.color }" />
-          <span class="hover-tooltip-name" v-html="row.name" />
+          <span class="hover-tooltip-name" v-html="common.sanitiseHtml(row.name)" />
           <span class="hover-tooltip-value">{{ row.value }}</span>
         </div>
         <div v-if="hover.otherRows" class="hover-tooltip-other-rows">+{{ hover.otherRows }} more</div>
@@ -1331,8 +1331,9 @@ const exportToCsv = async (): Promise<void> => {
     const headerParts: string[] = [allXValuesEqual ? firstTrace.xValue : 'X'];
 
     for (const trace of props.data.traces) {
-      headerParts.push(trace.name.replace(/<[^>]*>|,/g, '') || trace.yValue);
-      // Note: we remove any HTML tags and commas to ensure the CSV is well-formed.
+      headerParts.push(plainText(trace.name).replace(/,/g, '') || trace.yValue);
+      // Note: we only keep the text of our trace name (e.g., "<i>I<sub>K,r</sub></i>" becomes "IK,r") and remove any
+      //       commas to ensure the CSV is well-formed.
     }
 
     csvLines.push(headerParts.join(','));
