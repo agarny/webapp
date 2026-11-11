@@ -7,12 +7,12 @@
       <div class="message-dialog-text" v-html="question"></div>
     </div>
     <template #footer>
-      <Button autofocus
+      <Button :autofocus="severity !== 'danger'"
         :label="yesLabel"
         :severity="severity === 'danger' ? 'danger' : undefined"
         @click="$emit('yes')"
       />
-      <Button :label="noLabel" severity="secondary" @click="$emit('no')" />
+      <Button :autofocus="severity === 'danger'" :label="noLabel" severity="secondary" @click="$emit('no')" />
     </template>
   </BaseDialog>
 </template>
@@ -27,6 +27,10 @@ type Severity = 'danger' | 'warning' | 'info';
 // Note #2: our yes button is only coloured (in red) if our question is about something dangerous (e.g., disconnecting
 //          from GitHub). Otherwise (i.e. for some information or a warning, such as being asked whether to save a
 //          modified file), it is a primary button since it is what the user is expected to do.
+// Note #3: our yes button has the focus by default, so that the user can just press Enter to do what they are expected
+//          to do, unless our question is about something dangerous, in which case our no button has the focus by
+//          default, so that pressing Enter doesn't do something that the user might regret (e.g., resetting all of
+//          their settings).
 
 withDefaults(
   defineProps<{

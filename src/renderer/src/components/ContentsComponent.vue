@@ -116,6 +116,7 @@
     <YesNoQuestionDialog :visible="questionVisible && !questionCancellable"
       :title="questionTitle"
       :question="questionText"
+      :severity="questionSeverity"
       :yesLabel="questionYesLabel"
       :noLabel="questionNoLabel"
       @update:visible="onQuestionVisibilityUpdated"
@@ -125,6 +126,7 @@
     <YesNoCancelQuestionDialog :visible="questionVisible && questionCancellable"
       :title="questionTitle"
       :question="questionText"
+      :severity="questionSeverity"
       :yesLabel="questionYesLabel"
       :noLabel="questionNoLabel"
       @update:visible="onQuestionVisibilityUpdated"
@@ -739,12 +741,15 @@ vue.watch(
 
 // Ask the user a (yes/no or yes/no/cancel) question and return their answer.
 // Note #1: our yes and no buttons are labelled with what they do (see YesNoQuestionDialog.vue).
-// Note #2: BaseDialog emits a cancel event whenever it gets hidden, including after the user has answered our question,
+// Note #2: a question about something dangerous (e.g., replacing a file) has a danger severity, so that its yes button
+//          is red and doesn't have the focus by default (see YesNoQuestionDialog.vue).
+// Note #3: BaseDialog emits a cancel event whenever it gets hidden, including after the user has answered our question,
 //          so rather than relying on such an event, we rely on our dialogs' visibility being updated to know when the
 //          user has dismissed our question (e.g., using the Escape key), in which case we consider that they have
 //          cancelled it.
 
 type QuestionAnswer = 'yes' | 'no' | 'cancel';
+type QuestionSeverity = 'danger' | 'warning' | 'info';
 
 const questionVisible = vue.ref<boolean>(false);
 const questionTitle = vue.ref<string>('');
@@ -752,6 +757,7 @@ const questionText = vue.ref<string>('');
 const questionCancellable = vue.ref<boolean>(false);
 const questionYesLabel = vue.ref<string>('');
 const questionNoLabel = vue.ref<string>('');
+const questionSeverity = vue.ref<QuestionSeverity>('warning');
 let questionAnswered: ((answer: QuestionAnswer) => void) | null = null;
 
 const askQuestion = (
@@ -759,7 +765,8 @@ const askQuestion = (
   question: string,
   yesLabel: string,
   noLabel: string,
-  cancellable: boolean = false
+  cancellable: boolean = false,
+  severity: QuestionSeverity = 'warning'
 ): Promise<QuestionAnswer> => {
   // Cancel the question that we are already asking, if any (e.g., if the user tries to quit OpenCOR while we are asking
   // them whether to save a file that they are closing), since we can only ask one question at a time.
@@ -773,6 +780,7 @@ const askQuestion = (
     questionCancellable.value = cancellable;
     questionYesLabel.value = yesLabel;
     questionNoLabel.value = noLabel;
+    questionSeverity.value = severity;
     questionVisible.value = true;
   });
 };
@@ -1193,7 +1201,9 @@ const saveFileTo = async (
         'Save As',
         `${common.escapeHtml(common.fileName(otherFileTab.file.canonicalPath()))} is already open. Do you want to replace it?`,
         'Replace',
-        'Cancel'
+        'Cancel',
+        false,
+        'danger'
       )) !== 'yes'
     ) {
       return 'notSaved';

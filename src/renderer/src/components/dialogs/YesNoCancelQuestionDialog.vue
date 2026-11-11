@@ -7,13 +7,17 @@
       <div class="message-dialog-text" v-html="question"></div>
     </div>
     <template #footer>
-      <Button autofocus
+      <Button :autofocus="severity !== 'danger'"
         :label="yesLabel"
         :severity="severity === 'danger' ? 'danger' : undefined"
         @click="$emit('yes')"
       />
       <Button :label="noLabel" severity="secondary" @click="$emit('no')" />
-      <Button :label="cancelLabel" severity="secondary" @click="$emit('cancel')" />
+      <Button :autofocus="severity === 'danger'"
+        :label="cancelLabel"
+        severity="secondary"
+        @click="$emit('cancel')"
+      />
     </template>
   </BaseDialog>
 </template>
@@ -23,8 +27,9 @@ import './message-dialog.css';
 
 type Severity = 'danger' | 'warning' | 'info';
 
-// Note: same as for YesNoQuestionDialog.vue when it comes to the labels of our buttons and the colour of our yes
-//       button.
+// Note: same as for YesNoQuestionDialog.vue when it comes to the labels of our buttons, the colour of our yes button,
+//       and which button has the focus by default, except that it is our cancel button (rather than our no button)
+//       that has the focus by default if our question is about something dangerous, since it is the safest option.
 
 withDefaults(
   defineProps<{
