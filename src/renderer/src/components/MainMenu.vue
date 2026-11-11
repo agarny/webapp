@@ -511,6 +511,22 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
 }
 
 /**
+ * Show our focus ring around the item (be it a root item or the item of a submenu) that has the keyboard focus, so that
+ * it is clear that our main menu has the keyboard focus (and which item has it), rather than just highlighting that
+ * item, which looks the same as hovering it.
+ * Note #1: the keyboard focus is on our root list (which then sets the p-focus class on the item that has it), so we
+ *          can't rely on our default focus ring, which is not shown for our root list anyway (see app.css).
+ * Note #2: we inset our focus ring so that it doesn't get clipped by our menubar or a submenu, or overlap neighbouring
+ *          items.
+ * Note #3: our context menus do the same (see app.css).
+ */
+
+:deep(.p-menubar-root-list:focus-visible .p-menubar-item.p-focus > .p-menubar-item-content) {
+  outline: var(--opencor-focus-ring-width) solid var(--opencor-focus-ring-color, var(--p-primary-color));
+  outline-offset: calc(-1 * var(--opencor-focus-ring-width));
+}
+
+/**
  * Submenus, which are slightly detached from their parent item.
  */
 

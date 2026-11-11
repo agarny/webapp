@@ -319,6 +319,15 @@ body {
           color: var(--p-text-color);
         }
       }
+
+      /**
+       * Show our focus ring around the item that has the keyboard focus, as for our main menu (see MainMenu.vue).
+       */
+
+      .p-contextmenu-root-list:focus-visible .p-contextmenu-item.p-focus > .p-contextmenu-item-content {
+        outline: var(--opencor-focus-ring-width) solid var(--opencor-focus-ring-color, var(--p-primary-color));
+        outline-offset: calc(-1 * var(--opencor-focus-ring-width));
+      }
     }
 
     /**
