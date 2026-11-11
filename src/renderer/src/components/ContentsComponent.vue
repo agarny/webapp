@@ -24,15 +24,33 @@
       @openSampleLorenz="$emit('openSampleLorenz')"
     />
     <div v-show="fileTabs.length" class="file-tab-bar-container shrink-0">
+      <!--
+      Note: our file tabs follow the WAI-ARIA tabs pattern (see https://www.w3.org/WAI/ARIA/apg/patterns/tabs/), i.e.
+            only the active file tab is in the tab sequence, the arrow keys (as well as Home and End) select another
+            file tab (and give it the keyboard focus), and Delete (or Backspace) closes the file of the focused file
+            tab. This is why the close button of a file tab is not in the tab sequence (it would otherwise be one extra
+            tab stop for each file tab and, as the content of a tab, it isn't exposed to assistive technologies anyway).
+      -->
       <div ref="fileTabBarRef" class="file-tab-bar flex overflow-x-auto"
+        role="tablist"
+        aria-label="Open files"
+        @keydown="onFileTabBarKeyDown"
         @wheel.prevent="onWheel"
         @scroll="updateFileTabBarOverflow"
       >
         <div v-show="dropIndicatorLeft !== null" class="file-tab-drop-indicator"
+          aria-hidden="true"
           :style="{ left: `${dropIndicatorLeft}px` }"
         />
-        <div v-for="fileTab in fileTabs" :key="`tab_${fileTab.file.path()}`" :ref="(element) => setFileTabRef(fileTab.file.path(), element as HTMLElement | null)"
+        <div v-for="(fileTab, fileTabIndex) in fileTabs" :key="`tab_${fileTab.file.path()}`" :ref="(element) => setFileTabRef(fileTab.file.path(), element as HTMLElement | null)"
+          :id="fileTabId(fileTabIndex)"
           class="file-tab"
+          role="tab"
+          :aria-selected="fileTab.file.path() === activeFile"
+          :aria-controls="fileTabPanelId(fileTabIndex)"
+          :aria-description="fileTab.file.canonicalPath()"
+          aria-keyshortcuts="Delete"
+          :tabindex="fileTab.file.path() === activeFile ? 0 : -1"
           :class="{
             'file-tab-active': fileTab.file.path() === activeFile,
             'file-tab-modified': isModified(fileTab),
@@ -58,6 +76,7 @@
             -->
             <button class="file-tab-close-button pi pi-times"
               type="button"
+              tabindex="-1"
               :aria-label="`Close ${common.fileName(fileTab.file.canonicalPath())}`"
               v-hint="'Close'"
               @mousedown.prevent
@@ -71,8 +90,12 @@
     </div>
     <ContextMenuWidget ref="fileTabContextMenuRef" :model="fileTabContextMenuItems" :appendTo="appendTarget" />
     <div class="grow min-h-0 relative">
-      <template v-for="fileTab in fileTabs" :key="`panel_${fileTab.file.path()}`">
-        <div class="absolute inset-0 flex h-full" :class="{ 'invisible pointer-events-none': fileTab.file.path() !== activeFile }">
+      <template v-for="(fileTab, fileTabIndex) in fileTabs" :key="`panel_${fileTab.file.path()}`">
+        <div :id="fileTabPanelId(fileTabIndex)" class="absolute inset-0 flex h-full"
+          :class="{ 'invisible pointer-events-none': fileTab.file.path() !== activeFile }"
+          role="tabpanel"
+          :aria-labelledby="fileTabId(fileTabIndex)"
+        >
           <ViewSwitcherComponent
             :activeViewId="fileTab.activeViewId"
             @selectView="onSelectView(fileTab, $event)"
@@ -371,6 +394,65 @@ const selectPreviousFile = async (): Promise<void> => {
   }
 };
 
+// The IDs of a file tab and of its panel, which are used to link them (for assistive technologies).
+// Note: a file path cannot be used in an ID (e.g., it may contain spaces), so we use the index of our file tab instead.
+
+const fileTabIdPrefix = `file-tab-${vue.useId()}`;
+
+const fileTabId = (fileTabIndex: number): string => {
+  return `${fileTabIdPrefix}-${fileTabIndex}`;
+};
+
+const fileTabPanelId = (fileTabIndex: number): string => {
+  return `${fileTabIdPrefix}-panel-${fileTabIndex}`;
+};
+
+// Handle the keyboard for our file tab bar, i.e. select (and give the keyboard focus to) the next/previous file tab
+// using the right/left arrow keys (wrapping around), the first/last file tab using Home/End, and close the file of the
+// focused file tab using Delete (or Backspace, since there is no Delete key on some keyboards, e.g., on a MacBook).
+// Note: the keyboard focus follows the active file tab (see the watcher on activeFile).
+
+const onFileTabBarKeyDown = (event: KeyboardEvent): void => {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+    return;
+  }
+
+  const fileTabIndex = fileTabs.value.findIndex((fileTab) => fileTabRefs[fileTab.file.path()] === event.target);
+
+  if (fileTabIndex === -1) {
+    return;
+  }
+
+  const fileTabsCount = fileTabs.value.length;
+  let newFileTabIndex: number;
+
+  if (event.key === 'ArrowRight') {
+    newFileTabIndex = (fileTabIndex + 1) % fileTabsCount;
+  } else if (event.key === 'ArrowLeft') {
+    newFileTabIndex = (fileTabIndex - 1 + fileTabsCount) % fileTabsCount;
+  } else if (event.key === 'Home') {
+    newFileTabIndex = 0;
+  } else if (event.key === 'End') {
+    newFileTabIndex = fileTabsCount - 1;
+  } else if (event.key === 'Delete' || event.key === 'Backspace') {
+    event.preventDefault();
+
+    onCloseButtonClick(fileTabs.value[fileTabIndex]?.file.path() ?? '');
+
+    return;
+  } else {
+    return;
+  }
+
+  event.preventDefault();
+
+  const newFilePath = fileTabs.value[newFileTabIndex]?.file.path();
+
+  if (newFilePath) {
+    void selectFile(newFilePath);
+  }
+};
+
 const openFile = async (file: locApi.File, wait: boolean = false, fileHandle?: FileSystemFileHandle): Promise<void> => {
   const filePath = file.path();
   const prevActiveFile = activeFile.value;
@@ -591,8 +673,8 @@ const onCloseButtonClick = (filePath: string): void => {
 };
 
 // Show the context menu of the given file tab, unless our UI is not enabled.
-// Note: the context menu may also be shown using the keyboard (e.g., using Shift+F10 when the close button of a file
-//       tab has the keyboard focus), hence we check that our UI is enabled (see onSelectView()).
+// Note: the context menu may also be shown using the keyboard (e.g., using Shift+F10 when a file tab has the keyboard
+//       focus), hence we check that our UI is enabled (see onSelectView()).
 
 const onFileTabContextMenu = (event: MouseEvent, filePath: string): void => {
   if (!uiEnabled.value) {
@@ -1669,11 +1751,34 @@ vue.watch(filePaths, () => {
   electronApi?.filesOpened(fileTabs.value.map((fileTab) => fileTab.file.canonicalPath()));
 });
 
+// Determine whether one of our file tabs has the keyboard focus.
+// Note: OpenCOR may be used within a shadow DOM, hence we check the active element of our root node rather than of our
+//       document.
+
+const fileTabHasFocus = (): boolean => {
+  const rootNode = fileTabBarRef.value?.getRootNode() as Document | ShadowRoot | undefined;
+  const activeElement = rootNode?.activeElement;
+
+  return !!activeElement && Object.values(fileTabRefs).includes(activeElement as HTMLElement);
+};
+
 vue.watch(activeFile, (newActiveFile: string) => {
   // Note: activeFile can get updated by clicking on a tab or by calling selectFile(), hence we need to watch it to let
   //       people know that a file has been selected.
 
   electronApi?.fileSelected(findFileTab(newActiveFile)?.file.canonicalPath() ?? newActiveFile);
+
+  // Give the keyboard focus to the selected file tab if one of our file tabs has it (e.g., when using the arrow keys or
+  // Ctrl[+Alt]+Tab, or when the file of the focused file tab gets closed using Delete), so that it follows our roving
+  // tab index (see onFileTabBarKeyDown()).
+  // Note: the file tab of the selected file may not have been rendered yet (e.g., if it has just been opened), hence we
+  //       wait for the next tick.
+
+  if (fileTabHasFocus()) {
+    void vue.nextTick().then(() => {
+      fileTabRefs[newActiveFile]?.focus({ preventScroll: true });
+    });
+  }
 
   if (!dragState.value) {
     // Make sure that the selected file tab is visible in the file tab bar.
@@ -1814,6 +1919,10 @@ if (common.isDocumentTitleOwned() && !simulationOnly.value) {
     color 0.15s ease;
 }
 
+.file-tab:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--p-primary-color);
+}
+
 .file-tab:not(.file-tab-active):hover {
   background-color: color-mix(in srgb, var(--p-text-color) 6%, transparent);
   color: var(--p-text-color);
@@ -1866,8 +1975,8 @@ if (common.isDocumentTitleOwned() && !simulationOnly.value) {
 
 /**
  * The end of a file tab, which shows our close button and, if our file is modified, a modified indicator. The modified
- * indicator takes the place of our close button, except when our file tab is hovered (or our close button has the
- * keyboard focus), so that our file can still be closed.
+ * indicator takes the place of our close button, except when our file tab is hovered, so that our file can still be
+ * closed.
  */
 
 .file-tab-end {
@@ -1886,8 +1995,7 @@ if (common.isDocumentTitleOwned() && !simulationOnly.value) {
   pointer-events: none;
 }
 
-.file-tab:hover .file-tab-modified-indicator,
-.file-tab-end:has(.file-tab-close-button:focus-visible) .file-tab-modified-indicator {
+.file-tab:hover .file-tab-modified-indicator {
   visibility: hidden;
 }
 
@@ -1909,18 +2017,13 @@ if (common.isDocumentTitleOwned() && !simulationOnly.value) {
 }
 
 .file-tab:hover .file-tab-close-button,
-.file-tab-active:not(.file-tab-modified) .file-tab-close-button,
-.file-tab-close-button:focus-visible {
+.file-tab-active:not(.file-tab-modified) .file-tab-close-button {
   opacity: 1;
 }
 
 .file-tab-close-button:hover {
   background-color: color-mix(in srgb, var(--p-text-color) 12%, transparent);
   color: var(--p-text-color);
-}
-
-.file-tab-close-button:focus-visible {
-  box-shadow: 0 0 0 2px var(--p-primary-color);
 }
 
 /**
@@ -1936,8 +2039,7 @@ if (common.isDocumentTitleOwned() && !simulationOnly.value) {
     width: 0.75rem;
   }
 
-  .file-tab:hover .file-tab-modified-indicator,
-  .file-tab-end:has(.file-tab-close-button:focus-visible) .file-tab-modified-indicator {
+  .file-tab:hover .file-tab-modified-indicator {
     visibility: visible;
   }
 
