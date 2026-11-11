@@ -4893,7 +4893,7 @@ vue.watch(
   }
 
   .legend-item:focus-visible {
-    box-shadow: inset 0 0 0 2px var(--opencor-focus-ring-color, var(--p-primary-color));
+    outline-offset: calc(-1 * var(--opencor-focus-ring-width));
   }
 
   .legend-item-hidden {
@@ -4961,7 +4961,12 @@ vue.watch(
     position: absolute;
     inset: 0;
     z-index: 5;
-    box-shadow: inset 0 0 0 2px var(--opencor-focus-ring-color, var(--p-primary-color));
+    outline: var(--opencor-focus-ring-width) solid var(--opencor-focus-ring-color, var(--p-primary-color));
+    outline-offset: calc(-1 * var(--opencor-focus-ring-width));
     pointer-events: none;
+  }
+
+  .plot-area:focus-visible {
+    outline: none;
   }
 </style>

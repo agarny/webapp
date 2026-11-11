@@ -187,7 +187,7 @@
         @hide="runColorPopoverVisible = false"
       >
         <div class="flex p-2 gap-2" tabindex="-1" :autofocus="!runColorPopoverOpenedUsingKeyboard" @keydown="onColorSwatchesKeyDown">
-          <button class="color-swatch cursor-pointer w-6 h-6 outline-2 outline-transparent rounded-md"
+          <button class="color-swatch cursor-pointer w-6 h-6 rounded-md"
             v-for="(name, color) in colors.PALETTE" :key="color"
             type="button"
             :style="`background-color: ${color};`"
@@ -2569,30 +2569,26 @@ vue.onMounted(() => {
 }
 
 /**
- * Note: focus outlines are removed (see app.css), which would also remove the outline of the selected swatch when it
- *       gets the focus, so we restore it.
+ * Selected swatch, which has a ring in our text colour around it.
+ * Note: our ring is a box shadow (rather than an outline), so that our focus ring, which is an outline that is offset
+ *       by the width of our ring (see app.css), is drawn right outside it. So, our ring must also be combined with the
+ *       box shadow of a hovered swatch (in both light and dark modes).
  */
 
 .color-swatch-selected {
-  outline-color: var(--p-text-color);
+  box-shadow: 0 0 0 var(--opencor-focus-ring-width) var(--p-text-color);
 }
 
-.color-swatch-selected:focus {
-  outline: 2px solid var(--p-text-color) !important;
-}
-
-/**
- * Focus ring of a swatch, which is like that of our other buttons (see app.css), i.e. a ring in the primary colour that
- * is offset from the swatch (or, for the selected swatch, that is right outside its outline).
- * Note: it is also shown when the swatch is hovered, hence the :hover variant, which takes precedence over the box
- *       shadow of a hovered swatch (in both light and dark modes).
- */
-
-.color-swatch:focus-visible,
-.color-swatch:focus-visible:hover {
+.color-swatch-selected:hover {
   box-shadow:
-    0 0 0 2px var(--p-content-background),
-    0 0 0 4px var(--p-primary-color);
+    0 0 0 var(--opencor-focus-ring-width) var(--p-text-color),
+    0 2px 8px var(--p-shadow-color, rgba(0, 0, 0, 0.15));
+}
+
+.opencor-dark-mode .color-swatch-selected:hover {
+  box-shadow:
+    0 0 0 var(--opencor-focus-ring-width) var(--p-text-color),
+    0 2px 8px var(--p-shadow-color-dark, rgba(255, 255, 255, 0.15));
 }
 
 /**

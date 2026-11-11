@@ -1324,8 +1324,21 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
   height: 1px !important;
 }
 
+/**
+ * Note: our gutter handle is hidden, except when it has the keyboard focus, so that its focus ring can be seen (our
+ *       gutter is then also highlighted, like when it is hovered).
+ */
+
 .standard-view :deep(.p-splitter-gutter-handle) {
   opacity: 0;
+}
+
+.standard-view :deep(.p-splitter-gutter-handle:focus-visible) {
+  opacity: 1;
+}
+
+.standard-view :deep(.p-splitter-gutter:has(.p-splitter-gutter-handle:focus-visible)) {
+  background-color: var(--p-primary-color);
 }
 
 /**

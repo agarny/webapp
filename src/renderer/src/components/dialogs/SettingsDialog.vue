@@ -206,8 +206,7 @@ label.settings-row {
 }
 
 .theme-option:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--p-primary-color);
+  outline-offset: 0;
 }
 
 .theme-option-selected {
@@ -218,12 +217,6 @@ label.settings-row {
 
 .theme-option-selected .pi {
   color: var(--p-primary-color);
-}
-
-.theme-option-selected:focus-visible {
-  box-shadow:
-    0 0 0 2px var(--p-primary-color),
-    0 1px 2px color-mix(in srgb, #000 15%, transparent);
 }
 
 /**

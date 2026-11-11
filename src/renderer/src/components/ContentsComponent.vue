@@ -1920,7 +1920,7 @@ if (common.isDocumentTitleOwned() && !simulationOnly.value) {
 }
 
 .file-tab:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--p-primary-color);
+  outline-offset: calc(-1 * var(--opencor-focus-ring-width));
 }
 
 .file-tab:not(.file-tab-active):hover {

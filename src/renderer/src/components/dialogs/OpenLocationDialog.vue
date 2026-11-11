@@ -451,7 +451,7 @@ const emitClose = (): void => {
 }
 
 .clear-button:focus-visible {
-  box-shadow: 0 0 0 2px var(--p-primary-color);
+  outline-offset: 0;
   color: var(--p-text-color);
 }
 

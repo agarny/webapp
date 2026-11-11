@@ -247,8 +247,7 @@ const ACTIONS: { label: string; icon: string; shortcut?: string; command: () => 
 }
 
 .action:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--p-primary-color);
+  outline-offset: calc(-1 * var(--opencor-focus-ring-width));
 }
 
 .action-icon {
@@ -312,8 +311,7 @@ const ACTIONS: { label: string; icon: string; shortcut?: string; command: () => 
 }
 
 .recent-file:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--p-primary-color);
+  outline-offset: calc(-1 * var(--opencor-focus-ring-width));
 }
 
 .recent-file-icon {
