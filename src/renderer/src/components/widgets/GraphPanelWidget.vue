@@ -2201,8 +2201,8 @@ const onDragStart = (event: PointerEvent, type: DragType): void => {
 
   stopDrag();
 
-  // Keep track of what we are dragging, the pointer with which we are dragging, our starting (and current) position, our
-  // current ranges, a copy of our zoom ranges (so that cancelDrag() can restore them), and our zoom box.
+  // Keep track of what we are dragging, the pointer with which we are dragging, our starting (and current) position,
+  // our current ranges, a copy of our zoom ranges (so that cancelDrag() can restore them), and our zoom box.
   // Note: we only know how many times a mouse (or a pen) has been clicked once its mouse press has been emulated (see
   //       onDragMouseDown()), while a press using a finger is considered as a single click (since its mouse press is
   //       only emulated once it has been released, if at all, i.e. after our drag is over).
