@@ -2388,6 +2388,39 @@ const onColorSwatchesKeyDown = (event: KeyboardEvent): void => {
   swatches[newIndex]?.focus();
 };
 
+// Return the given SED-ML, but with its model referring to the model file in our COMBINE archive.
+// Note #1: libOpenCOR uses the file name or URL of our model as its source, e.g., "file:///some/path/model.cellml" for
+//          a local file (and with some characters percent-encoded), so we cannot simply replace the file name of our
+//          model with the name of the model file in our COMBINE archive (we would, for instance, get
+//          "file://model.cellml", which is an absolute URL rather than a reference to a file in our COMBINE archive).
+// Note #2: a model which source starts with "#" is derived from another model in the SED-ML, so we leave its source
+//          as is.
+
+const archiveSedml = (sedml: string): string => {
+  const sedmlDocument = new DOMParser().parseFromString(sedml, 'application/xml');
+
+  if (sedmlDocument.getElementsByTagName('parsererror').length) {
+    throw new Error('The SED-ML could not be parsed.');
+  }
+
+  for (const sedmlModel of Array.from(sedmlDocument.getElementsByTagNameNS('*', 'model'))) {
+    if (!sedmlModel.getAttribute('source')?.startsWith('#')) {
+      sedmlModel.setAttribute('source', 'model.cellml');
+    }
+  }
+
+  // Note: XMLSerializer may or may not include an XML declaration (and, if it does, it doesn't follow it with a new
+  //       line) and it doesn't end its output with a new line, unlike libOpenCOR, so we use our own XML declaration
+  //       and new lines.
+
+  const root = new XMLSerializer()
+    .serializeToString(sedmlDocument)
+    .replace(/^<\?xml[^>]*\?>\s*/, '')
+    .trimEnd();
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${root}\n`;
+};
+
 // Download COMBINE archive.
 
 const onDownloadCombineArchive = (): void => {
@@ -2418,7 +2451,7 @@ const onDownloadCombineArchive = (): void => {
     //       document.
 
     jsZip.file('model.cellml', modelFile.contents());
-    jsZip.file('document.sedml', document.serialise().replace(modelFile.path(), 'model.cellml'));
+    jsZip.file('document.sedml', archiveSedml(document.serialise()));
   } finally {
     modelFile.release();
   }
