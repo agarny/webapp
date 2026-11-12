@@ -189,14 +189,16 @@ body {
      * Show the scroll bar of a scroll panel when it has the keyboard focus (PrimeVue only shows it when its scroll
      * panel is hovered), so that it can be seen (and its focus ring with it) while it is used to scroll using the
      * keyboard.
-     * Note: PrimeVue doesn't draw a focus ring for our scroll bar, so we draw ours, but without offsetting it since our
-     *       scroll bar is thin and at the edge of its scroll panel.
+     * Note: PrimeVue doesn't draw a focus ring for our scroll bar, so we draw ours, but inside our scroll bar. Indeed,
+     *       our scroll bar is at the edge of its scroll panel (and at its top/bottom when scrolled to the start/end),
+     *       so a focus ring drawn outside it would get clipped by whatever contains our scroll panel (e.g., a splitter
+     *       panel or a dialog).
      */
 
     .p-scrollpanel-bar:focus-visible {
       opacity: 1;
       outline: var(--opencor-focus-ring-width) solid var(--opencor-focus-ring-color, var(--p-primary-color));
-      outline-offset: 0;
+      outline-offset: calc(-1 * var(--opencor-focus-ring-width));
     }
 
     /**
