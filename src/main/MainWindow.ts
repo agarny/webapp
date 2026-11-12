@@ -280,6 +280,12 @@ export const clearRecentFiles = (): void => {
 
   recentFilePathsUpdated();
 
+  // Also clear the recent documents that the operating system lists for us (see fileOpened()).
+
+  if (isMacOs() || isWindows()) {
+    electron.app.clearRecentDocuments();
+  }
+
   // Let our renderer know that our recent files have been cleared, so that it can release the contents that it kept for
   // the files that were opened using a data URL and then closed (see OpenCOR.addRecentFile()).
 
@@ -392,6 +398,21 @@ export const fileIssue = (filePath: string, canonicalFilePath: string): void => 
 export const fileOpened = (filePath: string, canonicalFilePath: string): void => {
   removeRecentFilePaths(filePath, canonicalFilePath);
 
+  // Let the operating system know about the file, if it is a local file, so that it can list it as one of our recent
+  // documents (e.g., in our jump list on Windows or when right-clicking on our Dock icon on macOS), from where it can
+  // be reopened (see our command line handling on Windows and the open-file event handler in index.ts on macOS).
+  // Note: unlike our Reopen menu, which lists the files that were closed, the operating system lists the files that
+  //       were opened, as is customary.
+
+  if (
+    (isMacOs() || isWindows()) &&
+    !isUrl(canonicalFilePath) &&
+    !isDataUrlFileName(canonicalFilePath) &&
+    path.isAbsolute(canonicalFilePath)
+  ) {
+    electron.app.addRecentDocument(canonicalFilePath);
+  }
+
   // A file has been opened, possibly while reopening files during OpenCOR startup, in which case we need to reopen the
   // next file.
 
@@ -418,6 +439,13 @@ let modifiedFilePaths: string[] = [];
 
 export const filesModified = (filePaths: string[]): void => {
   modifiedFilePaths = filePaths;
+
+  // On macOS, let our window show whether some files have been modified (i.e. using a dot in its close button), as is
+  // customary.
+
+  if (isMacOs()) {
+    MainWindow.instance?.setDocumentEdited(modifiedFilePaths.length > 0);
+  }
 };
 
 // Our renderer has asked the user whether to save the files that have been modified (see the constructor of MainWindow)
