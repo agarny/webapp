@@ -15,6 +15,13 @@ let canSaveAs = false;
 let menuEnabled = false;
 // Note: our main menu is disabled until our renderer enables it (see MainWindow's constructor).
 
+const menuLabel = (label: string): string => {
+  // Return the given label of a top-level menu with a mnemonic (i.e. its first letter, e.g., Alt+F for the File menu)
+  // on Windows and Linux (macOS doesn't have mnemonics).
+
+  return isMacOs() ? label : `&${label}`;
+};
+
 export const enableDisableMainMenu = (enable: boolean): void => {
   // Keep track of whether our menu is enabled (see updateReopenMenu()).
 
@@ -91,7 +98,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
 
     const fileSubMenu: electron.MenuItemConstructorOptions[] = [];
     const fileMenu: electron.MenuItemConstructorOptions = {
-      label: 'File',
+      label: menuLabel('File'),
       submenu: fileSubMenu
     };
 
@@ -210,7 +217,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
     // Edit menu.
 
     const editMenu: electron.MenuItemConstructorOptions = {
-      label: 'Edit',
+      label: menuLabel('Edit'),
       submenu: [
         { role: 'undo' },
         { role: 'redo' },
@@ -227,7 +234,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
     // View menu.
 
     const viewMenu: electron.MenuItemConstructorOptions = {
-      label: 'View',
+      label: menuLabel('View'),
       submenu: [
         { role: 'resetZoom' },
         { role: 'zoomIn' },
@@ -241,7 +248,7 @@ export const enableDisableMainMenu = (enable: boolean): void => {
 
     const toolsSubMenu: electron.MenuItemConstructorOptions[] = [];
     const toolsMenu: electron.MenuItemConstructorOptions = {
-      label: 'Tools',
+      label: menuLabel('Tools'),
       submenu: toolsSubMenu
     };
 
@@ -257,11 +264,23 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       }
     });
 
+    // Window menu (macOS only), which allows our window to be minimised (using Cmd+M), zoomed, and brought to the
+    // front, as is customary on macOS.
+    // Note: it is also part of our disabled menu (e.g., while a dialog is open), so that our window can always be
+    //       minimised.
+
+    const windowMenu: electron.MenuItemConstructorOptions = {
+      role: 'windowMenu'
+    };
+
     // Help menu.
 
     const helpSubMenu: electron.MenuItemConstructorOptions[] = [];
+    // Note: on macOS, the help role gives our Help menu its search field.
+
     const helpMenu: electron.MenuItemConstructorOptions = {
-      label: 'Help',
+      role: 'help',
+      label: menuLabel('Help'),
       submenu: helpSubMenu
     };
 
@@ -313,6 +332,11 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       menu.push(editMenu);
       menu.push(viewMenu);
       menu.push(toolsMenu);
+
+      if (isMacOs()) {
+        menu.push(windowMenu);
+      }
+
       menu.push(helpMenu);
 
       enabledMenu = electron.Menu.buildFromTemplate(menu);
@@ -322,6 +346,10 @@ export const enableDisableMainMenu = (enable: boolean): void => {
       }
 
       menu.push(editMenu);
+
+      if (isMacOs()) {
+        menu.push(windowMenu);
+      }
 
       disabledMenu = electron.Menu.buildFromTemplate(menu);
     }
