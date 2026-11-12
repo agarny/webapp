@@ -13,6 +13,10 @@ const props = defineProps<{
   disabled?: boolean;
 }>();
 
+const emit = defineEmits<{
+  updated: [];
+}>();
+
 // The index of our properties.
 
 const INITIAL_POINT = 0;
@@ -111,5 +115,7 @@ const onPropertyUpdated = (index: number, newValue: number): void => {
   if (isValidPointInterval(pointInterval)) {
     props.uniformTimeCourse.setNumberOfSteps(numberOfSteps(startingPoint, endingPoint, pointInterval));
   }
+
+  emit('updated');
 };
 </script>

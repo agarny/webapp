@@ -20,6 +20,20 @@
               :disabled="isFinishing || simulationStatus === locSedApi.ESedInstanceStatus.IDLE"
               @click="onStop"
             />
+            <span class="toolbar-separator" role="separator" aria-orientation="vertical"></span>
+            <ToolbarButtonWidget
+              icon="pi pi-undo"
+              label="Reset simulation settings"
+              :disabled="simulationSettingsDisabled || !simulationSettingsChanged"
+              @click="onResetSimulationSettings"
+            />
+            <span class="toolbar-separator" role="separator" aria-orientation="vertical"></span>
+            <ToolbarButtonWidget
+              icon="pi pi-eraser"
+              label="Clear simulation data"
+              :disabled="isFinishing || simulationStatus !== locSedApi.ESedInstanceStatus.IDLE || !hasSimulationData"
+              @click="onClearSimulationData"
+            />
             <!--
             Note: our run status is announced by assistive technologies through a visually hidden live region (which
                   must exist before its contents change for them to get announced, and which doesn't affect our
@@ -53,7 +67,7 @@
               <SplitterPanel :class="narrowLayout ? 'min-h-24' : 'min-w-56'" :size="narrowLayout ? 40 : 17">
                 <ScrollPanel class="h-full">
                   <div class="side-panel">
-                    <SimulationPropertyEditor v-if="instanceTask && uniformTimeCourse" :uniformTimeCourse="uniformTimeCourse" :instanceTask="instanceTask" :disabled="simulationSettingsDisabled" />
+                    <SimulationPropertyEditor v-if="instanceTask && uniformTimeCourse" :key="simulationSettingsKey" :uniformTimeCourse="uniformTimeCourse" :instanceTask="instanceTask" :disabled="simulationSettingsDisabled" @updated="onSimulationSettingsUpdated" />
                     <!-- <SolversPropertyEditor />
                     <GraphsPropertyEditor />
                     <ParametersPropertyEditor /> -->
@@ -374,6 +388,76 @@ const simulationSettingsDisabled = vue.computed<boolean>(() => {
   return simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE;
 });
 
+// Our simulation settings, as they were when we were created, so that they can be reset (see
+// onResetSimulationSettings()), and whether they have been changed since.
+// Note: our simulation settings are edited by SimulationPropertyEditor, which reads them when it gets created, so we
+//       recreate it (by changing its key) when we reset them.
+
+interface ISimulationSettings {
+  initialTime: number;
+  outputStartTime: number;
+  outputEndTime: number;
+  numberOfSteps: number;
+}
+
+const currentSimulationSettings = (timeCourse: locApi.SedUniformTimeCourse): ISimulationSettings => {
+  return {
+    initialTime: timeCourse.initialTime(),
+    outputStartTime: timeCourse.outputStartTime(),
+    outputEndTime: timeCourse.outputEndTime(),
+    numberOfSteps: timeCourse.numberOfSteps()
+  };
+};
+
+const initialSimulationSettings = uniformTimeCourse ? currentSimulationSettings(uniformTimeCourse) : null;
+const simulationSettingsChanged = vue.ref<boolean>(false);
+const simulationSettingsKey = vue.ref<number>(0);
+
+const onSimulationSettingsUpdated = (): void => {
+  if (!uniformTimeCourse || !initialSimulationSettings) {
+    return;
+  }
+
+  const settings = currentSimulationSettings(uniformTimeCourse);
+
+  simulationSettingsChanged.value = (Object.keys(settings) as (keyof ISimulationSettings)[]).some(
+    (key) => settings[key] !== initialSimulationSettings[key]
+  );
+};
+
+const onResetSimulationSettings = (): void => {
+  if (!uniformTimeCourse || !initialSimulationSettings || simulationSettingsDisabled.value) {
+    return;
+  }
+
+  uniformTimeCourse.setInitialTime(initialSimulationSettings.initialTime);
+  uniformTimeCourse.setOutputStartTime(initialSimulationSettings.outputStartTime);
+  uniformTimeCourse.setOutputEndTime(initialSimulationSettings.outputEndTime);
+  uniformTimeCourse.setNumberOfSteps(initialSimulationSettings.numberOfSteps);
+
+  simulationSettingsChanged.value = false;
+
+  ++simulationSettingsKey.value;
+};
+
+// Whether we have some simulation data, i.e. whether a simulation has been run and its data hasn't been cleared since
+// (see onClearSimulationData()).
+// Note: our simulation data is that of our instance, which we cannot clear, so we just stop plotting it (see
+//       updatePlot()) until our simulation is run again.
+
+const hasSimulationData = vue.ref<boolean>(false);
+
+const onClearSimulationData = (): void => {
+  if (isFinishing.value || simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE) {
+    return;
+  }
+
+  hasSimulationData.value = false;
+  lastRun.value = null;
+
+  updatePlot();
+};
+
 const runAborted = vue.ref(false);
 let cancelRunPolling: (() => void) | undefined;
 let progressResetTimer: ReturnType<typeof setTimeout> | undefined;
@@ -500,8 +584,14 @@ const updatePlot = (dataSize: number = 0): void => {
       return locApi.cppVersion() ? values : values.slice();
     };
 
-    xData = ownData(locCommon.simulationDataValue(instanceTask, xInfo.value).data);
-    yData = ownData(locCommon.simulationDataValue(instanceTask, yInfo.value).data);
+    // Note: we don't plot any data if our simulation data has been cleared (see onClearSimulationData()).
+
+    xData = hasSimulationData.value
+      ? ownData(locCommon.simulationDataValue(instanceTask, xInfo.value).data)
+      : common.EMPTY_FLOAT64_ARRAY;
+    yData = hasSimulationData.value
+      ? ownData(locCommon.simulationDataValue(instanceTask, yInfo.value).data)
+      : common.EMPTY_FLOAT64_ARRAY;
   }
 
   data.value = {
@@ -847,6 +937,10 @@ const onRunPause = async (): Promise<void> => {
 
         return;
       }
+
+      // Our simulation has been started, so we have some simulation data (again).
+
+      hasSimulationData.value = true;
 
       // Retrieve the status of our simulation.
       // Note: this may fail (e.g., if libOpenCOR throws an exception), in which case we consider our simulation as

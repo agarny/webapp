@@ -24,6 +24,19 @@
   }
 
   /**
+   * Separator between groups of toolbar buttons (e.g., between the run/pause and stop buttons, and the reset button of
+   * the Standard view).
+   */
+
+  .toolbar-separator {
+    align-self: center;
+    width: 1px;
+    height: 1.25rem;
+    margin-inline: 0.25rem;
+    background-color: var(--p-content-border-color);
+  }
+
+  /**
    * Status of our simulation, which is shown in our toolbar (e.g., next to the run/pause and stop buttons of the
    * Standard view).
    */
