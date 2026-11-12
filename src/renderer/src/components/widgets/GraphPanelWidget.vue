@@ -174,6 +174,7 @@ export interface IGraphPanelPlotTrace {
   y: math.FloatArray;
   color: string;
   legendRank?: number;
+  runLabel?: string;
 }
 
 export interface IGraphPanelData {
@@ -1297,6 +1298,36 @@ const exportToImage = async (format: ImageFormat): Promise<void> => {
   }
 };
 
+// Some helpers for our export to CSV.
+// Note: a CSV field must be quoted if it contains a comma, a double quote, or a line break, in which case any double
+//       quote must be doubled (see RFC 4180).
+
+const sameValues = (values1: math.FloatArray, values2: math.FloatArray): boolean => {
+  if (values1 === values2) {
+    return true;
+  }
+
+  if (values1.length !== values2.length) {
+    return false;
+  }
+
+  for (let i = 0; i < values1.length; ++i) {
+    if (!Object.is(values1[i], values2[i])) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const csvField = (field: string): string => {
+  return /[",\r\n]/.test(field) ? `"${field.replace(/"/g, '""')}"` : field;
+};
+
+const csvValue = (value: number | undefined): string => {
+  return value !== undefined ? String(value) : '';
+};
+
 const exportToCsv = async (): Promise<void> => {
   // Make sure that we have at least one trace to export.
 
@@ -1323,65 +1354,84 @@ const exportToCsv = async (): Promise<void> => {
 
     const csvLines: string[] = [];
 
+    // Group our traces by X values, so that traces that share the same X values (e.g., the traces of a given run) also
+    // share the same X column, while traces that don't (e.g., the traces of different runs, or a phase plot and a time
+    // plot) get their own X column. Our columns are therefore X1, Y1a, Y1b, ..., X2, Y2a, ...
+    // Note #1: we keep our X and Y values in the order in which they are plotted (rather than, say, sort them by X
+    //          value), so that a phase plot (where X values may go up and down) or repeated X values are exported as
+    //          they are.
+    // Note #2: we export our traces in the order in which they are listed in our legend (e.g., the live run first),
+    //          rather than in the order in which they are drawn (e.g., the live run last, so that it is drawn on top of
+    //          the other runs).
+
+    const groups: { trace: IGraphPanelPlotTrace; traces: IGraphPanelPlotTrace[] }[] = [];
+
+    for (const legendItem of legendItems.value) {
+      const trace = props.data.traces[legendItem.index];
+
+      if (!trace) {
+        continue;
+      }
+
+      const group = groups.find((group) => sameValues(group.trace.x, trace.x));
+
+      if (group) {
+        group.traces.push(trace);
+      } else {
+        groups.push({ trace, traces: [trace] });
+      }
+    }
+
     // Headers.
+    // Note #1: we only keep the text of a trace name (e.g., "<i>I<sub>K,r</sub></i>" becomes "IK,r").
+    // Note #2: different X columns may be for the same X value (e.g., x for the y vs. x traces of two runs), in which
+    //          case we add the run label of their traces, if they all have the same one, to their header (e.g., "x
+    //          [Live]" and "x [#1]"), so that they can be told apart.
 
-    const allXValuesEqual = props.data.traces.every(
-      (trace: IGraphPanelPlotTrace) => trace.xValue === firstTrace.xValue
-    );
-    const headerParts: string[] = [allXValuesEqual ? firstTrace.xValue : 'X'];
+    const headerParts: string[] = [];
 
-    for (const trace of props.data.traces) {
-      headerParts.push(plainText(trace.name).replace(/,/g, '') || trace.yValue);
-      // Note: we only keep the text of our trace name (e.g., "<i>I<sub>K,r</sub></i>" becomes "IK,r") and remove any
-      //       commas to ensure the CSV is well-formed.
+    for (const group of groups) {
+      const runLabel = group.trace.runLabel;
+      const ambiguousXValue = groups.some(
+        (otherGroup) => otherGroup !== group && otherGroup.trace.xValue === group.trace.xValue
+      );
+      const xHeader =
+        ambiguousXValue && runLabel && group.traces.every((trace) => trace.runLabel === runLabel)
+          ? `${group.trace.xValue} [${runLabel}]`
+          : group.trace.xValue;
+
+      headerParts.push(csvField(xHeader));
+
+      for (const trace of group.traces) {
+        headerParts.push(csvField(plainText(trace.name) || trace.yValue));
+      }
     }
 
     csvLines.push(headerParts.join(','));
 
-    // Data rows: collect all unique X values and build value maps.
+    // Data rows, of which there are as many as the number of values of our longest X column, with empty cells for the
+    // X columns (and their Y columns) that have fewer values.
+    // Note: we update the progress message at regular intervals to keep the UI responsive.
 
-    const allXValues = new Set<number>();
-    const traceMaps: Map<number, number>[] = [];
+    const nbOfRows = Math.max(...groups.map((group) => group.trace.x.length));
+    const chunkSize = Math.max(1, Math.floor(0.01 * nbOfRows));
+    const percentPerRow = 100 / nbOfRows;
 
-    for (const trace of props.data.traces) {
-      const map = new Map<number, number>();
+    for (let row = 0; row < nbOfRows; ++row) {
+      const rowParts: string[] = [];
 
-      for (let i = 0; i < trace.x.length; ++i) {
-        const xValue = trace.x[i];
-        const yValue = trace.y[i];
+      for (const group of groups) {
+        rowParts.push(csvValue(group.trace.x[row]));
 
-        if (xValue !== undefined && yValue !== undefined) {
-          allXValues.add(xValue);
-
-          map.set(xValue, yValue);
+        for (const trace of group.traces) {
+          rowParts.push(csvValue(trace.y[row]));
         }
-      }
-
-      traceMaps.push(map);
-    }
-
-    // Process the rows and update the progress message at regular intervals to keep the UI responsive.
-
-    const sortedXValues = Array.from(allXValues).sort((a, b) => a - b);
-    const chunkSize = Math.max(1, Math.floor(0.01 * sortedXValues.length));
-    const percentPerRow = 100 / sortedXValues.length;
-    let processedRows = 0;
-
-    for (const sortedXValue of sortedXValues) {
-      const rowParts: string[] = [String(sortedXValue)];
-
-      for (let traceIndex = 0; traceIndex < props.data.traces.length; ++traceIndex) {
-        const yValue = traceMaps[traceIndex].get(sortedXValue);
-
-        rowParts.push(yValue !== undefined ? String(yValue) : '');
       }
 
       csvLines.push(rowParts.join(','));
 
-      ++processedRows;
-
-      if (processedRows % chunkSize === 0 || processedRows === sortedXValues.length) {
-        opencorMessage.update(Math.floor(percentPerRow * processedRows));
+      if ((row + 1) % chunkSize === 0 || row + 1 === nbOfRows) {
+        opencorMessage.update(Math.floor(percentPerRow * (row + 1)));
 
         await common.sleep(NO_DELAY);
       }
@@ -1393,7 +1443,7 @@ const exportToCsv = async (): Promise<void> => {
 
     // Create and download the CSV file.
 
-    common.downloadFile('data.csv', csvLines.join('\n'), 'text/csv;charset=utf-8;');
+    common.downloadFile('data.csv', csvLines.join('\r\n'), 'text/csv;charset=utf-8;');
   } catch (error: unknown) {
     successfulExport = false;
 

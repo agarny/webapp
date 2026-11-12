@@ -574,7 +574,8 @@ const compData = vue.computed<IGraphPanelData[]>(() => {
       return;
     }
 
-    const suffix = runsCount === 1 ? '' : run.isLiveRun ? ' [Live]' : ` [#${runIndex}]`;
+    const runLabel = runsCount === 1 ? undefined : run.isLiveRun ? 'Live' : `#${runIndex}`;
+    const suffix = runLabel ? ` [${runLabel}]` : '';
 
     for (let k = 0; k < dataTraces.length; ++k) {
       const dataTrace = dataTraces[k];
@@ -587,6 +588,7 @@ const compData = vue.computed<IGraphPanelData[]>(() => {
         ...dataTrace,
         traceId: `${run.id}::${dataTrace.traceId ?? `${dataTrace.xValue}::${dataTrace.yValue}::${k}`}`,
         name: dataTrace.name + suffix,
+        runLabel,
         color: paletteColors[(baseColorIndex + k) % paletteColorsLength] ?? colors.DEFAULT_COLOR,
         legendRank: run.isLiveRun ? 1 : undefined
       });
