@@ -1242,59 +1242,6 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
 }
 
 /**
- * Status of our simulation, which is shown next to our run/pause and stop buttons.
- */
-
-.run-status {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  margin-left: 0.5rem;
-  color: var(--p-text-muted-color);
-  font-size: 0.8125rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.run-status .pi {
-  font-size: 0.8125rem;
-}
-
-.run-status-running .pi,
-.run-status-completed .pi {
-  color: var(--p-primary-color);
-}
-
-.run-status-paused .pi,
-.run-status-issues .pi {
-  color: var(--opencor-warn-color);
-}
-
-.run-status-stopped .pi,
-.run-status-failed .pi {
-  color: var(--opencor-error-color);
-}
-
-/**
- * Progress of our simulation, which is shown as a thin line over the bottom border of our toolbar.
- */
-
-.run-progress {
-  position: relative;
-  z-index: 11;
-  flex-shrink: 0;
-  height: 2px !important;
-  margin-top: -2px;
-  border-radius: 0;
-  background: transparent;
-  visibility: hidden;
-}
-
-.run-progress-visible {
-  visibility: visible;
-}
-
-/**
  * Console.
  */
 

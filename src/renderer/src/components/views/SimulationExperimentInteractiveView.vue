@@ -4,10 +4,10 @@
     <template v-else>
       <Toolbar v-if="!simulationOnly" class="shrink-0">
         <template #start>
-          <div class="flex gap-1 invisible">
-            <ToolbarButtonWidget icon="pi pi-play-circle" />
-            <ToolbarButtonWidget icon="pi pi-stop-circle" />
-          </div>
+          <span v-if="runStatus" class="run-status" :class="`run-status-${runStatus.type}`" aria-hidden="true">
+            <i :class="runStatus.icon"></i>
+            <span>{{ runStatus.label }}</span>
+          </span>
         </template>
         <template #end>
           <div class="flex gap-1">
@@ -24,6 +24,18 @@
           </div>
         </template>
       </Toolbar>
+      <!--
+      Note: our run status is announced by assistive technologies through a visually hidden live region (see runStatus),
+            which must exist before its contents change for them to get announced and which we also need when our
+            toolbar is not shown (i.e. in simulation-only mode).
+      -->
+      <span class="sr-only" role="status">{{ runStatusAnnouncement }}</span>
+      <ProgressBar class="run-progress"
+        :class="{ 'run-progress-visible': progressShown && progress > 0, 'run-progress-no-toolbar': simulationOnly }"
+        aria-label="Simulation progress"
+        :showValue="false"
+        :value="progress"
+      />
       <div class="grow min-h-0">
         <div class="flex h-full">
           <div v-if="uiJsonEmpty" class="empty-view">
@@ -216,6 +228,7 @@ import type {
 
 import * as colors from '../../common/colors';
 import * as common from '../../common/common';
+import { LONG_DELAY, MEDIUM_DELAY, TOAST_LIFE } from '../../common/constants';
 import * as dependencies from '../../common/dependencies';
 import * as externalData from '../../common/externalData';
 import { vHint } from '../../common/hint';
@@ -463,6 +476,126 @@ const isSimulating = vue.ref<boolean>(false);
 //       updateSimulation()). It is used, among other things, to prevent the current run from being tracked while a
 //       simulation is running (see onTrackRun()).
 const liveData = vue.ref<IGraphPanelData[]>([]);
+
+// The progress and status of our simulation, which we show in our toolbar, as in the Standard view.
+// Note #1: a simulation run is usually quick, in which case its plots get updated straightaway and showing its progress
+//          and status would just be distracting (e.g., while dragging a slider), so we only show them if we have been
+//          simulating for a while (see onIsSimulatingChanged()).
+// Note #2: our status is announced by assistive technologies through a visually hidden live region, which doesn't
+//          include the progress of our simulation since it would otherwise get announced every time it changes (our
+//          progress bar already exposes it).
+
+interface ILastRun {
+  outcome: 'completed' | 'failed';
+  time?: number;
+}
+
+const progress = vue.ref<number>(0);
+const progressShown = vue.ref<boolean>(false);
+const slowSimulation = vue.ref<boolean>(false);
+const lastRun = vue.ref<ILastRun | null>(null);
+let lastSimulationTime: number | undefined;
+let slowSimulationTimer: ReturnType<typeof setTimeout> | undefined;
+let progressResetTimer: ReturnType<typeof setTimeout> | undefined;
+let progressReset = 0;
+let runStatusTimer: ReturnType<typeof setTimeout> | undefined;
+
+const runStatus = vue.computed<{ type: string; icon: string; label: string } | null>(() => {
+  if (slowSimulation.value) {
+    return { type: 'running', icon: 'pi pi-hourglass', label: `Running... ${Math.round(progress.value)}%` };
+  }
+
+  switch (lastRun.value?.outcome) {
+    case 'completed':
+      return {
+        type: 'completed',
+        icon: 'pi pi-check-circle',
+        label: lastRun.value.time !== undefined ? `Completed in ${common.formatTime(lastRun.value.time)}` : 'Completed'
+      };
+    case 'failed':
+      return { type: 'failed', icon: 'pi pi-times-circle', label: 'Failed' };
+    default:
+      return null;
+  }
+});
+
+const runStatusAnnouncement = vue.computed<string>(() => {
+  return runStatus.value?.type === 'running' ? 'Running...' : (runStatus.value?.label ?? '');
+});
+
+const onIsSimulatingChanged = (simulating: boolean): void => {
+  clearTimeout(slowSimulationTimer);
+
+  slowSimulationTimer = undefined;
+
+  if (simulating) {
+    // We have started simulating, so forget about our previous status (unless our previous run failed, in which case
+    // our issues are still shown) and only show our progress and status if we are still simulating after a while.
+
+    clearTimeout(runStatusTimer);
+    clearTimeout(progressResetTimer);
+
+    ++progressReset;
+
+    if (lastRun.value?.outcome !== 'failed') {
+      lastRun.value = null;
+    }
+
+    progress.value = 0;
+    progressShown.value = false;
+
+    slowSimulationTimer = setTimeout(() => {
+      slowSimulationTimer = undefined;
+
+      progressShown.value = true;
+      slowSimulation.value = true;
+    }, LONG_DELAY);
+
+    return;
+  }
+
+  // We have stopped simulating, so report whether our simulation failed or, if it was slow, completed. If our progress
+  // bar is shown, then we show it at 100% (now that our results have been plotted) before resetting it after a short
+  // delay (as in the Standard view). A completed status only confirms what can be seen, so we hide it after a while.
+
+  const wasSlow = slowSimulation.value;
+
+  slowSimulation.value = false;
+
+  // Note: we only start the delay once our UI has been painted since plotting our results may take longer than it.
+
+  if (progressShown.value) {
+    const currentProgressReset = ++progressReset;
+
+    progress.value = 100;
+
+    void common.waitForNextPaint().then(() => {
+      if (currentProgressReset === progressReset) {
+        progressResetTimer = setTimeout(() => {
+          progressResetTimer = undefined;
+
+          progress.value = 0;
+        }, MEDIUM_DELAY);
+      }
+    });
+  }
+
+  if (simulationIssues.value.length) {
+    lastRun.value = { outcome: 'failed' };
+  } else if (wasSlow) {
+    lastRun.value = { outcome: 'completed', time: lastSimulationTime };
+
+    runStatusTimer = setTimeout(() => {
+      runStatusTimer = undefined;
+
+      lastRun.value = null;
+    }, TOAST_LIFE);
+  } else {
+    lastRun.value = null;
+  }
+};
+
+vue.watch(isSimulating, onIsSimulatingChanged);
 let margins: Record<string, IGraphPanelMargins> = {};
 const compMargins = vue.ref<IGraphPanelMargins>();
 
@@ -1402,9 +1535,11 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
     }
   }
 
-  // Reset our issues.
+  // The issues of this simulation run, if any.
+  // Note: we only replace our current issues once we know the outcome of this simulation run, so that they don't get
+  //       cleared and then shown again (and our plots shown and then hidden again) every time an input is changed.
 
-  simulationIssues.value = [];
+  const issues: locApi.IIssue[] = [];
 
   // Show/hide the input widgets.
 
@@ -1417,7 +1552,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
       } catch (error: unknown) {
         showInput.value[i] = false;
 
-        simulationIssues.value.push({
+        issues.push({
           type: locApi.EIssueType.ERROR,
           description: `An error occurred while evaluating visibility for input '${input.name}' (${common.formatMessage(common.formatError(error), false)}).`
         });
@@ -1427,12 +1562,14 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
 
   // Evaluate the model changes.
 
-  const modelChanges = evaluateModelChanges(actualUiJson.value.parameters, modelScope, simulationIssues.value);
+  const modelChanges = evaluateModelChanges(actualUiJson.value.parameters, modelScope, issues);
 
   // Make sure that we haven't come across any issues so far.
 
-  if (simulationIssues.value.length) {
-    addInformationIssue(simulationIssues.value);
+  if (issues.length) {
+    addInformationIssue(issues);
+
+    simulationIssues.value = issues;
 
     return;
   }
@@ -1463,6 +1600,15 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
   // Start the simulation in a background thread and yield to the UI to keep it responsive while the simulation runs.
 
   if (!crtInstance.startRun()) {
+    simulationIssues.value = crtInstance.hasIssues()
+      ? crtInstance.issues()
+      : [
+          {
+            type: locApi.EIssueType.ERROR,
+            description: 'The simulation could not be started.'
+          }
+        ];
+
     return;
   }
 
@@ -1476,7 +1622,15 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
   let instanceReplaced = false;
 
   try {
-    await vueCommon.waitWhileRunning(crtInstance).promise;
+    // Note: we only keep track of the progress of our simulation while it is running, i.e. we ignore the progress of
+    //       100% that is reported once it is over and the (delayed) reset of the progress bar since our results have
+    //       yet to be retrieved and plotted at that point (see onIsSimulatingChanged()).
+
+    await vueCommon.waitWhileRunning(crtInstance, (newProgress: number) => {
+      if (currentSimulationGeneration === simulationGeneration && newProgress > 0 && newProgress < 100) {
+        progress.value = newProgress;
+      }
+    }).promise;
   } finally {
     runningInstances.delete(crtInstance);
 
@@ -1503,6 +1657,16 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
     simulationIssues.value = crtInstance.issues();
 
     return;
+  }
+
+  // Keep track of how long the simulation took, so that we can report it (see runStatus).
+  // Note: retrieving it may fail (e.g., if libOpenCOR throws an exception), but this must not prevent our results from
+  //       being plotted.
+
+  try {
+    lastSimulationTime = crtInstance.waitForRun();
+  } catch {
+    lastSimulationTime = undefined;
   }
 
   // A helper function to evaluate an expression within the given scope.
@@ -1558,7 +1722,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
           }
         }
       } catch (error: unknown) {
-        simulationIssues.value.push({
+        issues.push({
           type: locApi.EIssueType.ERROR,
           description: `An error occurred while evaluating the VOI expression '${externalDataItem.voiExpression}' (${common.formatMessage(common.formatError(error), false)}).`
         });
@@ -1568,8 +1732,10 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
 
   // Make sure that we haven't come across any issues so far.
 
-  if (simulationIssues.value.length) {
-    addInformationIssue(simulationIssues.value);
+  if (issues.length) {
+    addInformationIssue(issues);
+
+    simulationIssues.value = issues;
 
     return;
   }
@@ -1686,7 +1852,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
     try {
       xMain = evaluateExpression(plot.xValue, modelScope);
     } catch (error: unknown) {
-      simulationIssues.value.push({
+      issues.push({
         type: locApi.EIssueType.ERROR,
         description: `An error occurred while evaluating the X value expression for plot '${plot.name}' (${common.formatMessage(common.formatError(error), false)}).`
       });
@@ -1697,7 +1863,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
     try {
       yMain = evaluateExpression(plot.yValue, modelScope);
     } catch (error: unknown) {
-      simulationIssues.value.push({
+      issues.push({
         type: locApi.EIssueType.ERROR,
         description: `An error occurred while evaluating the Y value expression for plot '${plot.name}' (${common.formatMessage(common.formatError(error), false)}).`
       });
@@ -1733,7 +1899,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
       try {
         xAdditional = evaluateExpression(additionalTrace.xValue, modelScope);
       } catch (error: unknown) {
-        simulationIssues.value.push({
+        issues.push({
           type: locApi.EIssueType.ERROR,
           description: `An error occurred while evaluating the X value expression for additional trace #${additionalTraceIndex + 1} of plot '${plot.name}' (${common.formatMessage(common.formatError(error), false)}).`
         });
@@ -1744,7 +1910,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
       try {
         yAdditional = evaluateExpression(additionalTrace.yValue, modelScope);
       } catch (error: unknown) {
-        simulationIssues.value.push({
+        issues.push({
           type: locApi.EIssueType.ERROR,
           description: `An error occurred while evaluating the Y value expression for additional trace #${additionalTraceIndex + 1} of plot '${plot.name}' (${common.formatMessage(common.formatError(error), false)}).`
         });
@@ -1774,14 +1940,17 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
 
   // Make sure that we haven't come across any issues so far.
 
-  if (simulationIssues.value.length) {
-    addInformationIssue(simulationIssues.value);
+  if (issues.length) {
+    addInformationIssue(issues);
+
+    simulationIssues.value = issues;
 
     return;
   }
 
-  // Let people know that the simulation data has been updated.
+  // We have no issues, so let people know that the simulation data has been updated.
 
+  simulationIssues.value = [];
   simulationDataAvailable = true;
 
   emit('simulationData');
@@ -2515,6 +2684,10 @@ const onResetInputs = (event: Event): void => {
 
 vue.onBeforeUnmount(() => {
   ++simulationGeneration;
+
+  clearTimeout(slowSimulationTimer);
+  clearTimeout(runStatusTimer);
+  clearTimeout(progressResetTimer);
 
   inputSimulationUpdatePending = false;
 
