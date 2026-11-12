@@ -65,6 +65,7 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
+import * as common from '../../common/common';
 import * as constants from '../../common/constants';
 import { vHint } from '../../common/hint';
 
@@ -152,10 +153,13 @@ const rootClass = vue.computed<Array<string | Record<string, boolean>>>(() => {
     }
   ];
 });
-const inferredNumericValue = vue.computed<number>(() => {
+const shownValue = (): number => {
   const source = internalValue.value === '' ? (props.modelValue ?? props.min ?? 0) : parseFloat(internalValue.value);
 
   return Number.isFinite(source) ? source : (props.modelValue ?? 0);
+};
+const inferredNumericValue = vue.computed<number>(() => {
+  return shownValue();
 });
 const activeButton = vue.ref<'increment' | 'decrement' | null>(null);
 const minBoundary = vue.computed<boolean>(() => {
@@ -207,7 +211,7 @@ const decrementButtonClass = vue.computed<Array<string | Record<string, boolean>
 });
 
 const updateInternalValue = (value: number | undefined) => {
-  internalValue.value = value !== undefined ? String(value) : '';
+  internalValue.value = value !== undefined ? common.formatNumber(value) : '';
 };
 
 vue.watch(
@@ -426,39 +430,6 @@ const validateValue = (value: number) => {
   return value;
 };
 
-const getFractionDigits = (value: number) => {
-  const [coefficient, exponentString] = value.toString().toLowerCase().split('e');
-  const exponent = exponentString ? Number(exponentString) : 0;
-  const coefficientFractionDigits = coefficient.includes('.') ? (coefficient.split('.')[1]?.length ?? 0) : 0;
-
-  return Math.max(0, coefficientFractionDigits - exponent);
-};
-
-const addWithPrecision = (base: number, increment: number) => {
-  const precisionDigits = Math.max(getFractionDigits(base), getFractionDigits(increment), 0);
-  const maxPrecisionDigits = 15;
-  const safePrecisionDigits = Math.min(precisionDigits, maxPrecisionDigits);
-  let precision = 10 ** safePrecisionDigits;
-
-  if (!Number.isFinite(precision) || precision === 0) {
-    precision = 10 ** maxPrecisionDigits;
-  }
-
-  const rawValue = (base + increment) * precision;
-
-  if (!Number.isFinite(rawValue)) {
-    return base + increment;
-  }
-
-  const rounded = Math.round(rawValue) / precision;
-
-  if (!Number.isFinite(rounded)) {
-    return base + increment;
-  }
-
-  return rounded;
-};
-
 const spinTimer = vue.ref<number | undefined>(undefined);
 
 const spin = (direction: 1 | -1, factor: number): boolean => {
@@ -468,10 +439,8 @@ const spin = (direction: 1 | -1, factor: number): boolean => {
     return false;
   }
 
-  const inferredBaseValue =
-    internalValue.value === '' ? (props.modelValue ?? props.min ?? 0) : parseFloat(internalValue.value);
-  const safeCurrentValue = Number.isFinite(inferredBaseValue) ? inferredBaseValue : (props.modelValue ?? 0);
-  const nextValue = validateValue(addWithPrecision(safeCurrentValue, step * direction));
+  const safeCurrentValue = shownValue();
+  const nextValue = validateValue(common.addNumbers(safeCurrentValue, step * direction));
 
   if (!Number.isFinite(nextValue) || nextValue === safeCurrentValue) {
     return false;

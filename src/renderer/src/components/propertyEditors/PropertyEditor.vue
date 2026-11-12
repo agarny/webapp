@@ -9,7 +9,7 @@
       <InputScientificNumberWidget v-for="(property, index) in properties" :key="property.property"
         :ref="(element: unknown) => (fieldRefs[index] = element as IInputScientificNumberWidget | null)"
         :modelValue="property.value"
-        :label="hasUnits && property.unit ? `${property.property} (${property.unit})` : property.property"
+        :label="common.labelWithUnit(property.property, hasUnits ? property.unit : undefined)"
         :disabled="disabled"
         size="small"
         @update:modelValue="(newValue: number | undefined) => onValueUpdated(index, newValue)"
@@ -19,6 +19,8 @@
 </template>
 
 <script setup lang="ts">
+import * as common from '../../common/common';
+
 const props = withDefaults(
   defineProps<{
     name: string;

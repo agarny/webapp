@@ -252,6 +252,72 @@ export const xxh64 = (data: string | Uint8Array): string => {
   return dependencies._xxhash.h64Raw(data).toString(16).padStart(16, '0');
 };
 
+// Some methods to format numbers, so that they get formatted the same way everywhere:
+//  - formatNumber() formats a value (e.g., that of a model parameter or of a simulation setting) the way it can be
+//    entered in a numeric field (i.e. using a dot as the decimal separator, no group separators, and an exponent for a
+//    very small or large value), using the shortest text that parses back to that exact value (i.e. no value gets
+//    rounded);
+//  - formatCount() formats a count (e.g., a number of data points), with group separators (e.g., 1,000,001), which is
+//    fine since a count is never entered in a numeric field. We use English (as for the rest of our UI), so that our
+//    group separator cannot be mistaken for the decimal separator used by formatNumber(); and
+//  - formatTime() formats a duration in milliseconds (e.g., the time it took to run a simulation).
+// Note: a value computed from other values (e.g., by a slider or a spin button, which add a step to a value) may have a
+//       floating-point error (e.g., 0.1 + 0.2 = 0.30000000000000004), which formatNumber() would show. So, we round
+//       such a value to the number of decimals of the values it was computed from (see fractionDigits() and
+//       roundToFractionDigits()), i.e. to the value that would have been computed using decimal arithmetic.
+
+export const formatNumber = (value: number): string => {
+  return String(value);
+};
+
+// Return the number of decimals of the given value, i.e. of the shortest text that parses back to it (e.g., 2 for 0.25
+// and 7 for 1e-7).
+
+export const fractionDigits = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  const [coefficient = '', exponent] = String(value).toLowerCase().split('e');
+  const coefficientFractionDigits = coefficient.split('.')[1]?.length ?? 0;
+
+  return Math.max(0, coefficientFractionDigits - Number(exponent ?? 0));
+};
+
+// Round the given value to the given number of decimals.
+// Note: toFixed() returns the decimal text that is closest to the value, which is exact if the value has no more than
+//       the given number of decimals. However, it only supports up to 100 decimals and values smaller than 1e21 (which
+//       have no decimals anyway), so we leave the other values as they are.
+
+export const roundToFractionDigits = (value: number, digits: number): number => {
+  if (!Number.isFinite(value) || Math.abs(value) >= 1e21 || digits > 100) {
+    return value;
+  }
+
+  return Number(value.toFixed(Math.max(0, digits)));
+};
+
+// Add/subtract the given values without any floating-point error, e.g., 0.1 + 0.2 = 0.3 rather than
+// 0.30000000000000004.
+
+export const addNumbers = (value1: number, value2: number): number => {
+  return roundToFractionDigits(value1 + value2, Math.max(fractionDigits(value1), fractionDigits(value2)));
+};
+
+export const subtractNumbers = (value1: number, value2: number): number => {
+  return addNumbers(value1, -value2);
+};
+
+export const formatCount = (count: number): string => {
+  return count.toLocaleString('en');
+};
+
+// A method to add a unit, if any, to a label (e.g., "Ending point (second)" or "Ending point" if there is no unit).
+
+export const labelWithUnit = (label: string, unit?: string): string => {
+  return unit ? `${label} (${unit})` : label;
+};
+
 // A method to format a number of milliseconds into a string.
 
 export const formatTime = (time: number): string => {

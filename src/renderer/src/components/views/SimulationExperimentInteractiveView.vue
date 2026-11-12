@@ -166,7 +166,7 @@
 
                   <p v-if="preSimulationDuration" class="side-panel-hint">
                     <i class="pi pi-info-circle"></i>
-                    <span>The simulation was run for <strong>{{ preSimulationDuration }} {{ voiUnit }}</strong> prior to plotting.</span>
+                    <span>The simulation was run for <strong>{{ preSimulationDurationText }}</strong> prior to plotting.</span>
                   </p>
                 </div>
               </ScrollPanel>
@@ -784,7 +784,12 @@ const settings = vue.computed<ISimulationExperimentInteractiveViewSettingsDialog
 const preSimulationDuration = vue.computed<number>(() => {
   const settingsVal = settings.value;
 
-  return settingsVal.simulation.startingPoint - settingsVal.simulation.initialPoint;
+  return common.subtractNumbers(settingsVal.simulation.startingPoint, settingsVal.simulation.initialPoint);
+});
+const preSimulationDurationText = vue.computed<string>(() => {
+  const duration = common.formatNumber(preSimulationDuration.value);
+
+  return voiUnit.value ? `${duration} ${voiUnit.value}` : duration;
 });
 
 // A helper function to serialise some settings so that they can be compared with some other settings.
@@ -2143,7 +2148,7 @@ const onTrackRun = (): void => {
     }
 
     tooltipRows.push(
-      `<tr><th>${common.escapeHtml(input.name)}:</th><td>${common.escapeHtml(String(inputValue ?? ''))}</td></tr>`
+      `<tr><th>${common.escapeHtml(input.name)}:</th><td>${common.escapeHtml(typeof inputValue === 'number' ? common.formatNumber(inputValue) : (inputValue ?? ''))}</td></tr>`
     );
   }
 

@@ -44,7 +44,7 @@
             <div class="settings-form">
               <div class="form-row">
                 <InputScientificNumberWidget v-model="localSettings.simulation.initialPoint" class="form-field"
-                  :label="`Initial point (${voiUnit})`"
+                  :label="common.labelWithUnit('Initial point', voiUnit)"
                   size="small"
                 />
                 <div class="form-field self-stretch">
@@ -56,17 +56,17 @@
               </div>
               <div class="form-row">
                 <InputScientificNumberWidget v-model="localSettings.simulation.startingPoint" class="form-field"
-                  :label="`Starting point (${voiUnit})`"
+                  :label="common.labelWithUnit('Starting point', voiUnit)"
                   size="small"
                 />
                 <InputScientificNumberWidget v-model="localSettings.simulation.endingPoint" class="form-field"
-                  :label="`Ending point (${voiUnit})`"
+                  :label="common.labelWithUnit('Ending point', voiUnit)"
                   size="small"
                 />
               </div>
               <div class="form-row">
                 <InputScientificNumberWidget v-model="localSettings.simulation.pointInterval" class="form-field"
-                  :label="`Point interval (${voiUnit})`"
+                  :label="common.labelWithUnit('Point interval', voiUnit)"
                   size="small"
                 />
                 <div class="form-field self-stretch">
@@ -91,7 +91,7 @@
             <div class="settings-form">
               <div class="form-row">
                 <InputScientificNumberWidget v-model="localSettings.solvers.cvodeMaximumStep" class="form-field"
-                  :label="`CVODE's maximum step (${voiUnit})`"
+                  :label="common.labelWithUnit(`CVODE's maximum step`, voiUnit)"
                   size="small"
                 />
                 <div class="form-field self-stretch">
@@ -771,7 +771,7 @@ const numberOfDataPoints = vue.computed<string>(() => {
 
   const { startingPoint, endingPoint, pointInterval } = localSettings.value.simulation;
   const points = Math.max(1, Math.round((endingPoint - startingPoint) / pointInterval)) + 1;
-  const res = points.toLocaleString();
+  const res = common.formatCount(points);
 
   if (!common.isDivisible(endingPoint - startingPoint, pointInterval)) {
     return `~${res}`;
@@ -864,7 +864,7 @@ const simulationSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
     if (!(Math.round((endingPoint - startingPoint) / pointInterval) <= locApi.MAXIMUM_NUMBER_OF_STEPS)) {
       res.push({
         type: EIssueType.WARNING,
-        description: `The point interval is too small (the number of steps must not exceed ${locApi.MAXIMUM_NUMBER_OF_STEPS.toLocaleString()}).`
+        description: `The point interval is too small (the number of steps must not exceed ${common.formatCount(locApi.MAXIMUM_NUMBER_OF_STEPS)}).`
       });
     }
   }

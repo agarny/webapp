@@ -63,6 +63,7 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
+import * as common from '../../common/common';
 import { LONG_DELAY } from '../../common/constants';
 import { vHint } from '../../common/hint';
 import * as vueCommon from '../../common/vueCommon';
@@ -130,7 +131,13 @@ const compStepValue = vue.computed<number>(() => {
   }
 
   if (props.maximumValue !== undefined && props.minimumValue !== undefined) {
-    return 0.01 * (props.maximumValue - props.minimumValue);
+    // Note: we round our step to the number of decimals it would have if computed using decimal arithmetic (e.g., 0.009
+    //       rather than 0.009000000000000001 for a minimum value of 0.1 and a maximum value of 1).
+
+    return common.roundToFractionDigits(
+      0.01 * (props.maximumValue - props.minimumValue),
+      Math.max(common.fractionDigits(props.minimumValue), common.fractionDigits(props.maximumValue)) + 2
+    );
   }
 
   return 1;
@@ -330,7 +337,23 @@ const inputTextValueUpdated = (newValue: number | undefined) => {
 };
 
 const sliderChange = (newValue: number | number[]) => {
-  const valueToEmit = Array.isArray(newValue) ? newValue[0] : newValue;
+  // Note: our slider adds a multiple of our step to our old value (and clamps the result to our minimum and maximum
+  //       values), which may result in a floating-point error (e.g., 0.1 + 0.2 = 0.30000000000000004), so we round its
+  //       value to the number of decimals of the values it was computed from (see common.formatNumber()).
+
+  const rawValueToEmit = Array.isArray(newValue) ? newValue[0] : newValue;
+  const valueToEmit =
+    rawValueToEmit !== undefined
+      ? common.roundToFractionDigits(
+          rawValueToEmit,
+          Math.max(
+            common.fractionDigits(oldValue),
+            common.fractionDigits(compStepValue.value),
+            props.minimumValue !== undefined ? common.fractionDigits(props.minimumValue) : 0,
+            props.maximumValue !== undefined ? common.fractionDigits(props.maximumValue) : 0
+          )
+        )
+      : undefined;
 
   if (valueToEmit !== undefined && valueToEmit !== oldValue) {
     emitChange(valueToEmit);
