@@ -318,6 +318,11 @@ let stopTrackingLegendSize: (() => void) | undefined;
 let marginsUpdatePending = false;
 let trackedMargins: IGraphPanelMargins | undefined;
 
+// Whether our axes are logarithmic, which can be changed using our context menu (see contextMenuItems and Logarithmic
+// axes below).
+
+const logAxes = vue.ref<Record<AxisKey, boolean>>({ x: false, y: false });
+
 // Our theme, which uses PrimeVue's CSS variables, so that it is consistent with the rest of OpenCOR.
 // Note: a canvas doesn't understand CSS variables, so we resolve them (see colors.cssColor()) for what gets drawn on
 //       uPlot's canvas (i.e. our grid lines, zero lines, and tick labels). This is fine since we resolve them whenever
@@ -714,6 +719,21 @@ const contextMenuItems = vue.computed<MenuItem[]>(() => [
     icon: 'pi pi-refresh',
     label: 'Reset Zoom',
     command: () => resetZoom()
+  },
+  {
+    separator: true
+  },
+  {
+    icon: 'pi pi-arrows-h',
+    label: 'Logarithmic X Axis',
+    checked: logAxes.value.x,
+    command: () => toggleLogAxis('x')
+  },
+  {
+    icon: 'pi pi-arrows-v',
+    label: 'Logarithmic Y Axis',
+    checked: logAxes.value.y,
+    command: () => toggleLogAxis('y')
   },
   {
     separator: true
@@ -1142,7 +1162,10 @@ const svgDocument = (scale: number = 1): ISvgDocument => {
     return svgPathElement(path, `stroke="${colors.cssColor(color)}" stroke-width="${lineWidth(scale)}" fill="none"`);
   };
 
-  res.push(lines(themeColors.value.grid, xSplits, ySplits, false), lines(themeColors.value.zeroLine, [0], [0]));
+  res.push(
+    lines(themeColors.value.grid, xSplits, ySplits, false),
+    lines(themeColors.value.zeroLine, zeroLines('x'), zeroLines('y'))
+  );
 
   // Our visible traces and their markers, if any, which uPlot draws in that order, trace by trace.
 
@@ -1611,9 +1634,11 @@ const naturalRange = (u: uPlot, axisKey: AxisKey, dataMin: number | null, dataMa
   // Return the natural range of the given axis, i.e. the given range for the axis, if any, or the autorange of the
   // given data range otherwise (or of our data if no data range is given).
 
-  // If a (finite) range was given for the axis, then we use it.
+  // If a range was given for the axis and it can be plotted (i.e. it is finite and, for a logarithmic axis, positive,
+  // see plotValue()), then we use it.
 
-  const range = axisKey === 'x' ? props.data.xAxisRange : props.data.yAxisRange;
+  const givenRange = axisKey === 'x' ? props.data.xAxisRange : props.data.yAxisRange;
+  const range = givenRange && [plotValue(axisKey, givenRange[0]), plotValue(axisKey, givenRange[1])];
 
   if (range && Number.isFinite(range[0]) && Number.isFinite(range[1])) {
     // Make sure that the given range is in increasing order (e.g., if our ending point is before our starting point)
@@ -1984,6 +2009,36 @@ const resetZoom = (axisKeys: AxisKey[] = ['x', 'y']): void => {
   }
 
   animateScales(ranges, ZOOM_ANIMATION_DURATION);
+};
+
+// Logarithmic axis toggling (see contextMenuItems).
+
+const toggleLogAxis = (axisKey: AxisKey): void => {
+  // Toggle whether the given axis is logarithmic, keeping its zoom range, if any and if possible (i.e. unless it has a
+  // non-positive end and the axis becomes logarithmic, in which case the axis gets autoranged), and replot our data
+  // (see plotData()).
+  // Note: the ranges of a logarithmic axis are the decimal logarithm of its actual ranges (see plotValue()), hence we
+  //       convert its zoom range and forget its last autorange.
+
+  finishRangeAnimation();
+
+  const zoomRange = zoomRanges[axisKey];
+  const actualZoomRange = zoomRange && [actualValue(axisKey, zoomRange[0]), actualValue(axisKey, zoomRange[1])];
+
+  logAxes.value = { ...logAxes.value, [axisKey]: !logAxes.value[axisKey] };
+
+  delete zoomRanges[axisKey];
+  delete lastAutoRanges[axisKey];
+
+  if (actualZoomRange) {
+    const newZoomRange: Range = [plotValue(axisKey, actualZoomRange[0]), plotValue(axisKey, actualZoomRange[1])];
+
+    if (Number.isFinite(newZoomRange[0]) && Number.isFinite(newZoomRange[1]) && newZoomRange[0] < newZoomRange[1]) {
+      zoomRanges[axisKey] = newZoomRange;
+    }
+  }
+
+  updatePlot();
 };
 
 // Pointer interaction (i.e. using a mouse, a pen, or a finger), like with Plotly:
@@ -2781,15 +2836,19 @@ const isAxisEnd = (type: DragType): type is AxisEnd => {
   return type === 'w' || type === 'e' || type === 'n' || type === 's';
 };
 
-const rangeEndText = (range: Range, end: 0 | 1): string => {
-  // Like Plotly (see its getEndText()), return the given end of the given range with four more significant digits than
-  // needed to tell it apart from the other end of the range.
+const rangeEndText = (range: Range, end: 0 | 1, logarithmic: boolean = false): string => {
+  // Like Plotly (see its getEndText()), return the given (actual) end of the given (actual) range with four more
+  // significant digits than needed to tell it apart from the other end of the range or, for a logarithmic axis, with
+  // four significant digits (plus one for each power of ten by which the range is smaller than a power of ten) since
+  // the ends of its range may be powers of ten apart (e.g., 0.001 and 100, in which case 0.001 would otherwise be shown
+  // with only one significant digit).
   // Note: like Plotly (and d3-format, which it uses), we use toPrecision() with a precision between 1 and 21, and we
   //       return the value as is if we can't determine a precision (e.g., if it is zero).
 
   const value = range[end];
-  const precision =
-    Math.floor(Math.log10(Math.abs(value))) - Math.floor(Math.log10(Math.abs(value - range[1 - end]))) + 4;
+  const precision = logarithmic
+    ? 4 + Math.max(0, -Math.floor(Math.log10(Math.abs(Math.log10(range[1] / range[0])))))
+    : Math.floor(Math.log10(Math.abs(value))) - Math.floor(Math.log10(Math.abs(value - range[1 - end]))) + 4;
 
   return Number.isFinite(precision) ? value.toPrecision(Math.min(Math.max(precision, 1), 21)) : String(value);
 };
@@ -2823,7 +2882,7 @@ const openRangeEditor = (type: AxisEnd): void => {
   rangeEditor.value = {
     axisKey,
     end,
-    text: rangeEndText(range, end),
+    text: rangeEndText([actualValue(axisKey, range[0]), actualValue(axisKey, range[1])], end, logAxes.value[axisKey]),
     left: type === 'e' ? dragger.left + dragger.width : dragger.left,
     top:
       axisKey === 'x' ? dragger.top + 0.5 * dragger.height : type === 's' ? dragger.top + dragger.height : dragger.top,
@@ -2877,8 +2936,12 @@ const closeRangeEditor = (apply: boolean): void => {
 
   // Determine the text and value of our range editor, if it is valid.
 
+  // Note: the value is an actual value, so we convert it to the value that we plot (see plotValue()), which may not be
+  //       valid (e.g., a non-positive value for a logarithmic axis).
+
   const text = rangeEditorRef.value?.textContent ?? '';
-  const value = rangeEndValue(text);
+  const actualRangeEndValue = rangeEndValue(text);
+  const value = actualRangeEndValue === undefined ? undefined : plotValue(editor.axisKey, actualRangeEndValue);
 
   rangeEditor.value = null;
 
@@ -2886,7 +2949,7 @@ const closeRangeEditor = (apply: boolean): void => {
 
   const range = currentRange(editor.axisKey);
 
-  if (!apply || text === editor.text || value === undefined || !range) {
+  if (!apply || text === editor.text || value === undefined || !Number.isFinite(value) || !range) {
     return;
   }
 
@@ -3272,7 +3335,7 @@ const formatNumber = (value: number, format: INumberFormat): string => {
 // our grid is lighter.
 
 interface IAxisTicks {
-  format: INumberFormat;
+  label: (split: number) => string;
 }
 
 const axisTicks: Partial<Record<AxisKey, IAxisTicks>> = {};
@@ -3305,6 +3368,18 @@ const ticksBetween = (min: number, max: number, dtick: number): number[] => {
   return res;
 };
 
+const logTickLabel = (value: number): string => {
+  // Return the label of the given tick of a logarithmic axis, i.e. of a (multiple of a) power of ten, with only the
+  // digits that it needs and its own SI prefix or exponent (e.g., "20μ", "0.5", "1", "1000", "10k", or "1×10¹⁵").
+
+  const exponent = Math.floor(Math.log10(value) + 1e-9);
+
+  return formatNumber(value, {
+    tickRound: -exponent,
+    exponent: Math.abs(exponent) > 3 ? (beyondSI(exponent) ? exponent : 3 * Math.floor(exponent / 3)) : 0
+  });
+};
+
 const axisSplits = (axisKey: AxisKey): uPlot.Axis.Splits => {
   // Return a function that computes the splits (i.e. the positions of our ticks) for the given axis.
 
@@ -3316,63 +3391,112 @@ const axisSplits = (axisKey: AxisKey): uPlot.Axis.Splits => {
     const minSpacing = axisKey === 'x' ? TICK_MIN_X_SPACING : TICK_MIN_Y_SPACING;
     const nbOfTicks = Math.min(Math.max(length / minSpacing, 4), 9) + 1;
     const range = Math.abs(max - min);
-    const maxEnd = Math.max(Math.abs(min), Math.abs(max));
-    let dtick = roundDTick(range / nbOfTicks);
+    const isLogAxis = logAxes.value[axisKey];
+
+    // Make sure that our tick labels don't overlap, i.e. that the smallest distance between two consecutive ticks can
+    // fit our biggest tick label along our axis (i.e. its width for our X axis and its height for our Y axis).
+    // Note: the ticks of a logarithmic axis are not evenly spaced, hence we check all of them.
+
+    const splitsFit = (splits: number[], label: (split: number) => string): boolean => {
+      let labelSize = TICK_FONT_SIZE;
+
+      if (axisKey === 'x') {
+        labelSize = 0;
+
+        for (const split of splits) {
+          labelSize = Math.max(labelSize, textWidth(label(split), tickFont()));
+        }
+      }
+
+      for (let i = 1; i < splits.length; ++i) {
+        if (
+          (length * ((splits[i] as number) - (splits[i - 1] as number))) / range <
+          labelSize + TICK_LABEL_MIN_SPACING
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+    const setSplits = (splits: number[], label: (split: number) => string): number[] => {
+      // Keep track of how to label our splits (see axisValues()) and return them.
+
+      axisTicks[axisKey] = {
+        label
+      };
+
+      return splits;
+    };
+
+    // A logarithmic axis that spans at least one power of ten has ticks at 1, 2, and 5 times each power of ten or, if
+    // they don't fit, at every power of ten or at every 2, 5, 10, 20, etc. powers of ten. Otherwise (i.e. for a linear
+    // axis or a logarithmic axis that spans less than a power of ten), we have "nice" linear ticks (between the actual
+    // values of a logarithmic axis).
+    // Note: we increase our tick spacing (to the next "nice" value) for as long as our tick labels would overlap. This
+    //       always ends since we end up with at most one tick once our tick spacing is bigger than our range.
+
+    if (isLogAxis && range >= 1 && Number.isFinite(range)) {
+      const label = (split: number): string => logTickLabel(10 ** split);
+
+      if (range <= nbOfTicks) {
+        const splits: number[] = [];
+
+        for (let exponent = Math.floor(min); exponent <= Math.ceil(max); ++exponent) {
+          for (const mantissa of [1, 2, 5]) {
+            const split = exponent + Math.log10(mantissa);
+
+            if (split >= min - 1e-9 && split <= max + 1e-9) {
+              splits.push(split);
+            }
+          }
+        }
+
+        if (splits.length <= nbOfTicks && splitsFit(splits, label)) {
+          return setSplits(splits, label);
+        }
+      }
+
+      let dtick = 1;
+
+      for (;;) {
+        const splits = ticksBetween(min, max, dtick);
+
+        if (splits.length <= 1 || (splits.length <= nbOfTicks && splitsFit(splits, label))) {
+          return setSplits(splits, label);
+        }
+
+        dtick = roundDTick(dtick);
+      }
+    }
 
     // Make sure that our tick spacing is valid, i.e. that our range is neither too small (e.g., a subnormal range, in
     // which case our tick spacing would be zero) nor too big (e.g., a range that overflows, in which case our tick
     // spacing would be infinite).
 
+    const valueMin = isLogAxis ? 10 ** min : min;
+    const valueMax = isLogAxis ? 10 ** max : max;
+    const valueRange = Math.abs(valueMax - valueMin);
+    const maxEnd = Math.max(Math.abs(valueMin), Math.abs(valueMax));
+    let dtick = roundDTick(valueRange / nbOfTicks);
+
     if (!(dtick > 0 && Number.isFinite(dtick))) {
-      axisTicks[axisKey] = {
-        format: {
-          tickRound: 0,
-          exponent: 0
-        }
-      };
-
-      return [];
+      return setSplits([], (split: number) => formatNumber(split, { tickRound: 0, exponent: 0 }));
     }
 
-    let ticks = ticksBetween(min, max, dtick);
-    let format = numberFormat(dtick, maxEnd);
+    for (;;) {
+      const format = numberFormat(dtick, maxEnd);
+      const label = (split: number): string => formatNumber(isLogAxis ? 10 ** split : split, format);
+      const ticks = ticksBetween(valueMin, valueMax, dtick);
+      const splits = isLogAxis ? ticks.filter((tick: number) => tick > 0).map(Math.log10) : ticks;
 
-    // Make sure that our tick labels don't overlap by increasing our tick spacing (to the next "nice" value) for as
-    // long as they would.
-    // Note: this always ends since we end up with at most one tick once our tick spacing is bigger than our range.
-
-    const tickLabelSize = (): number => {
-      // Return the size of our biggest tick label along our axis, i.e. its width for our X axis and its height for our
-      // Y axis.
-
-      if (axisKey === 'y') {
-        return TICK_FONT_SIZE;
+      if (splits.length <= 1 || splitsFit(splits, label)) {
+        return setSplits(splits, label);
       }
 
-      let res = 0;
-
-      for (const tick of ticks) {
-        res = Math.max(res, textWidth(formatNumber(tick, format), tickFont()));
-      }
-
-      return res;
-    };
-
-    while (ticks.length > 1 && (length * dtick) / range < tickLabelSize() + TICK_LABEL_MIN_SPACING) {
       dtick = roundDTick(dtick);
-      ticks = ticksBetween(min, max, dtick);
-      format = numberFormat(dtick, maxEnd);
     }
-
-    // Keep track of the format of our tick labels.
-
-    axisTicks[axisKey] = {
-      format
-    };
-
-    // Return our ticks.
-
-    return ticks;
   };
 };
 
@@ -3381,9 +3505,10 @@ const axisValues = (axisKey: AxisKey): uPlot.Axis.Values => {
 
   return (u: uPlot, splits: number[]): string[] => {
     // Format our tick labels.
-    // Note: our splits are computed (see axisSplits()) before our tick labels, so our format is up to date.
+    // Note: our splits are computed (see axisSplits()) before our tick labels, so our labels are up to date.
 
-    const format = axisTicks[axisKey]?.format ?? { tickRound: 0, exponent: 0 };
+    const label =
+      axisTicks[axisKey]?.label ?? ((split: number): string => formatNumber(split, { tickRound: 0, exponent: 0 }));
     const plotTop = u.bbox.top / (dependencies._uPlot.pxRatio as number);
     const values = splits.map((split: number) => {
       // Like Plotly, hide a Y tick label that would (partly) be above our container.
@@ -3392,7 +3517,7 @@ const axisValues = (axisKey: AxisKey): uPlot.Axis.Values => {
         return '';
       }
 
-      return formatNumber(split, format);
+      return label(split);
     });
 
     // Keep track of our tick labels, but give uPlot none to draw since we draw them ourselves (see drawTickLabels()).
@@ -3768,11 +3893,18 @@ const drawLines = (u: uPlot, color: string, xValues: number[], yValues: number[]
   context.restore();
 };
 
+const zeroLines = (axisKey: AxisKey): number[] => {
+  // Return the zero line of the given axis, if it has one, i.e. if the axis is not logarithmic (since zero cannot be
+  // plotted on a logarithmic axis, see plotValue()).
+
+  return logAxes.value[axisKey] ? [] : [0];
+};
+
 const drawZeroLines = (u: uPlot): void => {
   // Like Plotly, draw our zero lines.
   // Note: this gets called after uPlot draws our grid lines and before it draws our traces.
 
-  drawLines(u, colors.cssColor(themeColors.value.zeroLine), [0], [0]);
+  drawLines(u, colors.cssColor(themeColors.value.zeroLine), zeroLines('x'), zeroLines('y'));
 };
 
 // Traces and markers.
@@ -4299,7 +4431,7 @@ const updateHover = (): void => {
     rows.push({
       seriesIndex,
       name: legendItem.name,
-      value: formatHoverValue(yValues[index] as number),
+      value: formatHoverValue(actualValue('y', yValues[index] as number)),
       color: legendItem.color
     });
   }
@@ -4318,7 +4450,7 @@ const updateHover = (): void => {
     guideX: (Math.round((xValue - cssArea.xMin) * xFactor * pxRatio) + 0.5 * (guideWidth % 2)) / pxRatio,
     guideWidth: guideWidth / pxRatio,
     points,
-    x: formatHoverValue(xValue),
+    x: formatHoverValue(actualValue('x', xValue)),
     rows: rows.slice(0, HOVER_TOOLTIP_MAX_ROWS),
     otherRows: Math.max(0, rows.length - HOVER_TOOLTIP_MAX_ROWS)
   };
@@ -4383,20 +4515,67 @@ const isSorted = (values: math.FloatArray): boolean => {
   return true;
 };
 
+// Logarithmic axes.
+// Note: rather than use a logarithmic scale for a logarithmic axis (in which case all our range computations, e.g., to
+//       autorange, zoom, pan, or pinch, would have to be done in logarithmic space), we plot the decimal logarithm of
+//       its values (with a non-positive value becoming NaN, i.e. not being plotted), so that everything remains linear.
+//       So, the range of a logarithmic axis is the decimal logarithm of its actual range, and only what we show (i.e.
+//       our tick labels, hover tooltip, range editor, and axis ranges dialog) needs to be converted to/from actual
+//       values (see actualValue() and plotValue()). Our image exports are of what we plot, so they are fine too, and
+//       our CSV export is of our actual data.
+
+const plotValue = (axisKey: AxisKey, value: number): number => {
+  // Return the value that we plot for the given actual value along the given axis.
+
+  if (!logAxes.value[axisKey]) {
+    return value;
+  }
+
+  return value > 0 ? Math.log10(value) : Number.NaN;
+};
+
+const actualValue = (axisKey: AxisKey, value: number): number => {
+  // Return the actual value of the given plotted value along the given axis.
+
+  return logAxes.value[axisKey] ? 10 ** value : value;
+};
+
+const plotValues = (axisKey: AxisKey, values: math.FloatArray): math.FloatArray => {
+  // Return the values that we plot for the given actual values along the given axis.
+  // Note: this gets called for all our data whenever it gets updated (e.g., several times a second while a simulation
+  //       is running), so rather than call plotValue() for each value (which would check whether our axis is
+  //       logarithmic, i.e. access a reactive property, for each value), we check it once and inline the conversion,
+  //       which is about ten times faster.
+
+  if (!logAxes.value[axisKey]) {
+    return values;
+  }
+
+  const nbOfValues = values.length;
+  const res = new Float64Array(nbOfValues);
+
+  for (let i = 0; i < nbOfValues; ++i) {
+    const value = values[i] as number;
+
+    res[i] = value > 0 ? Math.log10(value) : Number.NaN;
+  }
+
+  return res;
+};
+
 const plotData = (): uPlot.AlignedData => {
-  // Return the data to be plotted.
+  // Return the data to be plotted, i.e. the values that we plot for our traces (see plotValues()).
   // Note #1: we also keep track of whether the X values of our traces are sorted (see updateHover()).
   // Note #2: uPlot needs at least one series, hence we use an empty one if we have no traces.
 
   const traces = props.data.traces;
+  const data = traces.map((trace: IGraphPanelPlotTrace) => [plotValues('x', trace.x), plotValues('y', trace.y)]);
 
-  sortedXValues = traces.map((trace: IGraphPanelPlotTrace) => isSorted(trace.x));
+  sortedXValues = data.map(([xValues]) => isSorted(xValues as math.FloatArray));
 
   return [
     null,
-    ...(traces.length
-      ? traces.map((trace: IGraphPanelPlotTrace) => [trace.x, trace.y])
-      : [[common.EMPTY_FLOAT64_ARRAY, common.EMPTY_FLOAT64_ARRAY]])
+    ...(data.length ? data : [[common.EMPTY_FLOAT64_ARRAY, common.EMPTY_FLOAT64_ARRAY]])
   ] as unknown as uPlot.AlignedData;
 };
 
@@ -4633,7 +4812,7 @@ const updatePlot = (): void => {
   // Create or update our plot.
   // Note: we only (re)create our plot if needed since it is much cheaper to update its data.
 
-  const signature = `${props.data.traces.length}::${titles}::${theme.useLightMode()}`;
+  const signature = `${props.data.traces.length}::${titles}::${theme.useLightMode()}::${logAxes.value.x}::${logAxes.value.y}`;
   const newLegendWidth = measureLegendWidth();
   const legendWidthChanged = newLegendWidth !== legendWidth;
 

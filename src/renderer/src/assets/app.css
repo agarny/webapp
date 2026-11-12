@@ -277,7 +277,8 @@ body {
      * menu (see MainMenu.vue).
      * Note: our context menus use an item template (see ContextMenuWidget.vue), which shows an icon
      *       (.context-menu-item-icon), a label, and, for an item that has a submenu, a chevron
-     *       (.context-menu-item-chevron).
+     *       (.context-menu-item-chevron), with, in a menu that has a checked item, room for a check mark to the left
+     *       of the icon (.context-menu-item-check).
      */
 
     .opencor-context-menu {
@@ -307,6 +308,17 @@ body {
         text-align: center;
       }
 
+      .context-menu-item-label {
+        white-space: nowrap;
+      }
+
+      .context-menu-item-check {
+        width: 1rem;
+        color: var(--p-text-muted-color);
+        font-size: 0.75rem;
+        text-align: center;
+      }
+
       .context-menu-item-chevron {
         margin-left: auto;
         padding-left: 1.5rem;
@@ -317,7 +329,8 @@ body {
       .p-contextmenu-item-active > .p-contextmenu-item-content,
       .p-contextmenu-item.p-focus > .p-contextmenu-item-content {
         .context-menu-item-icon,
-        .context-menu-item-chevron {
+        .context-menu-item-chevron,
+        .context-menu-item-check {
           color: var(--p-text-color);
         }
       }
