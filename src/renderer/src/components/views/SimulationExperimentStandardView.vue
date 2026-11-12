@@ -64,7 +64,6 @@
                           <Select
                             v-model="xParameter"
                             ariaLabel="X axis"
-                            editable
                             filter
                             filterMode="lenient"
                             :options="parameters"
@@ -79,7 +78,6 @@
                           <Select
                             v-model="yParameter"
                             ariaLabel="Y axis"
-                            editable
                             filter
                             filterMode="lenient"
                             :options="parameters"
@@ -385,12 +383,16 @@ if (instanceTask) {
   vueCommon.populateParameters(parameters, instanceTask);
 }
 
+// The simulation data information of our X and Y parameters (see locCommon.simulationDataInfoLookup()).
+
+const simulationDataInfo = locCommon.simulationDataInfoLookup();
+
 const xInfo = vue.computed<locCommon.ISimulationDataInfo>(() => {
-  return instanceTask ? locCommon.simulationDataInfo(instanceTask, xParameter.value) : locCommon.NoSimulationDataInfo;
+  return instanceTask ? simulationDataInfo(instanceTask, xParameter.value) : locCommon.NoSimulationDataInfo;
 });
 
 const yInfo = vue.computed<locCommon.ISimulationDataInfo>(() => {
-  return instanceTask ? locCommon.simulationDataInfo(instanceTask, yParameter.value) : locCommon.NoSimulationDataInfo;
+  return instanceTask ? simulationDataInfo(instanceTask, yParameter.value) : locCommon.NoSimulationDataInfo;
 });
 
 // Our live data, i.e. the data that we have retrieved so far while a simulation is running.

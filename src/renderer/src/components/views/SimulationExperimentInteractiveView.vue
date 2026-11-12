@@ -633,20 +633,10 @@ const inputsShownAtDefaultValues = vue.ref<(boolean | undefined)[]>([]);
 const inputWidgetsRef = vue.ref<InstanceType<typeof InputWidget>[]>([]);
 const idToInfo = new Map<string, locCommon.ISimulationDataInfo>();
 
-// A helper function to retrieve the simulation data information for the given name.
-// Note: we build (and cache) the simulation data information of all our simulation data the first time we need it.
-//       Indeed, it is much faster than looking up simulation data information by name every time (see
-//       locCommon.simulationDataInfos()). Also, the names of our simulation data don't change when we reinstantiate our
-//       document (since our model changes and settings only affect values), so our cache remains valid for as long as
-//       our document is used.
+// A helper function to retrieve the simulation data information for the given name (see
+// locCommon.simulationDataInfoLookup()).
 
-let simulationDataInfosCache: Map<string, locCommon.ISimulationDataInfo> | null = null;
-
-const simulationDataInfo = (task: locSedApi.SedInstanceTask, name: string): locCommon.ISimulationDataInfo => {
-  simulationDataInfosCache ??= locCommon.simulationDataInfos(task);
-
-  return simulationDataInfosCache.get(name) ?? locCommon.NoSimulationDataInfo;
-};
+const simulationDataInfo = locCommon.simulationDataInfoLookup();
 
 // A helper function to retrieve the simulation data value for the given simulation data information.
 // Note: with the WASM version of libOpenCOR, the simulation data may be a view of the WASM heap, so we need to copy it.

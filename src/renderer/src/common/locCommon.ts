@@ -293,80 +293,10 @@ export const isNoSimulationDataInfo = (info: ISimulationDataInfo): boolean => {
   return info === NoSimulationDataInfo;
 };
 
-export const simulationDataInfo = (instanceTask: locApi.SedInstanceTask, name: string): ISimulationDataInfo => {
-  if (!name) {
-    return NoSimulationDataInfo;
-  }
-
-  if (name === instanceTask.voiName()) {
-    return {
-      type: ESimulationDataInfoType.VOI,
-      index: -1
-    };
-  }
-
-  const stateCount = instanceTask.stateCount();
-
-  for (let i = 0; i < stateCount; ++i) {
-    if (name === instanceTask.stateName(i)) {
-      return {
-        type: ESimulationDataInfoType.STATE,
-        index: i
-      };
-    }
-  }
-
-  const rateCount = instanceTask.rateCount();
-
-  for (let i = 0; i < rateCount; ++i) {
-    if (name === instanceTask.rateName(i)) {
-      return {
-        type: ESimulationDataInfoType.RATE,
-        index: i
-      };
-    }
-  }
-
-  const constantCount = instanceTask.constantCount();
-
-  for (let i = 0; i < constantCount; ++i) {
-    if (name === instanceTask.constantName(i)) {
-      return {
-        type: ESimulationDataInfoType.CONSTANT,
-        index: i
-      };
-    }
-  }
-
-  const computedConstantCount = instanceTask.computedConstantCount();
-
-  for (let i = 0; i < computedConstantCount; ++i) {
-    if (name === instanceTask.computedConstantName(i)) {
-      return {
-        type: ESimulationDataInfoType.COMPUTED_CONSTANT,
-        index: i
-      };
-    }
-  }
-
-  const algebraicVariableCount = instanceTask.algebraicVariableCount();
-
-  for (let i = 0; i < algebraicVariableCount; ++i) {
-    if (name === instanceTask.algebraicVariableName(i)) {
-      return {
-        type: ESimulationDataInfoType.ALGEBRAIC,
-        index: i
-      };
-    }
-  }
-
-  return NoSimulationDataInfo;
-};
-
 // A method to retrieve the simulation data information of all the simulation data of an instance task, indexed by name.
-// Note: this is much faster than calling simulationDataInfo() for several names since retrieving a name requires a call
-//       to libOpenCOR (and, with the C++ version of libOpenCOR, a round trip through our preload script). Also, should
-//       several simulation data share the same name, the first one wins, as with simulationDataInfo().
+// Note: this is much faster than looking up the simulation data information of several names one by one since
+//       retrieving a name requires a call to libOpenCOR (and, with the C++ version of libOpenCOR, a round trip through
+//       our preload script). Also, should several simulation data share the same name, the first one wins.
 
 export const simulationDataInfos = (instanceTask: locApi.SedInstanceTask): Map<string, ISimulationDataInfo> => {
   const res = new Map<string, ISimulationDataInfo>();
@@ -409,6 +339,26 @@ export const simulationDataInfos = (instanceTask: locApi.SedInstanceTask): Map<s
   }
 
   return res;
+};
+
+// A method to create a function that retrieves the simulation data information for a given name from an instance task.
+// Note: the function builds (and caches) the simulation data information of all the simulation data of the instance
+//       task the first time it is called (see simulationDataInfos()), after which looking up a name doesn't involve
+//       libOpenCOR anymore. The names of simulation data don't change when a document gets reinstantiated (since model
+//       changes and simulation settings only affect values), so the cache remains valid for as long as the document is
+//       used, even if the function is then called with the instance task of a new instance.
+
+export const simulationDataInfoLookup = (): ((
+  instanceTask: locApi.SedInstanceTask,
+  name: string
+) => ISimulationDataInfo) => {
+  let cache: Map<string, ISimulationDataInfo> | null = null;
+
+  return (instanceTask: locApi.SedInstanceTask, name: string): ISimulationDataInfo => {
+    cache ??= simulationDataInfos(instanceTask);
+
+    return cache.get(name) ?? NoSimulationDataInfo;
+  };
 };
 
 // A method to retrieve the simulation data value for a given name from an instance task.
