@@ -13,9 +13,21 @@ const props = defineProps<{
   disabled?: boolean;
 }>();
 
+// The index of our properties.
+
+const INITIAL_POINT = 0;
+const STARTING_POINT = 1;
+const ENDING_POINT = 2;
+const POINT_INTERVAL = 3;
+
 const voiUnit = props.instanceTask.voiUnit();
 
 const properties = vue.ref([
+  {
+    property: 'Initial point',
+    value: props.uniformTimeCourse.initialTime(),
+    unit: voiUnit
+  },
   {
     property: 'Starting point',
     value: props.uniformTimeCourse.outputStartTime(),
@@ -64,10 +76,10 @@ const isValid = (index: number, newValue: number): boolean => {
 
   values[index] = newValue;
 
-  const [startingPoint, endingPoint, pointInterval] = values as [number, number, number];
+  const [, startingPoint, endingPoint, pointInterval] = values as [number, number, number, number];
 
   if (!isValidPointInterval(pointInterval)) {
-    return index !== 2;
+    return index !== POINT_INTERVAL;
   }
 
   return numberOfSteps(startingPoint, endingPoint, pointInterval) <= locApi.MAXIMUM_NUMBER_OF_STEPS;
@@ -76,15 +88,21 @@ const isValid = (index: number, newValue: number): boolean => {
 const onPropertyUpdated = (index: number, newValue: number): void => {
   // Update our simulation and its number of steps, keeping our point interval, if valid (i.e. like when changing the
   // simulation settings in the Interactive Simulation Experiment view).
+  // Note: as in the Interactive Simulation Experiment view, our initial and starting points are independent of each
+  //       other (the simulation is run from our initial point, but only plotted from our starting point). An initial
+  //       point that is greater than our starting point is, like a starting point that is greater than our ending
+  //       point, reported by libOpenCOR when running the simulation.
 
-  if (index === 0) {
+  if (index === INITIAL_POINT) {
     props.uniformTimeCourse.setInitialTime(newValue);
+  } else if (index === STARTING_POINT) {
     props.uniformTimeCourse.setOutputStartTime(newValue);
-  } else if (index === 1) {
+  } else if (index === ENDING_POINT) {
     props.uniformTimeCourse.setOutputEndTime(newValue);
   }
 
-  const [startingPoint, endingPoint, pointInterval] = properties.value.map((property) => property.value) as [
+  const [, startingPoint, endingPoint, pointInterval] = properties.value.map((property) => property.value) as [
+    number,
     number,
     number,
     number
