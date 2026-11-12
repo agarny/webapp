@@ -51,8 +51,16 @@
             </template>
           </div>
           <IssuesView v-else-if="uiJsonIssues.length" class="w-full m-4" :issues="uiJsonIssues" />
-          <div v-else class="panels flex grow min-h-0" :class="{ 'narrow-layout': narrowLayout }">
-            <div class="side-panel-column">
+          <Splitter v-else :key="narrowLayout ? 'narrow' : 'wide'"
+            class="border-none! rounded-none! grow min-w-0 min-h-0"
+            :layout="narrowLayout ? 'vertical' : 'horizontal'"
+          >
+            <!--
+            Note: as in the Standard view, our side panel is stacked above our plots when we use a narrow layout (see
+                  narrowLayout), in which case we use a vertical splitter. A splitter only sizes its panels when it is
+                  mounted, hence we remount it when our layout changes.
+            -->
+            <SplitterPanel :class="narrowLayout ? 'min-h-24' : 'min-w-56'" :size="narrowLayout ? 40 : 17">
               <ScrollPanel class="h-full">
                 <div class="side-panel">
                   <!-- Simulation inputs -->
@@ -70,7 +78,7 @@
                         @click="onResetInputs($event)"
                       />
                     </div>
-                    <div ref="simulationInputsRef" class="side-panel-fields">
+                    <div ref="simulationInputsRef" class="side-panel-fields side-panel-fields-with-sliders">
                       <InputWidget ref="inputWidgetsRef"
                         v-for="(input, index) in actualUiJson.input"
                         v-model="inputValues[index]!"
@@ -162,8 +170,8 @@
                   </p>
                 </div>
               </ScrollPanel>
-            </div>
-            <div class="plots-column relative flex flex-col grow h-full min-h-0">
+            </SplitterPanel>
+            <SplitterPanel class="plots-column relative flex flex-col min-h-0" :size="narrowLayout ? 60 : 83">
               <div class="flex flex-col grow gap-2 min-h-0" :class="{ 'invisible pointer-events-none': simulationIssues.length }">
                 <GraphPanelWidget
                   v-for="(_plot, index) in actualUiJson.output.plots"
@@ -176,8 +184,8 @@
                 />
               </div>
               <IssuesView v-show="simulationIssues.length" class="absolute inset-0 m-4" :issues="simulationIssues" />
-            </div>
-          </div>
+            </SplitterPanel>
+          </Splitter>
         </div>
       </div>
       <Teleport :to="opencorElement" :disabled="!opencorElement">
@@ -2797,90 +2805,6 @@ vue.onMounted(() => {
   margin: 0 0 0.5rem;
   color: var(--p-text-muted-color);
   font-size: 0.875rem;
-}
-
-/**
- * Side panel, i.e. our simulation inputs and runs.
- * Note: an input field has an intrinsic width (of about 20 characters), which would otherwise make our side panel wider
- *       than we want, so we let our number fields shrink to the width of our side panel. This means that a number field
- *       with a reset button doesn't need the negative margin that keeps its intrinsic width the same (see
- *       InputScientificNumberWidget.vue), and which would otherwise make it overflow our side panel.
- */
-
-.side-panel-column {
-  flex-shrink: 0;
-  width: 16rem;
-  border-right: 1px solid var(--p-content-border-color);
-}
-
-/**
- * Narrow layout (see useNarrowLayout() in vueCommon.ts), i.e. our side panel is stacked above our plots (rather than
- * shown to their left), so that our plots remain usable (e.g., on a phone or when OpenCOR is embedded in a small
- * container). Our side panel then takes the whole width and part of the height of our view, and can be scrolled.
- */
-
-.panels.narrow-layout {
-  flex-direction: column;
-}
-
-.narrow-layout .side-panel-column {
-  width: auto;
-  height: 40%;
-  border-right: none;
-  border-bottom: 1px solid var(--p-content-border-color);
-}
-
-.narrow-layout .plots-column {
-  flex: 1 1 0;
-  height: auto;
-}
-
-.side-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem;
-}
-
-.side-panel :deep(.p-inputnumber .p-inputnumber-input) {
-  flex: 1 1 auto;
-  width: 0;
-  min-width: 0;
-  margin-right: 0;
-}
-
-.side-panel-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.side-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 1.5rem;
-}
-
-.side-panel-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding-top: 0.375rem;
-}
-
-.side-panel-hint {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin: 0;
-  color: var(--p-text-muted-color);
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-}
-
-.side-panel-hint .pi {
-  line-height: inherit;
 }
 
 /**

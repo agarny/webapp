@@ -1,7 +1,11 @@
 <template>
-  <section class="property-editor">
+  <section class="property-editor side-panel-section">
+    <!--
+    Note: a property editor is shown in the side panel of a simulation experiment view, so it uses the styles of the
+          sections and fields of that side panel (see simulation-experiment-view.css).
+    -->
     <h3 class="opencor-section-title opencor-section-title-small">{{ name }}</h3>
-    <div class="property-editor-fields">
+    <div class="side-panel-fields">
       <InputScientificNumberWidget v-for="(property, index) in properties" :key="property.property"
         :ref="(element: unknown) => (fieldRefs[index] = element as IInputScientificNumberWidget | null)"
         :modelValue="property.value"
@@ -73,18 +77,3 @@ const onValueUpdated = (index: number, newValue: number | undefined): void => {
   emit('propertyUpdated', index, newValue);
 };
 </script>
-
-<style scoped>
-.property-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.property-editor-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding-top: 0.375rem;
-}
-</style>

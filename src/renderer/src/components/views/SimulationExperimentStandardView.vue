@@ -1210,38 +1210,6 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
 }
 
 /**
- * Side panel, i.e. our simulation settings and the parameters to plot.
- * Note: an input field has an intrinsic width (of about 20 characters), which would otherwise prevent our side panel
- *       from being narrower than that, so we let our number fields shrink to the width of our side panel.
- */
-
-.side-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem;
-}
-
-.side-panel :deep(.p-inputnumber-input) {
-  flex: 1 1 auto;
-  width: 0;
-  min-width: 0;
-}
-
-.side-panel-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.side-panel-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding-top: 0.375rem;
-}
-
-/**
  * Console.
  */
 
@@ -1251,56 +1219,5 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
   justify-content: space-between;
   flex-shrink: 0;
   padding: 0.25rem 0.375rem 0.125rem 0.75rem;
-}
-
-/**
- * Splitters, which gutters are shown as thin lines that get highlighted when hovered or dragged.
- */
-
-.standard-view :deep(.p-splitter-gutter) {
-  position: relative;
-  background-color: var(--p-content-border-color);
-  transition: background-color 0.15s ease;
-}
-
-.standard-view :deep(.p-splitter-horizontal > .p-splitter-gutter) {
-  width: 1px !important;
-}
-
-.standard-view :deep(.p-splitter-vertical > .p-splitter-gutter) {
-  height: 1px !important;
-}
-
-/**
- * Note: our gutter handle is hidden, except when it has the keyboard focus, so that its focus ring can be seen (our
- *       gutter is then also highlighted, like when it is hovered).
- */
-
-.standard-view :deep(.p-splitter-gutter-handle) {
-  opacity: 0;
-}
-
-.standard-view :deep(.p-splitter-gutter-handle:focus-visible) {
-  opacity: 1;
-}
-
-.standard-view :deep(.p-splitter-gutter:has(.p-splitter-gutter-handle:focus-visible)) {
-  background-color: var(--p-primary-color);
-}
-
-/**
- * Note: a gutter is only 1px wide/high, so we make it easier to grab by extending its hit area.
- */
-
-.standard-view :deep(.p-splitter-gutter)::after {
-  position: absolute;
-  inset: -3px;
-  z-index: 1;
-  content: "";
-}
-
-.standard-view :deep(.p-splitter-gutter:hover),
-.standard-view :deep(.p-splitter-gutter[data-p-gutter-resizing="true"]) {
-  background-color: var(--p-primary-color);
 }
 </style>
