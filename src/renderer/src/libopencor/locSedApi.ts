@@ -572,6 +572,24 @@ export class SedInstance {
     return cppVersion() ? _cppLocApi.sedInstanceStatus(this._cppInstanceId) : this._wasmSedInstance.status.value;
   }
 
+  // The delay, in milliseconds (which can be fractional, e.g. 0.001 for one microsecond), between two output points of
+  // a run, which can be used to slow down a run (e.g., to watch its results being plotted progressively) and which can
+  // be changed while running.
+
+  delay(): number {
+    return cppVersion() ? _cppLocApi.sedInstanceDelay(this._cppInstanceId) : this._wasmSedInstance.delay;
+  }
+
+  setDelay(delay: number): void {
+    const validDelay = Number.isFinite(delay) ? Math.max(0, delay) : 0;
+
+    if (cppVersion()) {
+      _cppLocApi.sedInstanceSetDelay(this._cppInstanceId, validDelay);
+    } else {
+      this._wasmSedInstance.delay = validDelay;
+    }
+  }
+
   progress(): number {
     return cppVersion() ? _cppLocApi.sedInstanceProgress(this._cppInstanceId) : this._wasmSedInstance.progress;
   }

@@ -294,6 +294,14 @@ export interface IToolbarButtonProps {
   keepFocus?: boolean;
 }
 
+export interface IWheelProps {
+  ariaLabel: string;
+  ariaValueText?: string;
+  disabled?: boolean;
+  steps?: number;
+  majorSteps?: number[];
+}
+
 // A composable to copy some text to the clipboard and to let people know, for a short while, whether it was copied,
 // through the icon, label, and accent of the (toolbar) button that was used to copy it (see ToolbarButtonWidget.vue).
 // Note: copying is asynchronous, so we may get reset (e.g., if our dialog gets closed) or unmounted in the meantime, in

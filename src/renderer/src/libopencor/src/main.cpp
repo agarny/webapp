@@ -73,6 +73,8 @@ Napi::Object init(Napi::Env pEnv, Napi::Object pExports)
     pExports.Set(Napi::String::New(pEnv, "sedInstanceHasIssues"), Napi::Function::New(pEnv, sedInstanceHasIssues));
     pExports.Set(Napi::String::New(pEnv, "sedInstanceIssues"), Napi::Function::New(pEnv, sedInstanceIssues));
     pExports.Set(Napi::String::New(pEnv, "sedInstanceStatus"), Napi::Function::New(pEnv, sedInstanceStatus));
+    pExports.Set(Napi::String::New(pEnv, "sedInstanceDelay"), Napi::Function::New(pEnv, sedInstanceDelay));
+    pExports.Set(Napi::String::New(pEnv, "sedInstanceSetDelay"), Napi::Function::New(pEnv, sedInstanceSetDelay));
     pExports.Set(Napi::String::New(pEnv, "sedInstanceProgress"), Napi::Function::New(pEnv, sedInstanceProgress));
     pExports.Set(Napi::String::New(pEnv, "sedInstanceStartRun"), Napi::Function::New(pEnv, sedInstanceStartRun));
     pExports.Set(Napi::String::New(pEnv, "sedInstanceWaitForRun"), Napi::Function::New(pEnv, sedInstanceWaitForRun));
