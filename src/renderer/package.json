@@ -43,7 +43,7 @@
     "./style.css": "./dist/opencor.css"
   },
   "version": "1.20261113.0",
-  "libopencorVersion": "1.20261111.0",
+  "libopencorVersion": "1.20261113.0",
   "scripts": {
     "build": "vite build && bun scripts/generate.version.ts",
     "build:lib": "vite build --config vite.lib.config.ts && bun --bun scripts/type.check.ts --project tsconfig.lib.types.json",
@@ -62,10 +62,10 @@
     "vue": "^3.5.45"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.6",
+    "@biomejs/biome": "^2.6.7",
     "@celldl/editor": "^0.20261109.0",
     "@celldl/rdf": "^1.20260822.0",
-    "@opencor/libopencor-types": "^1.20261111.0",
+    "@opencor/libopencor-types": "^1.20261113.0",
     "@physiomelinks/bg2cellml": "^0.6.2",
     "@primeuix/themes": "2.0.3",
     "@primevue/auto-import-resolver": "4.5.5",
@@ -73,7 +73,7 @@
     "@tailwindcss/vite": "^4.3.5",
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
-    "@vitejs/plugin-vue": "^6.0.10",
+    "@vitejs/plugin-vue": "^6.0.11",
     "@vue/tsconfig": "^0.9.1",
     "@vueuse/core": "^15.0.0",
     "autoprefixer": "^10.6.2",
@@ -87,7 +87,7 @@
     "stylelint-config-standard": "^41.0.0",
     "tailwindcss": "^4.3.5",
     "tailwindcss-primeui": "^0.6.1",
-    "tar": "^7.5.22",
+    "tar": "^7.5.23",
     "typescript": "^7.0.2",
     "typescript-6": "npm:typescript@^6.0.3",
     "unplugin-vue-components": "^32.1.0",
