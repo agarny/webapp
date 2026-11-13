@@ -4,7 +4,12 @@
     <template v-else>
       <Toolbar class="shrink-0">
         <template #start>
-          <div class="flex gap-1">
+          <!--
+          Note: our toolbar wraps its contents when there is not enough room for them on one line (e.g., on a phone),
+                rather than having them overflow (and be cut off). In that case, the separator before our delay is
+                hidden if our delay has been wrapped (see delayWrapped).
+          -->
+          <div ref="toolbarStartRef" class="flex flex-wrap gap-1">
             <ToolbarButtonWidget ref="runPauseButtonRef"
               :icon="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'pi pi-play-circle' : 'pi pi-pause-circle'"
               :accent="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'primary' : 'warning'"
@@ -34,6 +39,17 @@
               :disabled="isFinishing || simulationStatus !== locSedApi.ESedInstanceStatus.IDLE || !hasSimulationData"
               @click="onClearSimulationData"
             />
+            <span class="toolbar-separator" :class="{ invisible: delayWrapped }" role="separator" aria-orientation="vertical"></span>
+            <div ref="delayRef" class="delay">
+              <span class="delay-label" aria-hidden="true">Delay</span>
+              <WheelWidget v-model="delayPosition"
+                :steps="DELAY_STEPS"
+                :majorSteps="DELAY_MAJOR_STEPS"
+                ariaLabel="Delay between two output points"
+                :ariaValueText="delayText"
+              />
+              <span class="delay-value" aria-hidden="true">{{ delayText }}</span>
+            </div>
             <!--
             Note: our run status is announced by assistive technologies through a visually hidden live region (which
                   must exist before its contents change for them to get announced, and which doesn't affect our
@@ -48,7 +64,11 @@
           </div>
         </template>
         <template #end>
-          <div class="flex gap-1 invisible">
+          <!--
+          Note: our placeholder buttons are not needed when we use a narrow layout, in which case they would only take
+                some room (or even a line of their own, if our toolbar's contents were to be wrapped).
+          -->
+          <div class="flex gap-1 invisible" :class="{ hidden: narrowLayout }">
             <ToolbarButtonWidget icon="pi pi-download" />
             <ToolbarButtonWidget icon="pi pi-cog" />
           </div>
@@ -144,6 +164,8 @@
 </template>
 
 <script setup lang="ts">
+import * as vueusecore from '@vueuse/core';
+
 import * as vue from 'vue';
 
 import * as colors from '../../common/colors';
@@ -205,6 +227,7 @@ const narrowLayout = vueCommon.useNarrowLayout(rootRef);
 interface ILastRun {
   outcome: 'completed' | 'issues' | 'stopped' | 'failed';
   time?: number;
+  delayed?: boolean; // Whether a delay was used at some point during the run (see runDelayed).
 }
 
 const lastRun = vue.ref<ILastRun | null>(null);
@@ -310,7 +333,7 @@ const runStatus = vue.computed<{ type: string; icon: string; label: string } | n
       return {
         type: 'completed',
         icon: 'pi pi-check-circle',
-        label: `Completed in ${common.formatTime(lastRun.value.time ?? 0)}`
+        label: `Completed in ${common.formatTime(lastRun.value.time ?? 0)}${lastRun.value.delayed ? ' (with a delay)' : ''}`
       };
     case 'issues':
       return {
@@ -439,6 +462,64 @@ const onResetSimulationSettings = (): void => {
 
   ++simulationSettingsKey.value;
 };
+
+// The delay between two output points of a run, which can be used to slow down a run (e.g., to watch its results being
+// plotted progressively) and which can be changed while running. It is set using a wheel, but our delays are round
+// numbers, i.e. no delay, 1 to 10 µs in steps of 1 µs, 10 to 100 µs in steps of 10 µs, and 100 µs to 1 ms in steps of
+// 100 µs. Each decade takes up (roughly) a third of our wheel, so that both very short delays (useful for runs with
+// many output points) and long ones can easily be set, and starts with a major step (i.e. 1 µs, 10 µs, 100 µs, and 1
+// ms), so that it is easy to see on our wheel.
+// Note: our delays are in microseconds, but libOpenCOR expects them in milliseconds.
+
+const DELAYS = [
+  0,
+  ...Array.from({ length: 10 }, (_, i) => i + 1),
+  ...Array.from({ length: 9 }, (_, i) => 10 * (i + 2)),
+  ...Array.from({ length: 9 }, (_, i) => 100 * (i + 2))
+];
+const DELAY_STEPS = DELAYS.length - 1;
+const DELAY_MAJOR_STEPS = DELAYS.flatMap((delay, index) => ([1, 10, 100, 1000].includes(delay) ? [index] : []));
+
+const delayPosition = vue.ref<number>(0);
+const delay = vue.computed<number>(() => DELAYS[Math.round(DELAY_STEPS * delayPosition.value)] ?? 0);
+const delayText = vue.computed<string>(() => {
+  if (delay.value === 0) {
+    return 'None';
+  }
+
+  return delay.value < 1000 ? `${delay.value} µs` : `${delay.value / 1000} ms`;
+});
+
+// Whether a delay was used at some point during our current (or last) run, be it from its start or because a delay was
+// set while it was running or paused.
+// Note: the time reported for a run excludes the time spent waiting for our delay, but a delay still slows down the
+//       computation itself (each output point is computed after the CPU was given up for the duration of our delay,
+//       so caches get cold, the thread may resume on another core, etc.), hence we let people know when a delay was
+//       used.
+
+let runDelayed = false;
+
+vue.watch(delay, (newDelay: number) => {
+  instance?.setDelay(newDelay / 1000);
+
+  if (newDelay !== 0 && simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE) {
+    runDelayed = true;
+  }
+});
+
+// Whether our delay has been wrapped to another line of our toolbar (see the template above).
+// Note: our separator is made invisible rather than removed, so that hiding it doesn't change our toolbar's layout
+//       (which could otherwise unwrap our delay, show our separator again, wrap our delay again, and so on).
+
+const toolbarStartRef = vue.useTemplateRef<HTMLElement>('toolbarStartRef');
+const delayRef = vue.useTemplateRef<HTMLElement>('delayRef');
+const delayWrapped = vue.ref<boolean>(false);
+
+vueusecore.useResizeObserver(toolbarStartRef, () => {
+  const firstElement = toolbarStartRef.value?.firstElementChild as HTMLElement | null | undefined;
+
+  delayWrapped.value = !!firstElement && !!delayRef.value && delayRef.value.offsetTop > firstElement.offsetTop;
+});
 
 // Whether we have some simulation data, i.e. whether a simulation has been run and its data hasn't been cleared since
 // (see onClearSimulationData()).
@@ -909,6 +990,8 @@ const onRunPause = async (): Promise<void> => {
       //       without any explanation.
 
       try {
+        runDelayed = delay.value !== 0;
+
         if (!instance.startRun()) {
           const instanceIssues = instance.hasIssues() ? instance.issues() : [];
 
@@ -1142,9 +1225,15 @@ const onRunPause = async (): Promise<void> => {
         } else {
           const simulationTime = instance.waitForRun();
 
-          lastRun.value = runAborted.value ? { outcome: 'stopped' } : { outcome: 'completed', time: simulationTime };
+          lastRun.value = runAborted.value
+            ? { outcome: 'stopped' }
+            : { outcome: 'completed', time: simulationTime, delayed: runDelayed };
 
           consoleContents.value += `<br />&nbsp;&nbsp;<strong>Simulation time:</strong> <span style="color: ${colors.REVERTED_PALETTE.Blue};">${common.formatTime(simulationTime)}</span>`;
+
+          if (runDelayed) {
+            consoleContents.value += ' (with a delay, which slows down the simulation even when excluded)';
+          }
         }
 
         if (runAborted.value) {
@@ -1292,6 +1381,35 @@ useOpenCORKeyStroke((event: KeyboardEvent) => {
 </script>
 
 <style scoped>
+/**
+ * Toolbar, which doesn't wrap its start and end parts (unlike a PrimeVue toolbar), since it is our start part that
+ * wraps its contents when there is not enough room for them on one line (see the template above). Otherwise, our end
+ * part would get its own line (even when empty) as soon as our start part needs the whole width of our toolbar.
+ */
+
+.standard-view > .p-toolbar {
+  flex-wrap: nowrap;
+}
+
+/**
+ * Delay wheel, with its label and its value, the latter being just wide enough for its longest values (i.e. "100 µs"
+ * to "900 µs"), so that our toolbar doesn't move when our delay changes, while still fitting on a narrow phone.
+ */
+
+.delay {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-inline: 0.25rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.8125rem;
+}
+
+.delay-value {
+  min-width: 3.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /**
  * Console, which always shows a few lines (e.g., when our view is not very tall, like on a phone in landscape mode),
  * and which wraps long lines (e.g., the URL of our file), so that it never needs to be scrolled horizontally.

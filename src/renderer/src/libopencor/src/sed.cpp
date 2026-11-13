@@ -325,6 +325,20 @@ napi_value sedInstanceStatus(const Napi::CallbackInfo &pInfo)
     return Napi::Number::New(pInfo.Env(), static_cast<int>(sedInstance->status()));
 }
 
+napi_value sedInstanceDelay(const Napi::CallbackInfo &pInfo)
+{
+    auto sedInstance = toSedInstance(pInfo[0]);
+
+    return Napi::Number::New(pInfo.Env(), sedInstance->delay());
+}
+
+void sedInstanceSetDelay(const Napi::CallbackInfo &pInfo)
+{
+    auto sedInstance = toSedInstance(pInfo[0]);
+
+    sedInstance->setDelay(toDouble(pInfo[1]));
+}
+
 napi_value sedInstanceProgress(const Napi::CallbackInfo &pInfo)
 {
     auto sedInstance = toSedInstance(pInfo[0]);
