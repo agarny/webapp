@@ -19,6 +19,19 @@
 
 @custom-variant dark (&:where(.opencor-dark-mode, .opencor-dark-mode *));
 
+/**
+ * Don't transition anything while our theme is being changed, so that it gets changed instantaneously (see
+ * updateDocumentClasses() in vueCommon.ts).
+ * Note #1: animations (e.g., a spinner) are not affected, only transitions.
+ * Note #2: our rule has no specificity (thanks to :where()) since it relies on !important to override any transition.
+ */
+
+:where(.opencor-theme-changing) *,
+:where(.opencor-theme-changing) *::before,
+:where(.opencor-theme-changing) *::after {
+  transition: none !important;
+}
+
 body {
   *,
   ::before,

@@ -47,9 +47,30 @@ export const useTheme = vueusecore.createGlobalState(() => {
     isDarkMode.value = !prefersColorScheme.matches;
   };
 
+  // Update our document classes, so that our theme gets applied.
+  // Note: our theme is changed instantaneously, i.e. without any of our elements transitioning their colours (e.g., a
+  //       PrimeVue form field, which transitions its background and border colours), which would otherwise be
+  //       distracting. So, we disable all transitions while our theme is being changed (see .opencor-theme-changing in
+  //       app.css) and re-enable them two frames later, i.e. once our elements have been restyled, including those
+  //       that only get updated after Vue's next tick (e.g., an element with a class that depends on useDarkMode()).
+
+  let themeChangingAnimationFrame = 0;
+
   const updateDocumentClasses = () => {
-    document.documentElement.classList.toggle('opencor-light-mode', isLightMode.value);
-    document.documentElement.classList.toggle('opencor-dark-mode', isDarkMode.value);
+    const documentElement = document.documentElement;
+
+    cancelAnimationFrame(themeChangingAnimationFrame);
+
+    documentElement.classList.add('opencor-theme-changing');
+
+    documentElement.classList.toggle('opencor-light-mode', isLightMode.value);
+    documentElement.classList.toggle('opencor-dark-mode', isDarkMode.value);
+
+    themeChangingAnimationFrame = requestAnimationFrame(() => {
+      themeChangingAnimationFrame = requestAnimationFrame(() => {
+        documentElement.classList.remove('opencor-theme-changing');
+      });
+    });
   };
 
   prefersColorScheme.addEventListener('change', (event) => {
