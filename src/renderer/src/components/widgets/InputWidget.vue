@@ -46,6 +46,7 @@
       @pointerdown.capture="onSliderPointerDown"
       @mousedown.capture="onSliderMouseDown"
       @keydown.capture="onSliderKeyDown"
+      @focusin="onSliderFocusIn"
       @focusout="onSliderFocusOut"
       @dblclick="onSliderDoubleClick">
       <Slider v-model="value" class="w-full"
@@ -398,12 +399,52 @@ const onSliderKeyDown = (event: KeyboardEvent): void => {
 // Our slider's handle loses the focus, unless it is only because our window has lost the focus (in which case our
 // handle is still the active element), since it will then get the focus back (and, without us, a focus ring) once our
 // window regains the focus.
+// Note: our handle may get the focus back programmatically (e.g., when a dialog that was opened while our handle had
+//       the focus gets closed, see PrimeVue's Dialog), in which case it should look as it did before, i.e. without a
+//       focus ring if it had been focused using a pointer. Chromium would, however, give it a focus ring if a key was
+//       last pressed (e.g., Escape to close the dialog), hence we remember whether our handle had been focused using a
+//       pointer, until it gets the focus back (see onSliderFocusIn()) or until Tab is pressed (in which case our handle
+//       gets the focus back using the keyboard and should therefore get a focus ring).
+
+let sliderHandleBlurredAfterPointerFocus = false;
+
+const onSliderWindowKeyDown = (event: KeyboardEvent): void => {
+  if (event.key === 'Tab') {
+    forgetSliderHandlePointerFocus();
+  }
+};
+
+const forgetSliderHandlePointerFocus = (): void => {
+  if (sliderHandleBlurredAfterPointerFocus) {
+    sliderHandleBlurredAfterPointerFocus = false;
+
+    window.removeEventListener('keydown', onSliderWindowKeyDown, true);
+  }
+};
 
 const onSliderFocusOut = (event: FocusEvent): void => {
   if (event.target !== document.activeElement) {
+    if (sliderHandleFocusedUsingPointer.value && !sliderHandleBlurredAfterPointerFocus) {
+      sliderHandleBlurredAfterPointerFocus = true;
+
+      window.addEventListener('keydown', onSliderWindowKeyDown, true);
+    }
+
     sliderHandleFocusedUsingPointer.value = false;
   }
 };
+
+const onSliderFocusIn = (event: FocusEvent): void => {
+  if (isSliderHandle(event.target) && sliderHandleBlurredAfterPointerFocus) {
+    sliderHandleFocusedUsingPointer.value = true;
+  }
+
+  forgetSliderHandlePointerFocus();
+};
+
+vue.onBeforeUnmount(() => {
+  forgetSliderHandlePointerFocus();
+});
 
 // Reset our scalar value when double-clicking on our slider's handle.
 // Note: the first click of a double click on our slider's bar moves our slider's handle under the mouse pointer, so we
