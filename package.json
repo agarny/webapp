@@ -39,6 +39,7 @@
     "format": "bunx --bun biome format --fix --max-diagnostics=none && clang-format -i src/renderer/src/libopencor/src/*",
     "format:check": "bunx --bun biome format --max-diagnostics=none && clang-format --dry-run -Werror src/renderer/src/libopencor/src/*",
     "lint": "bunx --bun biome lint --fix --error-on-warnings --max-diagnostics=none && bunx stylelint '**/*.css' --fix",
+    "lint:check": "bunx --bun biome lint --error-on-warnings --max-diagnostics=none && bunx stylelint '**/*.css' --allow-empty-input",
     "postinstall": "bun src/renderer/scripts/ensure.electron.ts",
     "prune:web": "bun src/renderer/scripts/prune.web.ts",
     "release": "electron-builder",

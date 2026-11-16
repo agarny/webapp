@@ -80,7 +80,7 @@ jobs:
         run: bun format:check
       - name: Linting
         if: ${{ matrix.name == 'Linting' }}
-        run: bun lint
+        run: bun lint:check
       - name: Type checking
         if: ${{ matrix.name == 'Type checking' }}
         run: bun typecheck

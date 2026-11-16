@@ -60,6 +60,7 @@
 | `format`              | Format the code                                                            |
 | `format:check`        | Check code's formatting                                                    |
 | `lint`                | Lint and automatically fix issues                                          |
+| `lint:check`          | Check the code for linting issues                                          |
 | `release`             | Release OpenCOR for the current platform                                   |
 | `release:local`       | Release OpenCOR for the current platform without code signing              |
 | `start`               | (Build and) start the production version of OpenCOR                        |

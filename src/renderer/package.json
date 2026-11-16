@@ -54,6 +54,7 @@
     "format": "bunx --bun biome format --fix --max-diagnostics=none",
     "format:check": "bunx --bun biome format --max-diagnostics=none",
     "lint": "bunx --bun biome lint --fix --error-on-warnings --max-diagnostics=none && bunx stylelint '**/*.css' --fix",
+    "lint:check": "bunx --bun biome lint --error-on-warnings --max-diagnostics=none && bunx stylelint '**/*.css' --allow-empty-input",
     "start": "bun run build && vite preview",
     "typecheck": "bun --bun scripts/type.check.ts --noEmit",
     "version:new": "bun scripts/version.new.ts"
