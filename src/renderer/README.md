@@ -181,5 +181,3 @@ import '@opencor/opencor/style.css';
   - `untrackAllSimulationData()`: clears the list of tracked simulation data.
 
   A parameter name is a string that identifies a parameter in the model and consists of the component in which the parameter is located and the name of the parameter itself, separated by a slash. For instance, `main/x` identifies the `x` parameter in the `main` component.
-
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/opencor/webapp)
