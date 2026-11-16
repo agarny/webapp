@@ -132,6 +132,7 @@
                   :key="'standard-graph-panel'"
                   :data="data"
                   :showLegend="false"
+                  :live="runStatus?.type === 'running' || runStatus?.type === 'paused'"
                 />
               </SplitterPanel>
             </Splitter>

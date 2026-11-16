@@ -82,6 +82,10 @@
           v-html="common.sanitiseHtml(data.yAxisTitle)"
         />
       </template>
+      <GraphPanelLivePointsWidget ref="livePointsRef" :plotRect="plotRect"
+        :backgroundColor="themeColors.background"
+        :textColor="themeColors.text"
+      />
       <svg v-if="hover && plotRect" class="absolute z-3 pointer-events-none"
         :style="{ left: `${plotRect.left}px`, top: `${plotRect.top}px` }"
         :width="plotRect.width"
@@ -164,6 +168,7 @@ import * as vueCommon from '../../common/vueCommon';
 
 import { useOpenCORMessage } from '../OpenCORMessage';
 import ContextMenuWidget from './ContextMenuWidget.vue';
+import GraphPanelLivePointsWidget, { type IGraphPanelLivePoint } from './GraphPanelLivePointsWidget.vue';
 
 export interface IGraphPanelPlotTrace {
   name: string;
@@ -196,10 +201,12 @@ const props = withDefaults(
     showMarker?: boolean;
     margins?: IGraphPanelMargins;
     showLegend?: boolean;
+    live?: boolean;
   }>(),
   {
     showMarker: false,
-    showLegend: true
+    showLegend: true,
+    live: false
   }
 );
 
@@ -4181,6 +4188,61 @@ const markerPaths: uPlot.Series.Points.PathBuilder = (u: uPlot, seriesIndex: num
   return { stroke: null, fill, clip, flags: 0 };
 };
 
+// The last point of our visible traces when our data is live (e.g., while a simulation is running), which is shown
+// using an overlay (see GraphPanelLivePointsWidget.vue).
+// Note: our live points are updated whenever our plot gets drawn (e.g., when our data gets updated, when we zoom
+//       in/out, or when a trace gets highlighted), and our exports are not affected (which is what we want since they
+//       are only a visual aid). The last point of a trace is its last point with finite X and Y values, if any.
+
+const livePointsRef = vue.ref<InstanceType<typeof GraphPanelLivePointsWidget> | null>(null);
+
+const updateLivePoints = (u?: uPlot | null): void => {
+  // Determine the position (in CSS pixels, relative to our plotting area) of the last point of our visible traces, if
+  // our data is live.
+
+  if (!props.live || !u) {
+    livePointsRef.value?.setPoints([]);
+
+    return;
+  }
+
+  const newLivePoints: IGraphPanelLivePoint[] = [];
+
+  for (let seriesIndex = 1; seriesIndex < u.series.length; ++seriesIndex) {
+    // Make sure that our trace is visible and that it has some data.
+
+    const [xValues, yValues] = seriesData(u, seriesIndex) ?? [];
+    const color = props.data.traces[seriesIndex - 1]?.color;
+
+    if (!u.series[seriesIndex]?.show || !xValues || !yValues || !color) {
+      continue;
+    }
+
+    // Find the last point of our trace that has finite X and Y values, if any.
+
+    let i = Math.min(xValues.length, yValues.length) - 1;
+
+    while (i >= 0 && !(Number.isFinite(xValues[i]) && Number.isFinite(yValues[i]))) {
+      --i;
+    }
+
+    if (i < 0) {
+      continue;
+    }
+
+    // Convert the last point of our trace to the coordinates of our plotting area (in CSS pixels).
+
+    const x = u.valToPos(xValues[i] as number, 'x');
+    const y = u.valToPos(yValues[i] as number, 'y');
+
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      newLivePoints.push({ x, y, color, alpha: seriesAlpha(seriesIndex - 1) });
+    }
+  }
+
+  livePointsRef.value?.setPoints(newLivePoints);
+};
+
 const setPlotSize = (u: uPlot, width: number, height: number): void => {
   // Set the size of our plot.
   // Note: if some of our visible traces have markers, then our autorange depends on the length of our axes (since the
@@ -4708,6 +4770,7 @@ const createPlot = (width: number, height: number): void => {
         draw: [
           (u: uPlot) => {
             updatePlotRect(u);
+            updateLivePoints(u);
             updateMarginsAsync();
 
             // Update our hover tooltip, if any, since our plot may have changed (e.g., our data got updated or we
@@ -4962,6 +5025,15 @@ vue.watch(
         resetMargins();
       }
     });
+  }
+);
+
+// Show (or hide) the last point of our traces when our data becomes (or stops being) live (see updateLivePoints()).
+
+vue.watch(
+  () => props.live,
+  () => {
+    updateLivePoints(plot);
   }
 );
 
