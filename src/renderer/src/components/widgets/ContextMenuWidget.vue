@@ -20,7 +20,8 @@ import * as vue from 'vue';
 // animation (see .opencor-context-menu and the anchored overlays in app.css).
 // Note: only one context menu should be shown at any given time, but PrimeVue only hides a context menu when the user
 //       clicks outside of it, so we let our other context menus know when we are about to be shown, and we hide
-//       ourselves when another context menu is about to be shown.
+//       ourselves when another context menu is about to be shown. Similarly, we hide ourselves when our window loses the
+//       focus (e.g., when switching to another tab or application), like a native context menu.
 
 const props = defineProps<{
   model: MenuItem[];
@@ -107,10 +108,12 @@ const onContextMenuShow = (event: Event): void => {
 
 vue.onMounted(() => {
   window.addEventListener(CONTEXT_MENU_SHOW_EVENT, onContextMenuShow);
+  window.addEventListener('blur', hide);
 });
 
 vue.onUnmounted(() => {
   window.removeEventListener(CONTEXT_MENU_SHOW_EVENT, onContextMenuShow);
+  window.removeEventListener('blur', hide);
 });
 
 defineExpose({ hide, show });
