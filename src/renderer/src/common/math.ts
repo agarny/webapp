@@ -141,7 +141,7 @@ const sharedMathJs = (): IMathJsLike => {
           const res = new Float64Array(len);
 
           for (let i = 0; i < len; ++i) {
-            res[i] = a + b[i];
+            res[i] = a + (b[i] as number);
           }
 
           return res;
@@ -152,11 +152,11 @@ const sharedMathJs = (): IMathJsLike => {
 
         if (typeof b === 'number') {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] + b;
+            res[i] = (a[i] as number) + b;
           }
         } else {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] + b[i];
+            res[i] = (a[i] as number) + (b[i] as number);
           }
         }
 
@@ -173,7 +173,7 @@ const sharedMathJs = (): IMathJsLike => {
           const res = new Float64Array(len);
 
           for (let i = 0; i < len; ++i) {
-            res[i] = a - b[i];
+            res[i] = a - (b[i] as number);
           }
 
           return res;
@@ -184,11 +184,11 @@ const sharedMathJs = (): IMathJsLike => {
 
         if (typeof b === 'number') {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] - b;
+            res[i] = (a[i] as number) - b;
           }
         } else {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] - b[i];
+            res[i] = (a[i] as number) - (b[i] as number);
           }
         }
 
@@ -205,7 +205,7 @@ const sharedMathJs = (): IMathJsLike => {
           const res = new Float64Array(len);
 
           for (let i = 0; i < len; ++i) {
-            res[i] = a * b[i];
+            res[i] = a * (b[i] as number);
           }
 
           return res;
@@ -215,11 +215,11 @@ const sharedMathJs = (): IMathJsLike => {
 
         if (typeof b === 'number') {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] * b;
+            res[i] = (a[i] as number) * b;
           }
         } else {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] * b[i];
+            res[i] = (a[i] as number) * (b[i] as number);
           }
         }
 
@@ -236,7 +236,7 @@ const sharedMathJs = (): IMathJsLike => {
           const res = new Float64Array(len);
 
           for (let i = 0; i < len; ++i) {
-            res[i] = a / b[i];
+            res[i] = a / (b[i] as number);
           }
 
           return res;
@@ -247,11 +247,11 @@ const sharedMathJs = (): IMathJsLike => {
 
         if (typeof b === 'number') {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] / b;
+            res[i] = (a[i] as number) / b;
           }
         } else {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] / b[i];
+            res[i] = (a[i] as number) / (b[i] as number);
           }
         }
 
@@ -268,7 +268,7 @@ const sharedMathJs = (): IMathJsLike => {
           const res = new Float64Array(len);
 
           for (let i = 0; i < len; ++i) {
-            res[i] = a ** b[i];
+            res[i] = a ** (b[i] as number);
           }
 
           return res;
@@ -279,11 +279,11 @@ const sharedMathJs = (): IMathJsLike => {
 
         if (typeof b === 'number') {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] ** b;
+            res[i] = (a[i] as number) ** b;
           }
         } else {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] ** b[i];
+            res[i] = (a[i] as number) ** (b[i] as number);
           }
         }
         return res;
@@ -299,7 +299,7 @@ const sharedMathJs = (): IMathJsLike => {
           const res = new Float64Array(len);
 
           for (let i = 0; i < len; ++i) {
-            res[i] = a % b[i];
+            res[i] = a % (b[i] as number);
           }
 
           return res;
@@ -310,11 +310,11 @@ const sharedMathJs = (): IMathJsLike => {
 
         if (typeof b === 'number') {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] % b;
+            res[i] = (a[i] as number) % b;
           }
         } else {
           for (let i = 0; i < len; ++i) {
-            res[i] = a[i] % b[i];
+            res[i] = (a[i] as number) % (b[i] as number);
           }
         }
 
@@ -330,7 +330,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = -x[i];
+          res[i] = -(x[i] as number);
         }
 
         return res;
@@ -347,7 +347,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.sqrt(x[i]);
+          res[i] = Math.sqrt(x[i] as number);
         }
 
         return res;
@@ -362,7 +362,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.abs(x[i]);
+          res[i] = Math.abs(x[i] as number);
         }
 
         return res;
@@ -377,7 +377,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.exp(x[i]);
+          res[i] = Math.exp(x[i] as number);
         }
 
         return res;
@@ -392,7 +392,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.log(x[i]);
+          res[i] = Math.log(x[i] as number);
         }
 
         return res;
@@ -407,7 +407,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.log10(x[i]);
+          res[i] = Math.log10(x[i] as number);
         }
 
         return res;
@@ -422,7 +422,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.ceil(x[i]);
+          res[i] = Math.ceil(x[i] as number);
         }
 
         return res;
@@ -437,7 +437,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.floor(x[i]);
+          res[i] = Math.floor(x[i] as number);
         }
 
         return res;
@@ -453,7 +453,7 @@ const sharedMathJs = (): IMathJsLike => {
           const res = new Float64Array(len);
 
           for (let i = 0; i < len; ++i) {
-            res[i] = Math.min(a, b[i]);
+            res[i] = Math.min(a, b[i] as number);
           }
 
           return res;
@@ -464,11 +464,11 @@ const sharedMathJs = (): IMathJsLike => {
 
         if (typeof b === 'number') {
           for (let i = 0; i < len; ++i) {
-            res[i] = Math.min(a[i], b);
+            res[i] = Math.min(a[i] as number, b);
           }
         } else {
           for (let i = 0; i < len; ++i) {
-            res[i] = Math.min(a[i], b[i]);
+            res[i] = Math.min(a[i] as number, b[i] as number);
           }
         }
 
@@ -485,7 +485,7 @@ const sharedMathJs = (): IMathJsLike => {
           const res = new Float64Array(len);
 
           for (let i = 0; i < len; ++i) {
-            res[i] = Math.max(a, b[i]);
+            res[i] = Math.max(a, b[i] as number);
           }
 
           return res;
@@ -496,11 +496,11 @@ const sharedMathJs = (): IMathJsLike => {
 
         if (typeof b === 'number') {
           for (let i = 0; i < len; ++i) {
-            res[i] = Math.max(a[i], b);
+            res[i] = Math.max(a[i] as number, b);
           }
         } else {
           for (let i = 0; i < len; ++i) {
-            res[i] = Math.max(a[i], b[i]);
+            res[i] = Math.max(a[i] as number, b[i] as number);
           }
         }
 
@@ -518,7 +518,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.sin(x[i]);
+          res[i] = Math.sin(x[i] as number);
         }
 
         return res;
@@ -533,7 +533,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.cos(x[i]);
+          res[i] = Math.cos(x[i] as number);
         }
 
         return res;
@@ -548,7 +548,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.tan(x[i]);
+          res[i] = Math.tan(x[i] as number);
         }
 
         return res;
@@ -563,7 +563,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = 1 / Math.cos(x[i]);
+          res[i] = 1 / Math.cos(x[i] as number);
         }
 
         return res;
@@ -578,7 +578,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = 1 / Math.sin(x[i]);
+          res[i] = 1 / Math.sin(x[i] as number);
         }
 
         return res;
@@ -593,7 +593,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = 1 / Math.tan(x[i]);
+          res[i] = 1 / Math.tan(x[i] as number);
         }
 
         return res;
@@ -608,7 +608,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.sinh(x[i]);
+          res[i] = Math.sinh(x[i] as number);
         }
 
         return res;
@@ -623,7 +623,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.cosh(x[i]);
+          res[i] = Math.cosh(x[i] as number);
         }
 
         return res;
@@ -638,7 +638,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.tanh(x[i]);
+          res[i] = Math.tanh(x[i] as number);
         }
 
         return res;
@@ -653,7 +653,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = 1 / Math.cosh(x[i]);
+          res[i] = 1 / Math.cosh(x[i] as number);
         }
 
         return res;
@@ -668,7 +668,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = 1 / Math.sinh(x[i]);
+          res[i] = 1 / Math.sinh(x[i] as number);
         }
 
         return res;
@@ -683,7 +683,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = 1 / Math.tanh(x[i]);
+          res[i] = 1 / Math.tanh(x[i] as number);
         }
 
         return res;
@@ -698,7 +698,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.asin(x[i]);
+          res[i] = Math.asin(x[i] as number);
         }
 
         return res;
@@ -713,7 +713,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.acos(x[i]);
+          res[i] = Math.acos(x[i] as number);
         }
 
         return res;
@@ -728,7 +728,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.atan(x[i]);
+          res[i] = Math.atan(x[i] as number);
         }
 
         return res;
@@ -743,7 +743,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.acos(1 / x[i]);
+          res[i] = Math.acos(1 / (x[i] as number));
         }
 
         return res;
@@ -758,7 +758,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.asin(1 / x[i]);
+          res[i] = Math.asin(1 / (x[i] as number));
         }
 
         return res;
@@ -773,7 +773,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.atan(1 / x[i]);
+          res[i] = Math.atan(1 / (x[i] as number));
         }
 
         return res;
@@ -788,7 +788,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.asinh(x[i]);
+          res[i] = Math.asinh(x[i] as number);
         }
 
         return res;
@@ -803,7 +803,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.acosh(x[i]);
+          res[i] = Math.acosh(x[i] as number);
         }
 
         return res;
@@ -818,7 +818,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.atanh(x[i]);
+          res[i] = Math.atanh(x[i] as number);
         }
 
         return res;
@@ -833,7 +833,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.acosh(1 / x[i]);
+          res[i] = Math.acosh(1 / (x[i] as number));
         }
 
         return res;
@@ -848,7 +848,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.asinh(1 / x[i]);
+          res[i] = Math.asinh(1 / (x[i] as number));
         }
 
         return res;
@@ -863,7 +863,7 @@ const sharedMathJs = (): IMathJsLike => {
         const res = new Float64Array(len);
 
         for (let i = 0; i < len; ++i) {
-          res[i] = Math.atanh(1 / x[i]);
+          res[i] = Math.atanh(1 / (x[i] as number));
         }
 
         return res;

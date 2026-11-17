@@ -427,7 +427,7 @@ const listOfItems = (items: Set<string>): string => {
   const list = [...items].map((item) => `'${item}'`);
 
   if (list.length === 1) {
-    return list[0];
+    return list[0] as string;
   }
 
   if (list.length === 2) {

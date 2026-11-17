@@ -1645,7 +1645,7 @@ const naturalRange = (u: uPlot, axisKey: AxisKey, dataMin: number | null, dataMa
   // see plotValue()), then we use it.
 
   const givenRange = axisKey === 'x' ? props.data.xAxisRange : props.data.yAxisRange;
-  const range = givenRange && [plotValue(axisKey, givenRange[0]), plotValue(axisKey, givenRange[1])];
+  const range: Range | undefined = givenRange && [plotValue(axisKey, givenRange[0]), plotValue(axisKey, givenRange[1])];
 
   if (range && Number.isFinite(range[0]) && Number.isFinite(range[1])) {
     // Make sure that the given range is in increasing order (e.g., if our ending point is before our starting point)
@@ -2030,7 +2030,10 @@ const toggleLogAxis = (axisKey: AxisKey): void => {
   finishRangeAnimation();
 
   const zoomRange = zoomRanges[axisKey];
-  const actualZoomRange = zoomRange && [actualValue(axisKey, zoomRange[0]), actualValue(axisKey, zoomRange[1])];
+  const actualZoomRange: Range | undefined = zoomRange && [
+    actualValue(axisKey, zoomRange[0]),
+    actualValue(axisKey, zoomRange[1])
+  ];
 
   logAxes.value = { ...logAxes.value, [axisKey]: !logAxes.value[axisKey] };
 
@@ -2238,7 +2241,7 @@ const applyDrag = (currentDrag: IDrag): void => {
   const ranges: Partial<Record<AxisKey, Range>> = {};
 
   const moveEnd = (range: Range, end: 0 | 1, distance: number, length: number): Range => {
-    const otherEnd = 1 - end;
+    const otherEnd = (1 - end) as 0 | 1;
     const res: Range = [range[0], range[1]];
 
     res[end] = range[otherEnd] + (range[end] - range[otherEnd]) / dZoom(distance / length);
@@ -2855,7 +2858,7 @@ const rangeEndText = (range: Range, end: 0 | 1, logarithmic: boolean = false): s
   const value = range[end];
   const precision = logarithmic
     ? 4 + Math.max(0, -Math.floor(Math.log10(Math.abs(Math.log10(range[1] / range[0])))))
-    : Math.floor(Math.log10(Math.abs(value))) - Math.floor(Math.log10(Math.abs(value - range[1 - end]))) + 4;
+    : Math.floor(Math.log10(Math.abs(value))) - Math.floor(Math.log10(Math.abs(value - range[(1 - end) as 0 | 1]))) + 4;
 
   return Number.isFinite(precision) ? value.toPrecision(Math.min(Math.max(precision, 1), 21)) : String(value);
 };

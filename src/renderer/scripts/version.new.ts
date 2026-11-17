@@ -10,10 +10,11 @@ const scriptDirName = path.dirname(fileURLToPath(import.meta.url));
 const oldVersion = (JSON.parse(fs.readFileSync(`${scriptDirName}/../package.json`, 'utf8')) as { version: string })
   .version;
 
-const oldVersionParts = oldVersion.split('.');
-const oldMajorVersion = oldVersionParts[0];
-const oldMinorVersion = oldVersionParts[1];
-const oldPatchVersion = oldVersionParts[2];
+const [oldMajorVersion, oldMinorVersion, oldPatchVersion] = oldVersion.split('.');
+
+if (oldMajorVersion === undefined || oldMinorVersion === undefined || oldPatchVersion === undefined) {
+  throw new Error(`Failed to parse version '${oldVersion}'.`);
+}
 
 // Determine the new version based on the current version and the current date.
 

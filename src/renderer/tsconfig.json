@@ -1,5 +1,8 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": true
+  },
   "include": ["**/*.js", "**/*.ts", "**/*.vue", "package.json"],
   // Note: our Electron-only files are excluded since they rely on dependencies that are only available in our root
   //       directory (they get type checked from there, see our root tsconfig.app.json file).

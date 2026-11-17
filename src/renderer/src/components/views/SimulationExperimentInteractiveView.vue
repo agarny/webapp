@@ -856,8 +856,8 @@ const replaceWithExternalDataIds = (expression: string, mapping: Map<string, str
 
     while (i < res.length) {
       if (res.startsWith(dataId, i)) {
-        const prevChar = i === 0 ? '' : res[i - 1];
-        const nextChar = i + dataId.length >= res.length ? '' : res[i + dataId.length];
+        const prevChar = i === 0 ? '' : res.charAt(i - 1);
+        const nextChar = i + dataId.length >= res.length ? '' : res.charAt(i + dataId.length);
 
         if (!/[A-Za-z0-9_]/.test(prevChar) && !/[A-Za-z0-9_]/.test(nextChar)) {
           newRes += externalDataId;
@@ -1021,12 +1021,12 @@ const addExternalData = async (
     const dataIdToExternalDataId = new Map<string, string>();
 
     for (let columnIndex = 1; columnIndex < parsedCsv.headers.length; ++columnIndex) {
-      const name = parsedCsv.headers[columnIndex];
+      const name = parsedCsv.headers[columnIndex] as string;
       const id = uniqueOutputDataId(name, usedOutputIds);
 
       dataSeries.push({
         name,
-        values: new Float64Array(parsedCsv.columns[columnIndex])
+        values: new Float64Array(parsedCsv.columns[columnIndex] as number[])
       });
       data.push({
         id,
@@ -1055,7 +1055,7 @@ const addExternalData = async (
       dataSeries,
       description: `External data ${csvHash}`,
       voiExpression: voiExpression?.trim() || 'voi',
-      voiValues: new Float64Array(parsedCsv.columns[0])
+      voiValues: new Float64Array(parsedCsv.columns[0] as number[])
     });
 
     // Go through the plots' main trace and additional traces and add a corresponding trace where the original model
@@ -1289,7 +1289,7 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
   let useInputAsIs = true;
 
   for (let i = 1; i < inputLength && useInputAsIs; ++i) {
-    useInputAsIs = x[i] > x[i - 1];
+    useInputAsIs = (x[i] as number) > (x[i - 1] as number);
   }
 
   let normalisedX: math.FloatArray;
@@ -1307,7 +1307,7 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
     }
 
     sortedIndices.sort((index1, index2) => {
-      return x[index1] - x[index2];
+      return (x[index1] as number) - (x[index2] as number);
     });
 
     const sortedX = new Float64Array(sortedIndices.length);
@@ -1315,8 +1315,9 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
     let count = 0;
 
     for (let i = 0; i < sortedIndices.length; ++i) {
-      const xValue = x[sortedIndices[i]];
-      const yValue = y[sortedIndices[i]];
+      const index = sortedIndices[i] as number;
+      const xValue = x[index] as number;
+      const yValue = y[index] as number;
 
       if (count === 0 || xValue !== sortedX[count - 1]) {
         sortedX[count] = xValue;
@@ -1349,9 +1350,9 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
   const segmentSlope = new Float64Array(segmentCount);
 
   for (let i = 0; i < segmentCount; ++i) {
-    const deltaX = normalisedX[i + 1] - normalisedX[i];
+    const deltaX = (normalisedX[i + 1] as number) - (normalisedX[i] as number);
 
-    segmentSlope[i] = deltaX > 0 ? (normalisedY[i + 1] - normalisedY[i]) / deltaX : Number.NaN;
+    segmentSlope[i] = deltaX > 0 ? ((normalisedY[i + 1] as number) - (normalisedY[i] as number)) / deltaX : Number.NaN;
     // Note: deltaX should always be greater than zero due to the checks above, but we add a safeguard against division
     //       by zero just in case.
   }
@@ -1359,21 +1360,21 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
   let isVoiIncreasing = true;
 
   for (let i = 1; i < voiLength; ++i) {
-    if (voi[i] < voi[i - 1]) {
+    if ((voi[i] as number) < (voi[i - 1] as number)) {
       isVoiIncreasing = false;
 
       break;
     }
   }
 
-  const xFirst = normalisedX[0];
-  const xLast = normalisedX[normalisedLength - 1];
+  const xFirst = normalisedX[0] as number;
+  const xLast = normalisedX[normalisedLength - 1] as number;
 
   if (isVoiIncreasing) {
     let j = 0;
 
     for (let i = 0; i < voiLength; ++i) {
-      const voiValue = voi[i];
+      const voiValue = voi[i] as number;
 
       if (voiValue < xFirst || voiValue > xLast) {
         res[i] = Number.NaN;
@@ -1381,11 +1382,11 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
         continue;
       }
 
-      while (j + 1 < normalisedLength && normalisedX[j + 1] < voiValue) {
+      while (j + 1 < normalisedLength && (normalisedX[j + 1] as number) < voiValue) {
         ++j;
       }
 
-      const slope = segmentSlope[j];
+      const slope = segmentSlope[j] as number;
 
       if (!Number.isFinite(slope)) {
         res[i] = Number.NaN;
@@ -1393,11 +1394,11 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
         continue;
       }
 
-      res[i] = normalisedY[j] + (voiValue - normalisedX[j]) * slope;
+      res[i] = (normalisedY[j] as number) + (voiValue - (normalisedX[j] as number)) * slope;
     }
   } else {
     for (let i = 0; i < voiLength; ++i) {
-      const voiValue = voi[i];
+      const voiValue = voi[i] as number;
 
       if (voiValue < xFirst || voiValue > xLast) {
         res[i] = Number.NaN;
@@ -1413,14 +1414,14 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
       while (low + 1 < high) {
         const mid = Math.floor(0.5 * (low + high));
 
-        if (normalisedX[mid] <= voiValue) {
+        if ((normalisedX[mid] as number) <= voiValue) {
           low = mid;
         } else {
           high = mid;
         }
       }
 
-      const slope = segmentSlope[low];
+      const slope = segmentSlope[low] as number;
 
       if (!Number.isFinite(slope)) {
         res[i] = Number.NaN;
@@ -1428,7 +1429,7 @@ const externalDataValues = (voi: math.FloatArray, externalDataMapping: IExternal
         continue;
       }
 
-      res[i] = normalisedY[low] + (voiValue - normalisedX[low]) * slope;
+      res[i] = (normalisedY[low] as number) + (voiValue - (normalisedX[low] as number)) * slope;
     }
   }
 
@@ -1534,7 +1535,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
     const input = actualUiJson.value.input[i];
 
     if (input) {
-      modelScope[input.id] = inputValues.value[i];
+      modelScope[input.id] = inputValues.value[i] as number;
     }
   }
 
@@ -1801,7 +1802,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
     // If one of the arrays is of length 1, broadcast it to the length of the other array.
 
     if (x.length === 1 && y.length > 1) {
-      const value = x[0];
+      const value = x[0] as number;
       const broadcastX = new Float64Array(y.length);
 
       broadcastX.fill(value);
@@ -1813,7 +1814,7 @@ const runSimulation = async (currentSimulationGeneration: number): Promise<void>
     }
 
     if (y.length === 1 && x.length > 1) {
-      const value = y[0];
+      const value = y[0] as number;
       const broadcastY = new Float64Array(x.length);
 
       broadcastY.fill(value);

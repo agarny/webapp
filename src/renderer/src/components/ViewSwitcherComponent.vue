@@ -271,7 +271,7 @@ const selectViewByOffset = (offset: number): void => {
   const newViewIndex = Math.min(Math.max(activeViewIndex + offset, 0), viewIds.value.length - 1);
 
   if (newViewIndex !== activeViewIndex) {
-    emit('selectView', viewIds.value[newViewIndex]);
+    emit('selectView', viewIds.value[newViewIndex] as string);
   }
 };
 

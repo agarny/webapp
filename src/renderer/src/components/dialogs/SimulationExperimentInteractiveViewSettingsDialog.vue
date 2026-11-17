@@ -1209,7 +1209,7 @@ const createExternalDataFromCsv = (source: string, externalCsvData: externalData
     dataSeries,
     description: sourceDescription(source),
     voiExpression: 'voi',
-    voiValues: new Float64Array(externalCsvData.columns[0])
+    voiValues: new Float64Array(externalCsvData.columns[0] as number[])
   });
 };
 

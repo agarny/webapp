@@ -1631,7 +1631,7 @@ const onDrop = (event: DragEvent): void => {
 
   // Remove the dragged item.
 
-  const [draggedItem] = fileTabs.value.splice(draggedIndex, 1);
+  const [draggedItem] = fileTabs.value.splice(draggedIndex, 1) as [IFileTab];
 
   // Recalculate the target index after the removal.
 
