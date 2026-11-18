@@ -23,7 +23,7 @@ jobs:
       - name: Install bun
         uses: oven-sh/setup-bun@v2
       - name: OpenCOR dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
       - name: Build OpenCOR's Web app
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
