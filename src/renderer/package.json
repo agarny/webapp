@@ -63,7 +63,7 @@
     "vue": "^3.5.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.7",
+    "@biomejs/biome": "^2.6.8",
     "@celldl/editor": "^0.20261109.0",
     "@celldl/rdf": "^1.20260822.0",
     "@opencor/libopencor-types": "^1.20261113.0",
@@ -80,7 +80,7 @@
     "autoprefixer": "^10.6.2",
     "libcellml.js": "^0.7.2",
     "oxigraph": "^0.5.13",
-    "postcss": "^8.5.32",
+    "postcss": "^8.5.33",
     "primeicons": "7.0.0",
     "primevue": "4.5.5",
     "rollup-plugin-visualizer": "^7.1.3",
