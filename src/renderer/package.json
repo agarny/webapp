@@ -60,7 +60,7 @@
     "version:new": "bun scripts/version.new.ts"
   },
   "peerDependencies": {
-    "vue": "^3.5.45"
+    "vue": "^3.5.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.7",
