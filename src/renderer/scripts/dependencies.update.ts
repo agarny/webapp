@@ -188,7 +188,6 @@ const updateDependencies = async (dir: string): Promise<void> => {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
-    peerDependencies?: Record<string, string>;
   };
   const allDependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
   const padEnd = Math.max(0, ...Object.keys(allDependencies).map((name) => name.length)) + 1;
@@ -269,20 +268,11 @@ const updateDependencies = async (dir: string): Promise<void> => {
     }
 
     console.log(`  ✓ ${item.name}: ${item.range} → ${newRange}`);
-
-    // Keep the peer dependency (e.g., vue) in sync, keeping its own range prefix.
-
-    const peerDependencies = packageJson.peerDependencies;
-    const peerRange = peerDependencies?.[item.name];
-
-    if (peerDependencies && peerRange !== undefined) {
-      const newPeerRange = buildRange(peerRange, item.latest);
-
-      peerDependencies[item.name] = newPeerRange;
-
-      console.log(`  ✓ ${item.name} (peer): ${peerRange} → ${newPeerRange}`);
-    }
   }
+
+  // Note: we don't update our peer dependencies (e.g., vue), since they are the oldest versions that we support (e.g.,
+  //       the oldest version of Vue that both runs our component and type checks against our type declarations), which
+  //       doesn't change when we update the version that we develop with.
 
   fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
 
