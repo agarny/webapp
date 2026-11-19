@@ -1,6 +1,6 @@
 import * as vue from 'vue';
 
-import type { File as IWasmFile, FileManager as IWasmFileManagerInstance } from '@opencor/libopencor-types';
+import type { File as WasmFile, FileManager as WasmFileManagerInstance } from '@opencor/libopencor-types';
 
 import * as common from '../common/common';
 
@@ -8,8 +8,8 @@ import {
   _cppLocApi,
   _wasmLocApi,
   cppVersion,
-  type IIssue,
-  type IUiJson,
+  type Issue,
+  type UiJson,
   normaliseUiJson,
   SedDocument,
   wasmIssuesToIssues
@@ -19,7 +19,7 @@ import {
 
 class FileManager {
   protected static _instance: FileManager | null = null;
-  private _fileManager: IWasmFileManagerInstance | null = null;
+  private _fileManager: WasmFileManagerInstance | null = null;
 
   static instance(): FileManager {
     FileManager._instance ??= new FileManager();
@@ -31,7 +31,7 @@ class FileManager {
     // Have a private constructor so that we cannot instantiate this class directly.
   }
 
-  private fileManager(): IWasmFileManagerInstance {
+  private fileManager(): WasmFileManagerInstance {
     this._fileManager ??= _wasmLocApi.FileManager.instance();
 
     return this._fileManager;
@@ -109,7 +109,7 @@ export const fileManager = FileManager.instance();
 
 // File API.
 
-export enum EFileType {
+export enum FileType {
   UNKNOWN_FILE,
   CELLML_FILE,
   SEDML_FILE,
@@ -121,20 +121,20 @@ export enum EFileType {
 // doesn't create (and therefore doesn't own) it.
 // Note: with the WASM version of libOpenCOR, the File object takes ownership of the given WASM file handle.
 
-export interface IManagedFile {
-  wasmFile?: IWasmFile;
+export interface ManagedFile {
+  wasmFile?: WasmFile;
 }
 
 export class File {
   _path: string;
   private _canonicalPath: string | undefined;
-  _wasmFile: IWasmFile = {} as IWasmFile;
-  _issues: IIssue[] = [];
+  _wasmFile: WasmFile = {} as WasmFile;
+  _issues: Issue[] = [];
   private _isOwner = true;
   private _hasWasmFile = false;
   private _released = false;
 
-  constructor(path: string, contents: Uint8Array | undefined = undefined, managedFile?: IManagedFile) {
+  constructor(path: string, contents: Uint8Array | undefined = undefined, managedFile?: ManagedFile) {
     this._path = path;
 
     if (managedFile) {
@@ -208,7 +208,7 @@ export class File {
     }
   }
 
-  type(): EFileType {
+  type(): FileType {
     return cppVersion() ? _cppLocApi.fileType(this._path) : this._wasmFile.type.value;
   }
 
@@ -222,7 +222,7 @@ export class File {
     return this._canonicalPath;
   }
 
-  issues(): IIssue[] {
+  issues(): Issue[] {
     return this._issues;
   }
 
@@ -234,7 +234,7 @@ export class File {
     return new SedDocument(this._path, this._wasmFile, this._issues);
   }
 
-  uiJson(): IUiJson | undefined {
+  uiJson(): UiJson | undefined {
     let uiJsonContents: Uint8Array | undefined;
 
     if (cppVersion()) {
@@ -272,6 +272,6 @@ export class File {
       return undefined;
     }
 
-    return normaliseUiJson(res as IUiJson);
+    return normaliseUiJson(res as UiJson);
   }
 }

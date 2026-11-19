@@ -59,7 +59,7 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
-import type { IOpenCORChangelogEntry } from '../../../index';
+import type { OpenCORChangelogEntry } from '../../../index';
 
 import { fetchChangelog } from '../../common/changelog';
 import { electronApi } from '../../common/electronApi';
@@ -88,7 +88,7 @@ defineEmits<{
 //          fetching have been retrieved, in which case we ignore those changes since they may not be for the version
 //          that is now available.
 
-const entries = vue.ref<IOpenCORChangelogEntry[] | null>([]);
+const entries = vue.ref<OpenCORChangelogEntry[] | null>([]);
 const fetching = vue.ref(false);
 
 let fetchId = 0;
@@ -99,7 +99,7 @@ const onShow = (): void => {
   entries.value = [];
   fetching.value = true;
 
-  void fetchChangelog(props.version).then((changelogEntries: IOpenCORChangelogEntry[] | null) => {
+  void fetchChangelog(props.version).then((changelogEntries: OpenCORChangelogEntry[] | null) => {
     if (crtFetchId === fetchId) {
       entries.value = changelogEntries;
       fetching.value = false;

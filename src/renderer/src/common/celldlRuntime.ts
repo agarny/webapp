@@ -5,7 +5,7 @@ import { attemptUrl, withRetries } from './initialisation';
 
 // Our CellDL runtime (see src/celldl/runtime.ts).
 
-export type ICellDLRuntime = typeof import('../celldl/runtime');
+export type CellDLRuntime = typeof import('../celldl/runtime');
 
 // The URL from which our CellDL runtime is served by https://opencor.ws.
 
@@ -41,7 +41,7 @@ const isServed = async (url: string): Promise<boolean> => {
 //          cannot be imported from a blob URL. This also means that retrying only helps if our CellDL runtime itself
 //          fails to be imported since its chunks keep the same URL from one attempt to another (see attemptUrl()).
 
-const importCellDLRuntime = async (): Promise<ICellDLRuntime> => {
+const importCellDLRuntime = async (): Promise<CellDLRuntime> => {
   if (__CELLDL_RUNTIME_BUNDLED__) {
     return import('../celldl/runtime');
   }
@@ -53,16 +53,16 @@ const importCellDLRuntime = async (): Promise<ICellDLRuntime> => {
 
   return withRetries(
     'CellDL Editor',
-    (attempt) => import(/* @vite-ignore */ attemptUrl(url, attempt)) as Promise<ICellDLRuntime>
+    (attempt) => import(/* @vite-ignore */ attemptUrl(url, attempt)) as Promise<CellDLRuntime>
   );
 };
 
 // Load our CellDL runtime, if needed, and inject CellDL Editor's stylesheet.
 // Note: if our CellDL runtime cannot be loaded (e.g., because of a network issue), then we allow for another attempt.
 
-let cellDLRuntime: Promise<ICellDLRuntime> | null = null;
+let cellDLRuntime: Promise<CellDLRuntime> | null = null;
 
-export const loadCellDLRuntime = (): Promise<ICellDLRuntime> => {
+export const loadCellDLRuntime = (): Promise<CellDLRuntime> => {
   cellDLRuntime ??= importCellDLRuntime()
     .then((runtime) => {
       const style = document.createElement('style');

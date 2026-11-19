@@ -8,7 +8,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import type { OpenCORTheme } from '../renderer/index';
-import { formatError, type ISettings, isObject } from '../renderer/src/common/common';
+import { formatError, type Settings, isObject } from '../renderer/src/common/common';
 import { SHORT_DELAY, URI_SCHEME } from '../renderer/src/common/constants';
 import { appImagePath, isLinux, isPackaged, isWindows } from '../renderer/src/common/electron';
 /* TODO: enable once our GitHub integration is fully ready.
@@ -58,7 +58,7 @@ import { SplashScreenWindow } from './SplashScreenWindow';
 
 // Electron store.
 
-export interface IElectronConfState {
+export interface ElectronConfState {
   x: number;
   y: number;
   width: number;
@@ -67,7 +67,7 @@ export interface IElectronConfState {
   isFullScreen: boolean;
 }
 
-interface IElectronConf {
+interface ElectronConfContents {
   app: {
     files: {
       opened: string[];
@@ -75,12 +75,12 @@ interface IElectronConf {
       selected: string;
     };
     rendererServerPort: number;
-    state: IElectronConfState;
+    state: ElectronConfState;
   };
-  settings: ISettings;
+  settings: Settings;
 }
 
-export let electronConf: ElectronConf<IElectronConf>;
+export let electronConf: ElectronConf<ElectronConfContents>;
 
 // A helper function to sanitise a (loaded) configuration value against its default value, i.e. to use the default
 // value for whatever is missing or of the wrong type.
@@ -138,16 +138,16 @@ export const takeElectronConfBackupFileName = (): string | null => {
 //          our configuration file is most likely fine, so we must not reset it. Instead, we let the error through (so
 //          that OpenCOR reports it and quits), leaving our configuration file as is.
 
-const createElectronConf = (defaults: IElectronConf): ElectronConf<IElectronConf> => {
+const createElectronConf = (defaults: ElectronConfContents): ElectronConf<ElectronConfContents> => {
   const options = {
     dir: electron.app.getPath('userData'),
     name: 'config',
     defaults
   };
-  let res: ElectronConf<IElectronConf>;
+  let res: ElectronConf<ElectronConfContents>;
 
   try {
-    res = new ElectronConf<IElectronConf>(options);
+    res = new ElectronConf<ElectronConfContents>(options);
   } catch (error: unknown) {
     const fileName = path.join(options.dir, `${options.name}.json`);
 
@@ -163,7 +163,7 @@ const createElectronConf = (defaults: IElectronConf): ElectronConf<IElectronConf
       `OpenCOR: the configuration file (${fileName}) could not be loaded (${formatError(error)}), so it has been backed up (as ${backupFileName}) and the default configuration is used instead.`
     );
 
-    res = new ElectronConf<IElectronConf>(options);
+    res = new ElectronConf<ElectronConfContents>(options);
 
     electronConfBackupFileName = backupFileName;
   }
@@ -171,7 +171,7 @@ const createElectronConf = (defaults: IElectronConf): ElectronConf<IElectronConf
   // Sanitise our configuration and save it, if needed.
 
   const store = res.store;
-  const sanitisedStore = sanitisedConfValue(store, defaults) as IElectronConf;
+  const sanitisedStore = sanitisedConfValue(store, defaults) as ElectronConfContents;
 
   if (JSON.stringify(sanitisedStore) !== JSON.stringify(store)) {
     res.store = sanitisedStore;
@@ -365,7 +365,7 @@ electron.app
     const workAreaSize = electron.screen.getPrimaryDisplay().workAreaSize;
     const horizontalSpace = Math.round(workAreaSize.width / 13);
     const verticalSpace = Math.round(workAreaSize.height / 13);
-    const defaultState: IElectronConfState = {
+    const defaultState: ElectronConfState = {
       x: horizontalSpace,
       y: verticalSpace,
       width: workAreaSize.width - 2 * horizontalSpace,
@@ -399,7 +399,7 @@ electron.app
     // in full-screen mode).
 
     const MIN_VISIBLE_SIZE = 100;
-    const state: IElectronConfState = electronConf.get('app.state');
+    const state: ElectronConfState = electronConf.get('app.state');
     const stateIsVisible = electron.screen.getAllDisplays().some(({ workArea }) => {
       const visibleWidth = Math.min(state.x + state.width, workArea.x + workArea.width) - Math.max(state.x, workArea.x);
       const visibleHeight =
@@ -545,7 +545,7 @@ electron.app
           return loadGitHubAccessToken();
         });
 */
-        electron.ipcMain.handle('load-settings', (): ISettings => {
+        electron.ipcMain.handle('load-settings', (): Settings => {
           return loadSettings();
         });
         electron.ipcMain.handle(
@@ -572,7 +572,7 @@ electron.app
           return saveGitHubAccessToken(token);
         });
 */
-        electron.ipcMain.handle('save-settings', (_event, settings: ISettings) => {
+        electron.ipcMain.handle('save-settings', (_event, settings: Settings) => {
           saveSettings(settings);
         });
         electron.ipcMain.handle('show-open-dialog', () => {

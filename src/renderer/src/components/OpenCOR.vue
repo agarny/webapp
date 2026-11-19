@@ -145,7 +145,7 @@ import primeVueToastService from 'primevue/toastservice';
 import { useToast } from 'primevue/usetoast';
 import * as vue from 'vue';
 
-import type { IOpenCOREmits, IOpenCORExternalDataEvent, IOpenCORProps, IOpenCORSimulationDataEvent } from '../../index';
+import type { OpenCOREmits, OpenCORExternalDataEvent, OpenCORProps, OpenCORSimulationDataEvent } from '../../index';
 
 import '../assets/app.css';
 import celldlIcon from '../assets/celldl.svg?inline';
@@ -176,9 +176,9 @@ import SimulationExperimentStandardView from './views/SimulationExperimentStanda
 import SafeBlockUIWidget from './widgets/SafeBlockUIWidget.vue';
 import MainMenu from './MainMenu.vue';
 
-const props = defineProps<IOpenCORProps>();
+const props = defineProps<OpenCORProps>();
 
-const emit = defineEmits<IOpenCOREmits>();
+const emit = defineEmits<OpenCOREmits>();
 
 const contentsRef = vue.ref<InstanceType<typeof ContentsComponent> | null>(null);
 
@@ -207,7 +207,7 @@ const addExternalData = (csv: string, voiExpression: string | undefined, modelPa
 
   contents
     .addExternalData(csv, voiExpression, modelParameters)
-    .then((res: IOpenCORExternalDataEvent) => {
+    .then((res: OpenCORExternalDataEvent) => {
       emit('externalData', res);
     })
     .finally(() => {
@@ -270,7 +270,7 @@ const emitSimulationData = (): void => {
     return;
   }
 
-  contents.simulationData(trackedSimulationData.value).then((res: IOpenCORSimulationDataEvent) => {
+  contents.simulationData(trackedSimulationData.value).then((res: OpenCORSimulationDataEvent) => {
     emit('simulationData', res);
   });
 };
@@ -311,8 +311,8 @@ const { isDialogActive } = provideDialogState();
 const safeBlockUiRef = vue.ref<InstanceType<typeof SafeBlockUIWidget> | null>(null);
 const mainMenuRef = vue.ref<InstanceType<typeof MainMenu> | null>(null);
 const filesRef = vue.shallowRef<HTMLElement | null>(null);
-const issues = vue.ref<locApi.IIssue[]>([]);
-const compIssues = vue.computed<locApi.IIssue[]>(() => {
+const issues = vue.ref<locApi.Issue[]>([]);
+const compIssues = vue.computed<locApi.Issue[]>(() => {
   return [...initialisation.issues.value, ...issues.value];
 });
 const activeInstanceUid = vueCommon.activeInstanceUid();
@@ -1299,12 +1299,12 @@ const onReload = async (): Promise<void> => {
 // The files that are being opened, keyed by their canonical path, each with a promise that gets resolved once the file
 // has been opened (or not).
 
-interface IFileBeingOpened {
+interface FileBeingOpened {
   promise: Promise<void>;
   resolve: () => void;
 }
 
-const filesBeingOpened = new Map<string, IFileBeingOpened>();
+const filesBeingOpened = new Map<string, FileBeingOpened>();
 
 const fileBeingOpened = (canonicalFilePath: string): void => {
   let resolve: () => void = () => {};
@@ -1320,7 +1320,7 @@ const fileNoLongerBeingOpened = (canonicalFilePath: string): void => {
   filesBeingOpened.delete(canonicalFilePath);
 };
 
-interface IFileInfo {
+interface FileInfo {
   alreadyOpen: boolean;
   beingOpened?: Promise<void>;
   // Note: if the file is already being opened (i.e. it doesn't have a file tab yet), then a promise that gets resolved
@@ -1357,7 +1357,7 @@ const reportFileIssue = (filePath: string, issueMessage: string, canonicalFilePa
 
   if (props.omex) {
     void vue.nextTick().then(() => {
-      issues.value.push({ type: locApi.EIssueType.ERROR, description: issueMessage });
+      issues.value.push({ type: locApi.IssueType.ERROR, description: issueMessage });
     });
   } else {
     // Note: a data URL can be very long, so we don't show it (the issue message says that it is a data URL anyway).
@@ -1377,7 +1377,7 @@ const reportFileIssue = (filePath: string, issueMessage: string, canonicalFilePa
 const processFile = async (
   fileFilePathOrFileContents: string | Uint8Array | File,
   dataUrlFileName: string = ''
-): Promise<IFileInfo | null> => {
+): Promise<FileInfo | null> => {
   // Check whether we were passed a ZIP-CellML data URL.
   // Note: we may also have been passed the contents of a file that was opened using a data URL and then closed, along
   //       with its name, so that it can be reopened under that name (see onReopenMenu() and electronApi.onOpenFile()).
@@ -1483,12 +1483,12 @@ const processFile = async (
     const fileType = file.type();
 
     if (
-      fileType === locApi.EFileType.IRRETRIEVABLE_FILE ||
-      (props.omex && fileType !== locApi.EFileType.COMBINE_ARCHIVE)
+      fileType === locApi.FileType.IRRETRIEVABLE_FILE ||
+      (props.omex && fileType !== locApi.FileType.COMBINE_ARCHIVE)
     ) {
       reportFileIssue(
         filePath,
-        fileType === locApi.EFileType.IRRETRIEVABLE_FILE
+        fileType === locApi.FileType.IRRETRIEVABLE_FILE
           ? 'The file could not be retrieved.'
           : 'Only COMBINE archives are supported.',
         canonicalFilePath
@@ -1573,7 +1573,7 @@ const openFileInContents = async (
   }
 };
 
-const fileAlreadyOpen = async (fileInfo: IFileInfo, wait: boolean = false): Promise<void> => {
+const fileAlreadyOpen = async (fileInfo: FileInfo, wait: boolean = false): Promise<void> => {
   // Let our main process know whether the file is open since it may be waiting for it (e.g., if the file is being
   // reopened at startup, see MainWindow.fileOpenedOrNot()), and select it.
   // Note: if the file is being opened, then we can only let our main process know once it has been opened (or not), in
@@ -1602,7 +1602,7 @@ const fileAlreadyOpen = async (fileInfo: IFileInfo, wait: boolean = false): Prom
 
 const openProcessedFile = async (
   fileFilePathOrFileContents: string | Uint8Array | File,
-  fileInfoPromise: Promise<IFileInfo | null>,
+  fileInfoPromise: Promise<FileInfo | null>,
   wait: boolean
 ): Promise<void> => {
   // Open the given processed file (see processFile()) or select it if it is already open.
@@ -1611,7 +1611,7 @@ const openProcessedFile = async (
   //       main process doesn't wait for the file forever (e.g., if the file is being reopened at startup, see
   //       MainWindow.fileOpenedOrNot()), and the next files can still be opened (see openFiles()).
 
-  let fileInfo: IFileInfo | null = null;
+  let fileInfo: FileInfo | null = null;
 
   try {
     fileInfo = await fileInfoPromise;
@@ -1801,14 +1801,14 @@ const onDragOver = (event: DragEvent): void => {
 // Note #2: DataTransferItem.getAsFileSystemHandle() is part of the File System Access API, which is only supported by
 //          Chromium-based Web browsers, and it may return the handle of a directory.
 
-interface IDataTransferItemWithFileSystemHandle {
+interface DataTransferItemWithFileSystemHandle {
   getAsFileSystemHandle?: () => Promise<FileSystemHandle | null>;
 }
 
 const fileHandles = new WeakMap<File, FileSystemFileHandle>();
 
 const droppedFileHandle = (item: DataTransferItem): Promise<FileSystemFileHandle | null> => {
-  const getAsFileSystemHandle = (item as unknown as IDataTransferItemWithFileSystemHandle).getAsFileSystemHandle;
+  const getAsFileSystemHandle = (item as unknown as DataTransferItemWithFileSystemHandle).getAsFileSystemHandle;
 
   if (electronApi || !getAsFileSystemHandle) {
     return Promise.resolve(null);
@@ -1978,21 +1978,21 @@ const onOpenSampleLorenzMenu = (): void => {
 //          session, including in OpenCOR where we keep them for the main process to ask us to reopen the file (see
 //          closedDataUrlFiles). A file opened using some contents cannot be reopened.
 
-interface IRecentFile {
+interface RecentFile {
   filePath: string;
   source: string | File | FileSystemFileHandle | Uint8Array;
 }
 
-interface IClosedDataUrlFile {
+interface ClosedDataUrlFile {
   filePath: string;
   contents: Uint8Array;
 }
 
 const openedFiles = new Map<string, File | Uint8Array>();
-const closedDataUrlFiles = new Map<string, IClosedDataUrlFile>();
+const closedDataUrlFiles = new Map<string, ClosedDataUrlFile>();
 // Note: keyed by the canonical path of the file since that is what our main process refers to it by. It only lists up
 //       to MAX_RECENT_FILES files, so we never need to keep more than that.
-const recentFiles = vue.shallowRef<IRecentFile[]>([]);
+const recentFiles = vue.shallowRef<RecentFile[]>([]);
 const recentFilePaths = vue.computed<string[]>(() => {
   return recentFiles.value.map((recentFile) => recentFile.filePath);
 });
@@ -2291,7 +2291,7 @@ vue.onMounted(() => {
     label: 'CellDL Editor',
     icon: { url: celldlIcon },
     component: vue.defineAsyncComponent(() => import('./views/CellDLEditorView.vue')),
-    fileTypes: [locApi.EFileType.UNKNOWN_FILE],
+    fileTypes: [locApi.FileType.UNKNOWN_FILE],
     supportsFile: locCommon.isCellDLFile
   });
 
@@ -2301,7 +2301,7 @@ vue.onMounted(() => {
     label: 'Standard Simulation Experiment',
     icon: 'pi pi-chart-line',
     component: SimulationExperimentStandardView,
-    fileTypes: [locApi.EFileType.CELLML_FILE, locApi.EFileType.SEDML_FILE, locApi.EFileType.COMBINE_ARCHIVE]
+    fileTypes: [locApi.FileType.CELLML_FILE, locApi.FileType.SEDML_FILE, locApi.FileType.COMBINE_ARCHIVE]
   });
 
   viewRegistry.register({
@@ -2310,7 +2310,7 @@ vue.onMounted(() => {
     label: 'Interactive Simulation Experiment',
     icon: 'pi pi-sliders-h',
     component: SimulationExperimentInteractiveView,
-    fileTypes: [locApi.EFileType.CELLML_FILE, locApi.EFileType.SEDML_FILE, locApi.EFileType.COMBINE_ARCHIVE]
+    fileTypes: [locApi.FileType.CELLML_FILE, locApi.FileType.SEDML_FILE, locApi.FileType.COMBINE_ARCHIVE]
   });
 });
 

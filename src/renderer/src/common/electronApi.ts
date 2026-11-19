@@ -1,14 +1,14 @@
 import type { OpenCORTheme } from '../../index';
 
-import type { ISettings, ISystemDetails } from './common';
+import type { Settings, SystemDetails } from './common';
 
-interface IElectronApi {
+interface ElectronApi {
   // Note: this must be in sync with src/preload/index.ts.
 
   // Some general methods.
 
   operatingSystem: () => string;
-  systemDetails: () => ISystemDetails;
+  systemDetails: () => SystemDetails;
 
   // Renderer process asking the main process to do something for it.
 
@@ -33,7 +33,7 @@ interface IElectronApi {
   filesOpened(filePaths: string[]): void;
   installUpdateAndRestart: () => Promise<boolean>;
   loadGitHubAccessToken: () => Promise<string | null>;
-  loadSettings: () => Promise<ISettings>;
+  loadSettings: () => Promise<Settings>;
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) => void;
   rendererReady: () => Promise<void>;
   reopenRecentFile: (filePath: string) => void;
@@ -41,7 +41,7 @@ interface IElectronApi {
   saveFile: (filePath: string, contents: Uint8Array) => Promise<void>;
   saveFileAs: (defaultFilePath: string) => Promise<string | null>;
   saveGitHubAccessToken: (token: string) => Promise<boolean>;
-  saveSettings: (settings: ISettings) => void;
+  saveSettings: (settings: Settings) => void;
   showOpenDialog: () => void;
 
   // Renderer process listening to the main process.
@@ -75,9 +75,9 @@ interface IElectronApi {
   onUpdateNotAvailable: (callback: () => void) => () => void;
 }
 
-interface IWindow {
-  electronApi: IElectronApi;
+interface WindowWithElectronApi {
+  electronApi: ElectronApi;
 }
 
-export const electronApi: IElectronApi | undefined =
-  typeof window !== 'undefined' ? (window as unknown as IWindow).electronApi : undefined;
+export const electronApi: ElectronApi | undefined =
+  typeof window !== 'undefined' ? (window as unknown as WindowWithElectronApi).electronApi : undefined;

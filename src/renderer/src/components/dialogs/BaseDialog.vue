@@ -160,14 +160,14 @@ vue.onBeforeUnmount(() => {
 
 const DialogStateKey = Symbol('DialogState');
 
-interface IDialogState {
+interface DialogState {
   activeDialogs: vue.Ref<number>;
   isDialogActive: vue.ComputedRef<boolean>;
   incrementDialogs: () => void;
   decrementDialogs: () => void;
 }
 
-export const provideDialogState = (): IDialogState => {
+export const provideDialogState = (): DialogState => {
   const activeDialogs = vue.ref(0);
   const isDialogActive = vue.computed<boolean>(() => {
     return activeDialogs.value > 0;
@@ -181,7 +181,7 @@ export const provideDialogState = (): IDialogState => {
     --activeDialogs.value;
   };
 
-  const state: IDialogState = {
+  const state: DialogState = {
     activeDialogs,
     isDialogActive,
     incrementDialogs,
@@ -193,8 +193,8 @@ export const provideDialogState = (): IDialogState => {
   return state;
 };
 
-export const useDialogState = (): IDialogState => {
-  const state = vue.inject<IDialogState>(DialogStateKey);
+export const useDialogState = (): DialogState => {
+  const state = vue.inject<DialogState>(DialogStateKey);
 
   if (!state) {
     throw new Error('useDialogState() must be called within a component that has provideDialogState in its ancestor tree.');

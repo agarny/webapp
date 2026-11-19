@@ -5,9 +5,9 @@ import * as dependencies from './dependencies';
 import { electronApi } from './electronApi';
 
 import * as locApi from '../libopencor/locApi';
-import type { MainModule as IWasmLocApi } from '@opencor/libopencor-types';
+import type { MainModule as WasmLocApi } from '@opencor/libopencor-types';
 
-type WasmFactory = (options?: unknown) => Promise<IWasmLocApi>;
+type WasmFactory = (options?: unknown) => Promise<WasmLocApi>;
 
 // Our different external dependencies.
 
@@ -369,13 +369,13 @@ const createLazyInitialiser = (
 const initialisationError = (error: unknown): void => {
   if (!issues.value.length) {
     issues.value.push({
-      type: locApi.EIssueType.INFORMATION,
+      type: locApi.IssueType.INFORMATION,
       description: 'An error occurred while initialising OpenCOR. Please check your setup and reload the page.'
     });
   }
 
   issues.value.splice(Math.max(0, issues.value.length - 1), 0, {
-    type: locApi.EIssueType.ERROR,
+    type: locApi.IssueType.ERROR,
     description: common.formatMessage(common.formatError(error))
   });
 
@@ -414,7 +414,7 @@ export const done = vue.computed<boolean>(() => {
   return progress.value >= 100;
 });
 export const failed = vue.ref<boolean>(false);
-export const issues = vue.ref<locApi.IIssue[]>([]);
+export const issues = vue.ref<locApi.Issue[]>([]);
 export const progress = vue.computed<number>(() => {
   return Math.round((100 * crtNbOfSteps.value) / totalNbOfSteps);
 });

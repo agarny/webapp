@@ -83,12 +83,12 @@ export const initialiseConverter = async (progress: (percent: number) => void): 
 
 // Generate CellML from the given CellDL file.
 
-export interface ICellmlFromCelldl {
+export interface CellmlFromCelldl {
   cellml?: string;
   issues: string[];
 }
 
-export const cellmlFromCelldl = async (celldl: string, celldlFileName: string): Promise<ICellmlFromCelldl> => {
+export const cellmlFromCelldl = async (celldl: string, celldlFileName: string): Promise<CellmlFromCelldl> => {
   const converter = await initialisedConverter();
 
   // Note: the source URI must be a valid IRI, hence we encode our file name (which may, for instance, contain spaces).

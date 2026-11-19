@@ -3,7 +3,7 @@ import * as electron from 'electron';
 import { COPYRIGHT } from '../renderer/src/common/constants';
 
 import { ApplicationWindow } from './ApplicationWindow';
-import { electronConf, type IElectronConfState } from './index';
+import { electronConf, type ElectronConfState } from './index';
 import { formatError } from '../renderer/src/common/common';
 
 export class SplashScreenWindow extends ApplicationWindow {
@@ -17,7 +17,7 @@ export class SplashScreenWindow extends ApplicationWindow {
 
     const width = 360;
     const height = 300;
-    const state: IElectronConfState = electronConf.get('app.state');
+    const state: ElectronConfState = electronConf.get('app.state');
 
     super(
       {

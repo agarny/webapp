@@ -1,30 +1,30 @@
 import * as common from '../common/common';
 import * as dependencies from '../common/dependencies';
 
-import { EIssueType, type IIssue } from './locLoggerApi';
+import { IssueType, type Issue } from './locLoggerApi';
 
-export interface IUiJson {
-  input: IUiJsonInput[];
-  output: IUiJsonOutput;
-  parameters: IUiJsonParameter[];
+export interface UiJson {
+  input: UiJsonInput[];
+  output: UiJsonOutput;
+  parameters: UiJsonParameter[];
 }
 
-export type IUiJsonInput = IUiJsonDiscreteInput | IUiJsonScalarInput;
+export type UiJsonInput = UiJsonDiscreteInput | UiJsonScalarInput;
 
-export interface IUiJsonDiscreteInput {
+export interface UiJsonDiscreteInput {
   defaultValue: number;
   id: string;
   name: string;
-  possibleValues: IUiJsonDiscreteInputPossibleValue[];
+  possibleValues: UiJsonDiscreteInputPossibleValue[];
   visible?: string;
 }
 
-export interface IUiJsonDiscreteInputPossibleValue {
+export interface UiJsonDiscreteInputPossibleValue {
   name: string;
   value: number;
 }
 
-export interface IUiJsonScalarInput {
+export interface UiJsonScalarInput {
   defaultValue: number;
   id: string;
   maximumValue: number;
@@ -34,55 +34,55 @@ export interface IUiJsonScalarInput {
   visible?: string;
 }
 
-export interface IUiJsonOutput {
-  data: IUiJsonOutputData[];
-  externalData?: IUiJsonOutputExternalData[];
-  plots: IUiJsonOutputPlot[];
+export interface UiJsonOutput {
+  data: UiJsonOutputData[];
+  externalData?: UiJsonOutputExternalData[];
+  plots: UiJsonOutputPlot[];
 }
 
-export interface IUiJsonOutputData {
+export interface UiJsonOutputData {
   id: string;
   name: string;
 }
 
-export interface IUiJsonOutputExternalData {
-  data: IUiJsonOutputData[];
-  dataSeries: IUiJsonOutputExternalDataSeries[];
+export interface UiJsonOutputExternalData {
+  data: UiJsonOutputData[];
+  dataSeries: UiJsonOutputExternalDataSeries[];
   description?: string;
   voiExpression?: string;
   voiValues: Float64Array;
 }
 
-export interface IUiJsonOutputExternalDataSeries {
+export interface UiJsonOutputExternalDataSeries {
   name: string;
   values: Float64Array;
 }
 
-export interface IUiJsonOutputPlot {
+export interface UiJsonOutputPlot {
   xAxisTitle?: string;
   xValue: string;
   yAxisTitle?: string;
   yValue: string;
   name?: string;
-  additionalTraces?: IUiJsonOutputPlotAdditionalTrace[];
+  additionalTraces?: UiJsonOutputPlotAdditionalTrace[];
 }
 
-export interface IUiJsonOutputPlotAdditionalTrace {
+export interface UiJsonOutputPlotAdditionalTrace {
   xValue: string;
   yValue: string;
   name?: string;
 }
 
-export interface IUiJsonParameter {
+export interface UiJsonParameter {
   name: string;
   value: string;
 }
 
-export const isScalarInput = (input: IUiJsonInput): input is IUiJsonScalarInput => {
+export const isScalarInput = (input: UiJsonInput): input is UiJsonScalarInput => {
   return 'maximumValue' in input && 'minimumValue' in input;
 };
 
-export const isDiscreteInput = (input: IUiJsonInput): input is IUiJsonDiscreteInput => {
+export const isDiscreteInput = (input: UiJsonInput): input is UiJsonDiscreteInput => {
   return 'possibleValues' in input;
 };
 
@@ -97,12 +97,12 @@ export const uiJsonReplacer = (_key: string, value: unknown): unknown => {
 // Note: whether a UI JSON is valid is determined by validateUiJson(), which should therefore be given the original UI
 //       JSON so that all of its issues get reported.
 
-export interface IUiJsonWithExpectedStructure {
-  uiJson: IUiJson;
+export interface UiJsonWithExpectedStructure {
+  uiJson: UiJson;
   repaired: boolean;
 }
 
-export const uiJsonWithExpectedStructure = (value: unknown): IUiJsonWithExpectedStructure => {
+export const uiJsonWithExpectedStructure = (value: unknown): UiJsonWithExpectedStructure => {
   let repaired = false;
 
   const object = (value: unknown): Record<string, unknown> => {
@@ -162,7 +162,7 @@ export const uiJsonWithExpectedStructure = (value: unknown): IUiJsonWithExpected
   };
 
   return {
-    uiJson: res as unknown as IUiJson,
+    uiJson: res as unknown as UiJson,
     repaired
   };
 };
@@ -213,10 +213,10 @@ const fromFloat64ArrayForSchemaValidation = (values: unknown): unknown => {
 // Note: the UI JSON may not have the expected structure, in which case we only map what can be mapped.
 
 const mapExternalData = (
-  uiJson: IUiJson,
+  uiJson: UiJson,
   mapValues: (values: unknown) => unknown,
   inPlace: boolean
-): IUiJson | undefined => {
+): UiJson | undefined => {
   const output: unknown = (uiJson as unknown as Record<string, unknown>).output;
 
   if (!common.isObject(output) || !Array.isArray(output.externalData) || !output.externalData.length) {
@@ -255,16 +255,16 @@ const mapExternalData = (
     return uiJson;
   }
 
-  return { ...uiJson, output: { ...output, externalData } } as unknown as IUiJson;
+  return { ...uiJson, output: { ...output, externalData } } as unknown as UiJson;
 };
 
-export const normaliseUiJson = (uiJson: IUiJson): IUiJson => {
+export const normaliseUiJson = (uiJson: UiJson): UiJson => {
   mapExternalData(uiJson, toFloat64Array, true);
 
   return uiJson;
 };
 
-const uiJsonForSchemaValidation = (uiJson: IUiJson): unknown => {
+const uiJsonForSchemaValidation = (uiJson: UiJson): unknown => {
   return mapExternalData(uiJson, fromFloat64ArrayForSchemaValidation, false) ?? uiJson;
 };
 
@@ -275,8 +275,8 @@ const uiJsonForSchemaValidation = (uiJson: IUiJson): unknown => {
 
 const MAX_REPORTED_NON_NUMERIC_VALUE_INDICES = 5;
 
-const nonNumericValuesIssues = (uiJson: IUiJson): IIssue[] => {
-  const res: IIssue[] = [];
+const nonNumericValuesIssues = (uiJson: UiJson): Issue[] => {
+  const res: Issue[] = [];
 
   const check = (values: unknown, what: string): void => {
     if (!(values instanceof Float64Array) && !Array.isArray(values)) {
@@ -309,7 +309,7 @@ const nonNumericValuesIssues = (uiJson: IUiJson): IIssue[] => {
         : `${count} values are not, at indices ${indices.join(', ')}${otherCount ? `, and ${otherCount} more` : ''}`;
 
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: `UI JSON: ${what} must only contain numbers (${where}).`
     });
   };
@@ -371,7 +371,7 @@ export const cloneUiJson = <T>(value: T): T => {
   return value;
 };
 
-export const cleanUiJson = (uiJson: IUiJson): IUiJson => {
+export const cleanUiJson = (uiJson: UiJson): UiJson => {
   const cleanUiJsonRec = (value: unknown): unknown => {
     if (value === undefined || value === null || (typeof value === 'string' && value === '')) {
       return undefined;
@@ -411,10 +411,10 @@ export const cleanUiJson = (uiJson: IUiJson): IUiJson => {
     return value;
   };
 
-  return cleanUiJsonRec(uiJson) as IUiJson;
+  return cleanUiJsonRec(uiJson) as UiJson;
 };
 
-interface IValidateUiJsonOptions {
+interface ValidateUiJsonOptions {
   allModelParameters?: string[];
   editableModelParameters?: string[];
 }
@@ -437,13 +437,13 @@ const listOfItems = (items: Set<string>): string => {
   return `${list.slice(0, -1).join(', ')}, or ${list[list.length - 1]}`;
 };
 
-export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateUiJsonOptions): IIssue[] => {
+export const validateUiJson = (uiJson: UiJson | undefined, options?: ValidateUiJsonOptions): Issue[] => {
   // Make sure that we have some UI JSON.
 
   if (!uiJson) {
     return [
       {
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: 'UI JSON: no UI JSON was provided.'
       }
     ];
@@ -713,13 +713,13 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
   const nonNumericIssues = nonNumericValuesIssues(uiJson);
 
   if (!validatorRes.valid || nonNumericIssues.length) {
-    const res: IIssue[] = [];
+    const res: Issue[] = [];
 
     if (!validatorRes.valid) {
       for (const issue of String(validatorRes).split('\n')) {
         if (issue) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: ${common.formatMessage(issue)}`
           });
         }
@@ -736,14 +736,14 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
   // Make sure that the input information makes sense.
 
-  const res: IIssue[] = [];
+  const res: Issue[] = [];
   const inputIdUsed = new Set<string>();
 
   for (const input of uiJson.input) {
     if (input.id) {
       if (inputIdUsed.has(input.id)) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: `UI JSON: an input id must be unique ('${input.id}' is used more than once).`
         });
       }
@@ -751,14 +751,14 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
       inputIdUsed.add(input.id);
     } else {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an input id must not be empty.`
       });
     }
 
     if (!input.name) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an input name must not be empty.`
       });
     }
@@ -767,7 +767,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
       for (const possibleValue of input.possibleValues) {
         if (!possibleValue.name) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an input possible value name must not be empty.`
           });
         }
@@ -782,7 +782,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
       for (const possibleValue of possibleValues) {
         if (usedPossibleValues.has(possibleValue)) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an input possible value must have a unique value ('${possibleValue}' is used more than once).`
           });
         }
@@ -792,7 +792,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
       if (!possibleValues.includes(input.defaultValue)) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: `UI JSON: an input default value must be one of the possible values ('${input.defaultValue}' is not one of ${listOfPossibleValues}).`
         });
       }
@@ -801,14 +801,14 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
     if (isScalarInput(input)) {
       if (input.minimumValue >= input.maximumValue) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: `UI JSON: an input minimum value must be lower than the maximum value (${input.minimumValue} is not lower than ${input.maximumValue}).`
         });
       }
 
       if (input.defaultValue < input.minimumValue || input.defaultValue > input.maximumValue) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: `UI JSON: an input default value must be greater or equal than the minimum value and lower or equal than the maximum value (${input.defaultValue} is not between ${input.minimumValue} and ${input.maximumValue}).`
         });
       }
@@ -818,20 +818,20 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
       if (input.stepValue !== undefined && input.stepValue !== null) {
         if (input.stepValue <= 0 || input.stepValue > range) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an input step value must be greater than zero and lower or equal than the range value (${input.stepValue} is not between 0 and ${range}).`
           });
         }
 
         if (!common.isDivisible(range, input.stepValue)) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an input step value must be a factor of the range value (${input.stepValue} is not a factor of ${range}).`
           });
         }
       } else if (!common.isDivisible(range, 1)) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: `UI JSON: an input step value must be a factor of the range value (1 is not a factor of ${range}).`
         });
       }
@@ -839,7 +839,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
     if (input.visible !== undefined && input.visible !== null && !input.visible) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an input visible must not be empty.`
       });
     }
@@ -853,14 +853,14 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
   for (const outputData of uiJson.output.data) {
     if (!outputData.id) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an output data id must not be empty.`
       });
     }
 
     if (outputIdUsed.has(outputData.id)) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an output data id must be unique ('${outputData.id}' is used more than once).`
       });
     }
@@ -869,12 +869,12 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
     if (!outputData.name) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an output data name must not be empty.`
       });
     } else if (allModelParametersSet.size > 0 && !allModelParametersSet.has(outputData.name)) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an output data name must match one of the available options ('${outputData.name}' is not one of ${listOfAllModelParameters}).`
       });
     }
@@ -887,7 +887,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
           dependencies._mathJs.parse(outputExternalData.voiExpression);
         } catch (error: unknown) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data VOI expression must be valid ('${outputExternalData.voiExpression}' is not: ${common.formatMessage(common.formatError(error), false)}).`
           });
         }
@@ -895,7 +895,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
       if (!outputExternalData.voiValues.length) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: 'UI JSON: an output external data VOI values must not be empty.'
         });
       }
@@ -905,7 +905,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
       for (const outputExternalDataSeries of outputExternalData.dataSeries) {
         if (outputExternalDataSeriesNames.has(outputExternalDataSeries.name)) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data series name must be unique ('${outputExternalDataSeries.name}' is used more than once).`
           });
         }
@@ -914,21 +914,21 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
         if (!outputExternalDataSeries.name) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data series name must not be empty.`
           });
         }
 
         if (!outputExternalDataSeries.values.length) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: 'UI JSON: an output external data series values must not be empty.'
           });
         }
 
         if (outputExternalDataSeries.values.length !== outputExternalData.voiValues.length) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data series values length must match the output external data VOI values length (${outputExternalDataSeries.values.length} is not equal to ${outputExternalData.voiValues.length}).`
           });
         }
@@ -940,14 +940,14 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
       for (const outputExternalDataEntry of outputExternalData.data) {
         if (!outputExternalDataEntry.id) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data id must not be empty.`
           });
         }
 
         if (outputExternalDataIds.has(outputExternalDataEntry.id)) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data id must be unique ('${outputExternalDataEntry.id}' is used more than once).`
           });
         }
@@ -956,7 +956,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
         if (outputExternalDataEntry.id && outputIdUsed.has(outputExternalDataEntry.id)) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data id must be unique across simulation and external data ('${outputExternalDataEntry.id}' is used more than once).`
           });
         }
@@ -967,14 +967,14 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
         if (!outputExternalDataEntry.name) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data name must not be empty.`
           });
         }
 
         if (!outputExternalDataSeriesNames.has(outputExternalDataEntry.name)) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output external data name must match one of the available options ('${outputExternalDataEntry.name}' is not one of ${listOfOutputExternalDataSeriesNames}).`
           });
         }
@@ -982,7 +982,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
       if (!outputExternalData.dataSeries.length) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: 'UI JSON: an output external data series entries must not be empty.'
         });
       }
@@ -999,7 +999,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
         dependencies._mathJs.parse(value);
       } catch (error: unknown) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: `UI JSON: an output plot ${axisLabel} must be valid ('${value}' is not: ${common.formatMessage(common.formatError(error), false)}).`
         });
       }
@@ -1007,7 +1007,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
     if (!outputPlot.xValue) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an output plot X value must not be empty.`
       });
     } else {
@@ -1016,7 +1016,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
     if (!outputPlot.yValue) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: an output plot Y value must not be empty.`
       });
     } else {
@@ -1027,7 +1027,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
       for (const additionalTrace of outputPlot.additionalTraces) {
         if (!additionalTrace.xValue) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output plot additional trace X value must not be empty.`
           });
         } else {
@@ -1036,7 +1036,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
 
         if (!additionalTrace.yValue) {
           res.push({
-            type: EIssueType.WARNING,
+            type: IssueType.WARNING,
             description: `UI JSON: an output plot additional trace Y value must not be empty.`
           });
         } else {
@@ -1053,19 +1053,19 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
   for (const parameter of uiJson.parameters) {
     if (!parameter.name) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: a parameter name must not be empty.`
       });
     } else if (editableModelParametersSet.size > 0 && !editableModelParametersSet.has(parameter.name)) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: a parameter name must match one of the available options ('${parameter.name}' is not one of ${listOfEditableModelParameters}).`
       });
     }
 
     if (!parameter.value) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `UI JSON: a parameter value must not be empty.`
       });
     } else {
@@ -1073,7 +1073,7 @@ export const validateUiJson = (uiJson: IUiJson | undefined, options?: IValidateU
         dependencies._mathJs.parse(parameter.value);
       } catch (error: unknown) {
         res.push({
-          type: EIssueType.WARNING,
+          type: IssueType.WARNING,
           description: `UI JSON: a parameter value must be valid ('${parameter.value}' is not: ${common.formatMessage(common.formatError(error), false)}).`
         });
       }

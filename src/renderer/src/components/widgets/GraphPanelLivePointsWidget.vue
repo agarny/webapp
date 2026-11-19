@@ -28,7 +28,7 @@ import * as colors from '../../common/colors';
 // Note #3: a target is drawn as a disc and three annuli, so that each pixel is only painted once, which matters if its
 //          trace is faded (i.e. if another trace is highlighted).
 
-export interface IGraphPanelLivePoint {
+export interface GraphPanelLivePoint {
   x: number;
   y: number;
   color: string;
@@ -49,7 +49,7 @@ const HALO_WIDTH = 1; // Width of the halo around the ring of a target.
 const canvasRef = vue.useTemplateRef<HTMLCanvasElement>('canvasRef');
 const visible = vue.ref<boolean>(false);
 
-const setPoints = (points: IGraphPanelLivePoint[]): void => {
+const setPoints = (points: GraphPanelLivePoint[]): void => {
   // Draw the given points, if any.
 
   const canvas = canvasRef.value;

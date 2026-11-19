@@ -1,4 +1,4 @@
-import type { IOpenCORChangelogChange, IOpenCORChangelogEntry, OpenCORChangelogChangeType } from '../../index';
+import type { OpenCORChangelogChange, OpenCORChangelogEntry, OpenCORChangelogChangeType } from '../../index';
 
 import changelogJson from '../../changelog.json';
 
@@ -23,7 +23,7 @@ const isObject = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null;
 };
 
-const isChangelogChange = (change: unknown): change is IOpenCORChangelogChange => {
+const isChangelogChange = (change: unknown): change is OpenCORChangelogChange => {
   return (
     isObject(change) &&
     CHANGE_TYPES.includes(change.type as OpenCORChangelogChangeType) &&
@@ -41,15 +41,15 @@ const isChangelogEntry = (entry: unknown): entry is { version: string; changes: 
   );
 };
 
-const sanitisedChangelog = (changelog: unknown): IOpenCORChangelogEntry[] => {
+const sanitisedChangelog = (changelog: unknown): OpenCORChangelogEntry[] => {
   if (!Array.isArray(changelog)) {
     return [];
   }
 
-  const entries = new Map<string, IOpenCORChangelogEntry>();
+  const entries = new Map<string, OpenCORChangelogEntry>();
 
   for (const entry of changelog.filter(isChangelogEntry)) {
-    const changes = entry.changes.filter(isChangelogChange).map((change: IOpenCORChangelogChange) => {
+    const changes = entry.changes.filter(isChangelogChange).map((change: OpenCORChangelogChange) => {
       return { type: change.type, description: change.description.trim() };
     });
     const existingEntry = entries.get(entry.version);
@@ -62,20 +62,20 @@ const sanitisedChangelog = (changelog: unknown): IOpenCORChangelogEntry[] => {
   }
 
   return [...entries.values()]
-    .filter((entry: IOpenCORChangelogEntry) => {
+    .filter((entry: OpenCORChangelogEntry) => {
       return entry.changes.length > 0;
     })
-    .map((entry: IOpenCORChangelogEntry) => {
+    .map((entry: OpenCORChangelogEntry) => {
       // Note: Array.prototype.sort() is stable, so changes of the same type remain in the order in which they are
       //       listed.
 
-      entry.changes.sort((changeA: IOpenCORChangelogChange, changeB: IOpenCORChangelogChange) => {
+      entry.changes.sort((changeA: OpenCORChangelogChange, changeB: OpenCORChangelogChange) => {
         return CHANGE_TYPES.indexOf(changeA.type) - CHANGE_TYPES.indexOf(changeB.type);
       });
 
       return entry;
     })
-    .sort((entryA: IOpenCORChangelogEntry, entryB: IOpenCORChangelogEntry) => {
+    .sort((entryA: OpenCORChangelogEntry, entryB: OpenCORChangelogEntry) => {
       if (isNewerVersion(entryA.version, entryB.version)) {
         return -1;
       }
@@ -88,11 +88,11 @@ const sanitisedChangelog = (changelog: unknown): IOpenCORChangelogEntry[] => {
 // "to" version (included).
 
 const changelogEntries = (
-  changelog: IOpenCORChangelogEntry[],
+  changelog: OpenCORChangelogEntry[],
   fromVersion: string | null,
   toVersion: string
-): IOpenCORChangelogEntry[] => {
-  return changelog.filter((entry: IOpenCORChangelogEntry) => {
+): OpenCORChangelogEntry[] => {
+  return changelog.filter((entry: OpenCORChangelogEntry) => {
     return (
       (fromVersion === null || isNewerVersion(entry.version, fromVersion)) && !isNewerVersion(entry.version, toVersion)
     );
@@ -106,16 +106,16 @@ const changelogEntries = (
 
 const changelogEntriesUpToCurrentVersion = changelogEntries(sanitisedChangelog(changelogJson), null, currentVersion);
 
-const copiedChangelogEntry = (entry: IOpenCORChangelogEntry): IOpenCORChangelogEntry => {
+const copiedChangelogEntry = (entry: OpenCORChangelogEntry): OpenCORChangelogEntry => {
   return {
     version: entry.version,
-    changes: entry.changes.map((change: IOpenCORChangelogChange) => {
+    changes: entry.changes.map((change: OpenCORChangelogChange) => {
       return { type: change.type, description: change.description };
     })
   };
 };
 
-const changelog = (): IOpenCORChangelogEntry[] => {
+const changelog = (): OpenCORChangelogEntry[] => {
   // Return a copy of our changelog, so that it cannot be modified by our caller.
 
   return changelogEntriesUpToCurrentVersion.map(copiedChangelogEntry);
@@ -136,9 +136,9 @@ const changelog = (): IOpenCORChangelogEntry[] => {
 
 const CHANGELOG_FETCH_TIMEOUT = 3 * 1000; // 3 seconds.
 
-const fetchedChangelogs = new Map<string, Promise<IOpenCORChangelogEntry[] | null>>();
+const fetchedChangelogs = new Map<string, Promise<OpenCORChangelogEntry[] | null>>();
 
-const doFetchChangelog = async (toVersion: string): Promise<IOpenCORChangelogEntry[] | null> => {
+const doFetchChangelog = async (toVersion: string): Promise<OpenCORChangelogEntry[] | null> => {
   const url = electronApi
     ? `https://raw.githubusercontent.com/opencor/webapp/v${toVersion}/src/renderer/changelog.json`
     : `./assets/changelog.json?t=${Date.now()}`;
@@ -160,11 +160,11 @@ const doFetchChangelog = async (toVersion: string): Promise<IOpenCORChangelogEnt
   }
 };
 
-const fetchChangelog = (toVersion: string): Promise<IOpenCORChangelogEntry[] | null> => {
+const fetchChangelog = (toVersion: string): Promise<OpenCORChangelogEntry[] | null> => {
   let res = fetchedChangelogs.get(toVersion);
 
   if (!res) {
-    res = doFetchChangelog(toVersion).then((entries: IOpenCORChangelogEntry[] | null) => {
+    res = doFetchChangelog(toVersion).then((entries: OpenCORChangelogEntry[] | null) => {
       if (entries === null) {
         fetchedChangelogs.delete(toVersion);
       }

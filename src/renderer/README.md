@@ -172,7 +172,7 @@ import '@opencor/opencor/style.css';
 
   OpenCOR always exposes the following method:
 
-  - `changelog()`: returns the changes for all the versions of OpenCOR up to the current one, as an array of `{ version: string; changes: { type: 'added' | 'removed' | 'improved' | 'fixed'; description: string }[] }` objects (see `IOpenCORChangelogEntry`), from the newest version to the oldest one.
+  - `changelog()`: returns the changes for all the versions of OpenCOR up to the current one, as an array of `{ version: string; changes: { type: 'added' | 'removed' | 'improved' | 'fixed'; description: string }[] }` objects (see `OpenCORChangelogEntry`), from the newest version to the oldest one.
 
   OpenCOR also always exposes the following methods, which only have an effect when an `omex` prop is provided:
 

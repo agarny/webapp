@@ -104,18 +104,18 @@ defineEmits<{
 // Note #2: a hardware detail that cannot be retrieved (e.g., the amount of memory in a browser that doesn't provide it,
 //          such as Safari or Firefox, see memoryDescription()) is not shown at all.
 
-interface IDetail {
+interface Detail {
   label: string;
   value: string;
 }
 
 // Our system details, which are only available in OpenCOR (i.e. not in OpenCOR's Web app).
 
-const systemDetails = vue.computed<common.ISystemDetails | undefined>(() => {
+const systemDetails = vue.computed<common.SystemDetails | undefined>(() => {
   return electronApi?.systemDetails();
 });
 
-const softwareDetails = vue.computed<IDetail[]>(() => {
+const softwareDetails = vue.computed<Detail[]>(() => {
   return [
     { label: 'Platform', value: electronApi ? electronApi.operatingSystem() : common.osName() },
     systemDetails.value
@@ -129,7 +129,7 @@ const softwareDetails = vue.computed<IDetail[]>(() => {
   ];
 });
 
-const hardwareDetails = vue.computed<IDetail[]>(() => {
+const hardwareDetails = vue.computed<Detail[]>(() => {
   return [
     { label: 'CPU', value: cpuDescription() },
     { label: 'Memory', value: memoryDescription() },
@@ -162,13 +162,13 @@ const cpuDescription = (): string => {
 // The User-Agent Client Hints of the browser in which our Web app is running, if available (i.e. in Chromium-based
 // browsers).
 
-interface IUserAgentData {
+interface UserAgentData {
   brands: { brand: string; version: string }[];
   platform: string;
 }
 
-const userAgentData = (): IUserAgentData | undefined => {
-  return (navigator as Navigator & { userAgentData?: IUserAgentData }).userAgentData;
+const userAgentData = (): UserAgentData | undefined => {
+  return (navigator as Navigator & { userAgentData?: UserAgentData }).userAgentData;
 };
 
 // The lowest and highest values that navigator.deviceMemory can report, which depend on the version of Chromium and on

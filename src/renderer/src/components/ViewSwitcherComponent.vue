@@ -43,7 +43,7 @@ import * as vue from 'vue';
 
 import { HINT_DELAY } from '../common/constants';
 import {
-  type IViewDescriptor,
+  type ViewDescriptor,
   useViewRegistry,
   ViewCategory,
   type ViewCategory as ViewCategoryType
@@ -61,8 +61,8 @@ const viewRegistry = useViewRegistry();
 
 // Compute the list of view categories that have at least one view, along with their corresponding views.
 
-const categoriesWithViews = vue.computed<Array<[ViewCategoryType, IViewDescriptor[]]>>(() => {
-  const res: Array<[ViewCategoryType, IViewDescriptor[]]> = [];
+const categoriesWithViews = vue.computed<Array<[ViewCategoryType, ViewDescriptor[]]>>(() => {
+  const res: Array<[ViewCategoryType, ViewDescriptor[]]> = [];
 
   for (const category of Object.values(ViewCategory)) {
     const views = viewRegistry.descriptors(category);

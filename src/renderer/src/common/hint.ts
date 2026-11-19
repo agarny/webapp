@@ -57,7 +57,7 @@ import { HINT_DELAY } from './constants';
 const HINT_OFFSET = 6; // Distance between our element and our hint.
 const HINT_MARGIN = 4; // Minimum distance between our hint and the edges of the window.
 
-interface IHintState {
+interface HintState {
   text: string;
   html: boolean;
   timer: number | undefined;
@@ -69,11 +69,11 @@ interface IHintState {
   onHide: () => void;
 }
 
-const states = new WeakMap<HTMLElement, IHintState>();
+const states = new WeakMap<HTMLElement, HintState>();
 
 let hintElement: HTMLElement | null = null; // The element that shows our hint, if any.
 let hintOwner: HTMLElement | null = null; // The element that our hint is about, if any.
-let pendingHintState: IHintState | null = null; // The state of the element which hint is about to be shown, if any.
+let pendingHintState: HintState | null = null; // The state of the element which hint is about to be shown, if any.
 let visibilityCheckFrame: number | undefined; // The animation frame in which our element is to be checked, if any.
 let hintOwnerRect: DOMRect | null = null; // The position and size of our element when our hint was last positioned.
 
@@ -277,7 +277,7 @@ const hasOwnAccessibleName = (element: HTMLElement, ourAriaLabel: string | null)
   );
 };
 
-const removeOurAriaLabel = (element: HTMLElement, state: IHintState): void => {
+const removeOurAriaLabel = (element: HTMLElement, state: HintState): void => {
   if (state.ariaLabel !== null && element.getAttribute('aria-label') === state.ariaLabel) {
     element.removeAttribute('aria-label');
   }
@@ -285,7 +285,7 @@ const removeOurAriaLabel = (element: HTMLElement, state: IHintState): void => {
   state.ariaLabel = null;
 };
 
-const updateAriaLabel = (element: HTMLElement, state: IHintState): void => {
+const updateAriaLabel = (element: HTMLElement, state: HintState): void => {
   const ariaLabel = !state.html && state.text && !hasOwnAccessibleName(element, state.ariaLabel) ? state.text : null;
 
   if (ariaLabel === state.ariaLabel) {
@@ -382,7 +382,7 @@ export const vHint: vue.Directive<HTMLElement, string | undefined> = {
   mounted(element, binding) {
     trackWindowFocus();
 
-    const state: IHintState = {
+    const state: HintState = {
       text: binding.value ?? '',
       html: !!binding.modifiers.html,
       timer: undefined,

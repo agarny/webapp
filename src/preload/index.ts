@@ -5,7 +5,7 @@ import os from 'node:os';
 import loc from '../../dist/libOpenCOR/Release/libOpenCOR.node';
 
 import type { OpenCORTheme } from '../renderer/index';
-import type { ISettings, ISystemDetails } from '../renderer/src/common/common';
+import type { Settings, SystemDetails } from '../renderer/src/common/common';
 
 // A helper function to listen to a channel from the main process.
 // Note: it returns a function to stop listening to that channel so that a listener can be removed (e.g., when the
@@ -83,7 +83,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
 
     return _operatingSystem || defaultOperatingSystem;
   },
-  systemDetails: (): ISystemDetails => {
+  systemDetails: (): SystemDetails => {
     // Return some details about our system (see AboutDialog.vue).
     // Note: os.cpus() may return an empty array (e.g., on some Linux systems where /proc is not available).
 
@@ -138,7 +138,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
   filesOpened: (filePaths: string[]) => electron.ipcRenderer.invoke('files-opened', filePaths),
   installUpdateAndRestart: (): Promise<boolean> => electron.ipcRenderer.invoke('install-update-and-restart'),
   loadGitHubAccessToken: (): Promise<string | null> => electron.ipcRenderer.invoke('load-github-access-token'),
-  loadSettings: (): Promise<ISettings> => electron.ipcRenderer.invoke('load-settings'),
+  loadSettings: (): Promise<Settings> => electron.ipcRenderer.invoke('load-settings'),
   recentFilePathCanonicalised: (filePath: string, canonicalFilePath: string) =>
     electron.ipcRenderer.invoke('recent-file-path-canonicalised', filePath, canonicalFilePath),
   rendererReady: () => electron.ipcRenderer.invoke('renderer-ready'),
@@ -150,7 +150,7 @@ electron.contextBridge.exposeInMainWorld('electronApi', {
     electron.ipcRenderer.invoke('save-file-as', defaultFilePath),
   saveGitHubAccessToken: (token: string): Promise<boolean> =>
     electron.ipcRenderer.invoke('save-github-access-token', token),
-  saveSettings: (settings: ISettings) => electron.ipcRenderer.invoke('save-settings', settings),
+  saveSettings: (settings: Settings) => electron.ipcRenderer.invoke('save-settings', settings),
   showOpenDialog: () => electron.ipcRenderer.invoke('show-open-dialog'),
 
   // Renderer process listening to the main process.

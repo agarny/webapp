@@ -79,7 +79,7 @@ const props = defineProps<{
   maximumValue?: number;
   minimumValue?: number;
   name: string;
-  possibleValues?: locApi.IUiJsonDiscreteInputPossibleValue[];
+  possibleValues?: locApi.UiJsonDiscreteInputPossibleValue[];
   stepValue?: number;
 }>();
 
@@ -90,13 +90,13 @@ const emit = defineEmits<{
 }>();
 
 let oldValue = value.value;
-const discreteValue = vue.ref<locApi.IUiJsonDiscreteInputPossibleValue | undefined>(
+const discreteValue = vue.ref<locApi.UiJsonDiscreteInputPossibleValue | undefined>(
   props.possibleValues?.find((possibleValue) => possibleValue.value === value.value)
 );
 const rootRef = vue.shallowRef<HTMLElement | null>(null);
 const inputScientificNumberWidgetRef = vue.ref<InstanceType<typeof InputScientificNumberWidget> | null>(null);
 const appendTarget = vueCommon.useAppendTarget(rootRef);
-const defaultPossibleValue = vue.computed<locApi.IUiJsonDiscreteInputPossibleValue | undefined>(() => {
+const defaultPossibleValue = vue.computed<locApi.UiJsonDiscreteInputPossibleValue | undefined>(() => {
   return props.possibleValues?.find((possibleValue) => possibleValue.value === props.defaultValue);
 });
 const atDefaultValue = vue.computed<boolean>(() => {
@@ -302,14 +302,14 @@ const emitChange = (newValue: number) => {
   });
 };
 
-interface ISelectChangeEvent {
+interface SelectChangeEvent {
   value: {
     name: string;
     value: number;
   };
 }
 
-const selectChange = (event: ISelectChangeEvent) => {
+const selectChange = (event: SelectChangeEvent) => {
   if (event.value.value !== oldValue) {
     emitChange(event.value.value);
   }

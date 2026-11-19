@@ -20,11 +20,11 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
-import type { IOpenCORExpose, IOpenCORExternalDataEvent } from '../index';
+import type { OpenCORExpose, OpenCORExternalDataEvent } from '../index';
 
 import OpenCOR from './components/OpenCOR.vue';
 
-const opencorRef = vue.ref<IOpenCORExpose>();
+const opencorRef = vue.ref<OpenCORExpose>();
 const rawTt04ForExternalDataOmexFile = vue.ref<Uint8Array>(new Uint8Array());
 const tt04PotassiumCurrentsWithNoiseCsvFileContents = vue.ref<string>('');
 
@@ -110,7 +110,7 @@ const addDataFromFigshareUrl = async (): Promise<void> => {
   opencorRef.value.addExternalData('https://ndownloader.figshare.com/files/62963044', '300*voi', ['membrane/V']);
 };
 
-const onExternalData = (event: IOpenCORExternalDataEvent) => {
+const onExternalData = (event: OpenCORExternalDataEvent) => {
   console.log('---[External data]---');
 
   switch (event.type) {

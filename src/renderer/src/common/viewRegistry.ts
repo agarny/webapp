@@ -2,7 +2,7 @@ import * as vueusecore from '@vueuse/core';
 
 import * as vue from 'vue';
 
-import type { EFileType, File } from '../libopencor/locApi';
+import type { FileType, File } from '../libopencor/locApi';
 
 // View categories.
 
@@ -27,13 +27,13 @@ export type ViewCategory = (typeof ViewCategory)[keyof typeof ViewCategory];
 // Note: a view's icon is either the CSS class of a font icon (e.g., 'pi pi-chart-line') or the URL of a monochrome
 //       image (e.g., an inlined SVG file), which is used as a mask so that it gets coloured like a font icon.
 
-export interface IViewDescriptor {
+export interface ViewDescriptor {
   id: string;
   category: ViewCategory;
   label: string;
   icon: string | { url: string };
   component: vue.Component;
-  fileTypes: readonly EFileType[];
+  fileTypes: readonly FileType[];
   supportsFile?: (file: File) => boolean;
 }
 
@@ -48,7 +48,7 @@ export interface IViewDescriptor {
 // Note #3: a view is kept alive for as long as its file is open, even when it is not the active view of its file tab,
 //          so that a file can be saved whichever view is active.
 
-export interface IFileEditor {
+export interface FileEditor {
   modified: () => boolean;
   contents: () => Promise<Uint8Array>;
   editedSince: (contents: Uint8Array) => boolean;
@@ -58,9 +58,9 @@ export interface IFileEditor {
 // View registry composable.
 
 export const useViewRegistry = vueusecore.createGlobalState(() => {
-  const _descriptors: IViewDescriptor[] = [];
+  const _descriptors: ViewDescriptor[] = [];
   const _descriptorIndices = new Map<string, number>();
-  const _fileEditors = vue.shallowReactive(new Map<File, IFileEditor>());
+  const _fileEditors = vue.shallowReactive(new Map<File, FileEditor>());
   const _unsavedContentsFiles = new WeakSet<File>();
 
   // Register a view descriptor.
@@ -68,7 +68,7 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
   //       the previous one in place (e.g., multiple OpenCOR instances mounted in the same page register the same
   //       descriptors), so the registry never grows unbounded.
 
-  function register(descriptor: IViewDescriptor): void {
+  function register(descriptor: ViewDescriptor): void {
     const descriptorIndex = _descriptorIndices.get(descriptor.id);
 
     if (descriptorIndex === undefined) {
@@ -83,7 +83,7 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
   // Note: a view may further restrict the files it supports (e.g., our CellDL Editor view only supports unknown files
   //       that are CellDL files).
 
-  const isApplicable = (descriptor: IViewDescriptor, file: File): boolean => {
+  const isApplicable = (descriptor: ViewDescriptor, file: File): boolean => {
     return descriptor.fileTypes.includes(file.type()) && (descriptor.supportsFile?.(file) ?? true);
   };
 
@@ -91,7 +91,7 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
   // Note: the user's chosen view is always returned, whether or not it is applicable to the file (in which case it is
   //       up to the caller to indicate that the view is not supported for the given file type).
 
-  function resolve(activeViewId: string): IViewDescriptor | null {
+  function resolve(activeViewId: string): ViewDescriptor | null {
     return (
       _descriptors.find((descriptor) => {
         return descriptor.id === activeViewId;
@@ -101,7 +101,7 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
 
   // Return all the descriptors for a given category.
 
-  function descriptors(category: ViewCategory): IViewDescriptor[] {
+  function descriptors(category: ViewCategory): ViewDescriptor[] {
     return _descriptors.filter((descriptor) => descriptor.category === category);
   }
 
@@ -116,11 +116,11 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
   // Note #2: a file may be accessed through a reactive proxy (e.g., through a file tab), so we use the raw file as our
   //          key.
 
-  function registerFileEditor(file: File, fileEditor: IFileEditor): void {
+  function registerFileEditor(file: File, fileEditor: FileEditor): void {
     _fileEditors.set(vue.toRaw(file), fileEditor);
   }
 
-  function unregisterFileEditor(file: File, fileEditor: IFileEditor): void {
+  function unregisterFileEditor(file: File, fileEditor: FileEditor): void {
     const rawFile = vue.toRaw(file);
 
     if (_fileEditors.get(rawFile) === fileEditor) {
@@ -130,7 +130,7 @@ export const useViewRegistry = vueusecore.createGlobalState(() => {
 
   // Return the editor of a file, if any.
 
-  function fileEditor(file: File): IFileEditor | undefined {
+  function fileEditor(file: File): FileEditor | undefined {
     return _fileEditors.get(vue.toRaw(file));
   }
 

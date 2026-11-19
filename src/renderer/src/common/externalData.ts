@@ -1,9 +1,9 @@
-export interface IExternalCsvData {
+export interface ExternalCsvData {
   headers: string[];
   columns: number[][];
 }
 
-export const parseExternalCsvData = (externalCsvData: string): IExternalCsvData => {
+export const parseExternalCsvData = (externalCsvData: string): ExternalCsvData => {
   const lines = externalCsvData
     .split(/\r?\n/)
     .map((line) => line.trim())

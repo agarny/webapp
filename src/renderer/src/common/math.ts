@@ -19,13 +19,13 @@ class MathError extends Error {
   }
 }
 
-interface ICompiledExpression {
+interface CompiledExpression {
   evaluate: (scope: ExpressionScope) => MathJsResult;
 }
 
-interface IMathJsLike {
+interface MathJsLike {
   import: (object: Record<string, MathJsFunction>, options?: { override?: boolean }) => void;
-  compile: (expression: string) => ICompiledExpression;
+  compile: (expression: string) => CompiledExpression;
 }
 
 const ELEMENTWISE_REGEX = /\.([*/^])/g;
@@ -114,16 +114,16 @@ const ALLOWED_FUNCTIONS = new Set([
 // Note: creating a Math.js instance is expensive, so we create it once and share it between all our Float64ArrayMath
 //       objects. Also, we create it lazily since Math.js is loaded asynchronously (see dependencies.ts).
 
-let mathJs: IMathJsLike | null = null;
+let mathJs: MathJsLike | null = null;
 
-const sharedMathJs = (): IMathJsLike => {
+const sharedMathJs = (): MathJsLike => {
   if (mathJs) {
     return mathJs;
   }
 
   // Note: we only keep track of our Math.js instance once it has been fully set up.
 
-  const res: IMathJsLike = dependencies._mathJs.create(dependencies._mathJs.all, {});
+  const res: MathJsLike = dependencies._mathJs.create(dependencies._mathJs.all, {});
 
   res.import(
     // Note: everything is inlined to keep call sites monomorphic and let V8 emit optimal machine code.
@@ -879,7 +879,7 @@ const sharedMathJs = (): IMathJsLike => {
 
 export class Float64ArrayMath {
   private readonly math = sharedMathJs();
-  private readonly compiledExpressions = new Map<string, ICompiledExpression>();
+  private readonly compiledExpressions = new Map<string, CompiledExpression>();
   private readonly identifiersCache = new Map<string, string[]>();
 
   // Reset both the compiled expressions and the token validation cache.
@@ -896,7 +896,7 @@ export class Float64ArrayMath {
     return expression.replace(ELEMENTWISE_REGEX, '$1');
   }
 
-  compile(expression: string): ICompiledExpression {
+  compile(expression: string): CompiledExpression {
     const normalisedExpression = this.normaliseExpression(expression);
 
     let res = this.compiledExpressions.get(normalisedExpression);

@@ -34,7 +34,7 @@ const props = defineProps<{
 //       that has a checked item have room for a check mark, so that their icons and labels remain aligned, while the
 //       items of a menu that has no checked item don't (so that no space is wasted).
 
-interface IContextMenuItemPtOptions {
+interface ContextMenuItemPtOptions {
   context: {
     item?: MenuItem & { item?: MenuItem };
   };
@@ -67,7 +67,7 @@ const CONTEXT_MENU_PT = {
   root: {
     class: 'opencor-context-menu'
   },
-  item: ({ context }: IContextMenuItemPtOptions) => {
+  item: ({ context }: ContextMenuItemPtOptions) => {
     const item = context.item?.item ?? context.item;
 
     return item?.checked === undefined

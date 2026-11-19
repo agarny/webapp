@@ -68,9 +68,9 @@
 
 import * as vue from 'vue';
 
-import type { IWheelProps } from '../../common/vueCommon';
+import type { WheelProps } from '../../common/vueCommon';
 
-const props = defineProps<IWheelProps>();
+const props = defineProps<WheelProps>();
 
 const WHEEL_WIDTH = 120;
 const WHEEL_HEIGHT = 28;

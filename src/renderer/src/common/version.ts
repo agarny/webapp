@@ -14,7 +14,7 @@ const latestVersion = vue.ref<string>('');
 
 // Check if a new version is available.
 
-interface IVersionInfo {
+interface VersionInfo {
   version: string;
 }
 
@@ -36,7 +36,7 @@ const checkForUpdates = async (): Promise<boolean> => {
       return false;
     }
 
-    const versionInfo: IVersionInfo = await response.json();
+    const versionInfo: VersionInfo = await response.json();
 
     latestVersion.value = versionInfo.version;
 

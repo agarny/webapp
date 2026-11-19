@@ -4,13 +4,13 @@ import * as vue from 'vue';
 // show while they are doing something that takes time (e.g., exporting data to CSV).
 // Note: this uses Vue's provide()/inject() methods to ensure that each OpenCOR instance has its own message.
 
-interface IOpenCORMessage {
+interface OpenCORMessage {
   show: (message: string, withProgress?: boolean) => void;
   update: (percent: number) => void;
   hide: () => void;
 }
 
-interface IOpenCORMessageState {
+interface OpenCORMessageState {
   visible: vue.Ref<boolean>;
   message: vue.Ref<string>;
   progress: vue.Ref<number | undefined>;
@@ -18,7 +18,7 @@ interface IOpenCORMessageState {
 
 const OpenCORMessageKey = Symbol('OpenCORMessage');
 
-export const provideOpenCORMessage = (): IOpenCORMessageState => {
+export const provideOpenCORMessage = (): OpenCORMessageState => {
   const visible = vue.ref<boolean>(false);
   const message = vue.ref<string>('');
   const progress = vue.ref<number | undefined>(undefined);
@@ -37,7 +37,7 @@ export const provideOpenCORMessage = (): IOpenCORMessageState => {
     visible.value = false;
   };
 
-  vue.provide<IOpenCORMessage>(OpenCORMessageKey, {
+  vue.provide<OpenCORMessage>(OpenCORMessageKey, {
     show,
     update,
     hide
@@ -50,8 +50,8 @@ export const provideOpenCORMessage = (): IOpenCORMessageState => {
   };
 };
 
-export const useOpenCORMessage = (): IOpenCORMessage => {
-  const opencorMessage = vue.inject<IOpenCORMessage | undefined>(OpenCORMessageKey, undefined);
+export const useOpenCORMessage = (): OpenCORMessage => {
+  const opencorMessage = vue.inject<OpenCORMessage | undefined>(OpenCORMessageKey, undefined);
 
   if (!opencorMessage) {
     throw new Error(

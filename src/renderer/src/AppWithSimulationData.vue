@@ -21,11 +21,11 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
-import type { IOpenCORExpose, IOpenCORSimulationDataEvent } from '../index';
+import type { OpenCORExpose, OpenCORSimulationDataEvent } from '../index';
 
 import OpenCOR from './components/OpenCOR.vue';
 
-const opencorRef = vue.ref<IOpenCORExpose>();
+const opencorRef = vue.ref<OpenCORExpose>();
 const voi = vue.ref<string[]>(['VOI']);
 const mainT = vue.ref<string[]>(['main/t']);
 const mainXYZ = vue.ref<string[]>(['main/x', 'main/y', 'main/z']);
@@ -65,7 +65,7 @@ const untrackAllModelParameters = () => {
   simulationDataTracked.value = [];
 };
 
-const onSimulationData = (event: IOpenCORSimulationDataEvent) => {
+const onSimulationData = (event: OpenCORSimulationDataEvent) => {
   console.log('---[Simulation data]---');
 
   switch (event.type) {

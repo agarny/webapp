@@ -1,9 +1,9 @@
-import { formatError, type ISettings, type ISettingsGeneral, isObject } from './common';
+import { formatError, type Settings, type SettingsGeneral, isObject } from './common';
 import { electronApi } from './electronApi';
 
 // Our default settings.
 
-const defaultSettings = (): ISettings => {
+const defaultSettings = (): Settings => {
   return {
     general: {
       checkForUpdatesAtStartup: true,
@@ -19,9 +19,9 @@ const defaultSettings = (): ISettings => {
 // Note #2: we keep the settings, and settings sections, for which we don't have a default value (e.g., settings saved
 //          by a newer version of OpenCOR).
 
-const withDefaultSettings = (settings: unknown): ISettings => {
+const withDefaultSettings = (settings: unknown): Settings => {
   const loadedSettings = isObject(settings) ? settings : {};
-  const res = { ...loadedSettings, ...defaultSettings() } as ISettings;
+  const res = { ...loadedSettings, ...defaultSettings() } as Settings;
   const general = loadedSettings.general;
 
   // Note: we use Object.hasOwn() and Object.fromEntries() rather than look up and assign each key since the loaded
@@ -36,15 +36,15 @@ const withDefaultSettings = (settings: unknown): ISettings => {
       ...Object.entries(general).filter(([key, value]) => {
         return !Object.hasOwn(defaultGeneral, key) || typeof value === typeof defaultGeneral[key];
       })
-    ]) as unknown as ISettingsGeneral;
+    ]) as unknown as SettingsGeneral;
   }
 
   return res;
 };
 
-class Settings {
-  protected static _instance: Settings | null = null;
-  private _settings!: ISettings;
+class SettingsManager {
+  protected static _instance: SettingsManager | null = null;
+  private _settings!: Settings;
   private _oldRawSettings: string | null = null;
   private _isInitialised = false;
   private _initialisationListeners: (() => void)[] = [];
@@ -59,10 +59,10 @@ class Settings {
     this.load();
   }
 
-  static instance(): Settings {
-    Settings._instance ??= new Settings();
+  static instance(): SettingsManager {
+    SettingsManager._instance ??= new SettingsManager();
 
-    return Settings._instance;
+    return SettingsManager._instance;
   }
 
   private emitInitialised(): void {
@@ -90,7 +90,7 @@ class Settings {
 
       electronApi
         .loadSettings()
-        .then((settings: ISettings) => {
+        .then((settings: Settings) => {
           this._settings = withDefaultSettings(settings);
           this._oldRawSettings = JSON.stringify(settings);
         })
@@ -153,9 +153,9 @@ class Settings {
     return JSON.stringify(this._settings, null, 2);
   }
 
-  get general(): ISettingsGeneral {
+  get general(): SettingsGeneral {
     return this._settings.general;
   }
 }
 
-export const settings = Settings.instance();
+export const settings = SettingsManager.instance();

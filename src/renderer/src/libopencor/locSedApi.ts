@@ -1,24 +1,24 @@
 import * as vue from 'vue';
 
 import type {
-  File as IWasmFile,
-  SedDocument as IWasmSedDocument,
-  SedInstance as IWasmSedInstance,
-  SedInstanceTask as IWasmSedInstanceTask,
-  SedModel as IWasmSedModel,
-  SedOneStep as IWasmSedOneStep,
-  SedUniformTimeCourse as IWasmSedUniformTimeCourse,
-  SolverCvode as IWasmSolverCvode
+  File as WasmFile,
+  SedDocument as WasmSedDocument,
+  SedInstance as WasmSedInstance,
+  SedInstanceTask as WasmSedInstanceTask,
+  SedModel as WasmSedModel,
+  SedOneStep as WasmSedOneStep,
+  SedUniformTimeCourse as WasmSedUniformTimeCourse,
+  SolverCvode as WasmSolverCvode
 } from '@opencor/libopencor-types';
 
 import {
   _cppLocApi,
   _wasmLocApi,
   cppVersion,
-  EIssueType,
+  IssueType,
   type File,
   fileManager,
-  type IIssue,
+  type Issue,
   wasmIssuesToIssues,
   wasmVersion
 } from './locApi';
@@ -35,18 +35,18 @@ class SedIndex {
 
 export class SedDocument {
   private _cppDocumentId: number = -1;
-  private _wasmSedDocument: IWasmSedDocument = {} as IWasmSedDocument;
-  private _issues: IIssue[] = [];
+  private _wasmSedDocument: WasmSedDocument = {} as WasmSedDocument;
+  private _issues: Issue[] = [];
   private _models = new Map<number, SedModel>();
   private _simulations = new Map<number, SedSimulation>();
   private _hasWasmSedDocument = false;
   private _released = false;
 
-  constructor(filePath: string, wasmFile: IWasmFile, fileIssues: IIssue[]) {
+  constructor(filePath: string, wasmFile: WasmFile, fileIssues: Issue[]) {
     // If the file has some errors (e.g., an invalid CellML file), then report its issues rather than those of the
     // SED-ML document (since those are likely to be a consequence of the file's errors).
 
-    if (fileIssues.some((issue: IIssue) => issue.type === EIssueType.ERROR)) {
+    if (fileIssues.some((issue: Issue) => issue.type === IssueType.ERROR)) {
       this._issues = [...fileIssues];
 
       return;
@@ -69,7 +69,7 @@ export class SedDocument {
 
     // Don't check anything else if the SED-ML document already has some errors.
 
-    if (this._issues.some((issue: IIssue) => issue.type === EIssueType.ERROR)) {
+    if (this._issues.some((issue: Issue) => issue.type === IssueType.ERROR)) {
       return;
     }
 
@@ -80,7 +80,7 @@ export class SedDocument {
 
     if (this.modelCount() !== 1) {
       this._issues.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: 'Only SED-ML files with one model are currently supported.'
       });
 
@@ -91,7 +91,7 @@ export class SedDocument {
 
     if (this.simulationCount() !== 1) {
       this._issues.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: 'Only SED-ML files with one simulation are currently supported.'
       });
 
@@ -102,9 +102,9 @@ export class SedDocument {
 
     const simulation = this.simulation(0) as SedUniformTimeCourse;
 
-    if (simulation.type() !== ESedSimulationType.UNIFORM_TIME_COURSE) {
+    if (simulation.type() !== SedSimulationType.UNIFORM_TIME_COURSE) {
       this._issues.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: 'Only uniform time course simulations are currently supported.'
       });
 
@@ -121,21 +121,21 @@ export class SedDocument {
 
     if (initialTime !== outputStartTime) {
       this._issues.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `Only uniform time course simulations with the same values for 'initialTime' (${initialTime}) and 'outputStartTime' (${outputStartTime}) are currently supported.`
       });
     }
 
     if (outputStartTime === outputEndTime) {
       this._issues.push({
-        type: EIssueType.ERROR,
+        type: IssueType.ERROR,
         description: `The uniform time course simulation must have different values for 'outputStartTime' (${outputStartTime}) and 'outputEndTime' (${outputEndTime}).`
       });
     }
 
     if (numberOfSteps <= 0) {
       this._issues.push({
-        type: EIssueType.ERROR,
+        type: IssueType.ERROR,
         description: `The uniform time course simulation must have a positive value for 'numberOfSteps' (${numberOfSteps}).`
       });
     }
@@ -171,7 +171,7 @@ export class SedDocument {
     }
   }
 
-  issues(): IIssue[] {
+  issues(): Issue[] {
     return this._issues;
   }
 
@@ -214,7 +214,7 @@ export class SedDocument {
   }
 
   private createSimulation(index: number): SedSimulation {
-    let type: ESedSimulationType;
+    let type: SedSimulationType;
 
     if (cppVersion()) {
       type = _cppLocApi.sedDocumentSimulationType(this._cppDocumentId, index);
@@ -223,33 +223,33 @@ export class SedDocument {
 
       switch (wasmSedSimulation?.constructor.name) {
         case 'SedAnalysis':
-          type = ESedSimulationType.ANALYSIS;
+          type = SedSimulationType.ANALYSIS;
 
           break;
         case 'SedSteadyState':
-          type = ESedSimulationType.STEADY_STATE;
+          type = SedSimulationType.STEADY_STATE;
 
           break;
         case 'SedOneStep':
-          type = ESedSimulationType.ONE_STEP;
+          type = SedSimulationType.ONE_STEP;
 
           break;
         default: // 'SedUniformTimeCourse'.
-          type = ESedSimulationType.UNIFORM_TIME_COURSE;
+          type = SedSimulationType.UNIFORM_TIME_COURSE;
       }
 
       wasmSedSimulation?.delete();
     }
 
-    if (type === ESedSimulationType.ANALYSIS) {
+    if (type === SedSimulationType.ANALYSIS) {
       return new SedAnalysis(this._cppDocumentId, this._wasmSedDocument, index, type);
     }
 
-    if (type === ESedSimulationType.STEADY_STATE) {
+    if (type === SedSimulationType.STEADY_STATE) {
       return new SedSteadyState(this._cppDocumentId, this._wasmSedDocument, index, type);
     }
 
-    if (type === ESedSimulationType.ONE_STEP) {
+    if (type === SedSimulationType.ONE_STEP) {
       return new SedOneStep(this._cppDocumentId, this._wasmSedDocument, index, type);
     }
 
@@ -267,15 +267,15 @@ export class SedDocument {
 
 export class SedModel extends SedIndex {
   private _cppDocumentId: number;
-  private _wasmSedModel: IWasmSedModel = {} as IWasmSedModel;
+  private _wasmSedModel: WasmSedModel = {} as WasmSedModel;
 
-  constructor(cppDocumentId: number, wasmSedDocument: IWasmSedDocument, index: number) {
+  constructor(cppDocumentId: number, wasmSedDocument: WasmSedDocument, index: number) {
     super(index);
 
     this._cppDocumentId = cppDocumentId;
 
     if (wasmVersion()) {
-      this._wasmSedModel = wasmSedDocument.model(index) as IWasmSedModel;
+      this._wasmSedModel = wasmSedDocument.model(index) as WasmSedModel;
     }
   }
 
@@ -330,7 +330,7 @@ export class SedModel extends SedIndex {
   }
 }
 
-export enum ESedSimulationType {
+export enum SedSimulationType {
   ANALYSIS,
   STEADY_STATE,
   ONE_STEP,
@@ -339,9 +339,9 @@ export enum ESedSimulationType {
 
 export class SedSimulation extends SedIndex {
   protected _cppDocumentId: number;
-  private _type: ESedSimulationType;
+  private _type: SedSimulationType;
 
-  constructor(cppDocumentId: number, _wasmSedDocument: IWasmSedDocument, index: number, type: ESedSimulationType) {
+  constructor(cppDocumentId: number, _wasmSedDocument: WasmSedDocument, index: number, type: SedSimulationType) {
     super(index);
 
     this._cppDocumentId = cppDocumentId;
@@ -352,7 +352,7 @@ export class SedSimulation extends SedIndex {
     // Nothing to release by default.
   }
 
-  type(): ESedSimulationType {
+  type(): SedSimulationType {
     return this._type;
   }
 }
@@ -362,13 +362,13 @@ export class SedAnalysis extends SedSimulation {}
 export class SedSteadyState extends SedSimulation {}
 
 export class SedOneStep extends SedSimulation {
-  private _wasmSedOneStep: IWasmSedOneStep = {} as IWasmSedOneStep;
+  private _wasmSedOneStep: WasmSedOneStep = {} as WasmSedOneStep;
 
-  constructor(cppDocumentId: number, wasmSedDocument: IWasmSedDocument, index: number, type: ESedSimulationType) {
+  constructor(cppDocumentId: number, wasmSedDocument: WasmSedDocument, index: number, type: SedSimulationType) {
     super(cppDocumentId, wasmSedDocument, index, type);
 
     if (wasmVersion()) {
-      this._wasmSedOneStep = wasmSedDocument.simulation(index) as IWasmSedOneStep;
+      this._wasmSedOneStep = wasmSedDocument.simulation(index) as WasmSedOneStep;
     }
   }
 
@@ -389,14 +389,14 @@ export class SedOneStep extends SedSimulation {
 export const MAXIMUM_NUMBER_OF_STEPS = 2 ** 31 - 1;
 
 export class SedUniformTimeCourse extends SedSimulation {
-  private _wasmSedUniformTimeCourse: IWasmSedUniformTimeCourse = {} as IWasmSedUniformTimeCourse;
+  private _wasmSedUniformTimeCourse: WasmSedUniformTimeCourse = {} as WasmSedUniformTimeCourse;
   private _cvode: SolverCvode | null | undefined;
 
-  constructor(cppDocumentId: number, wasmSedDocument: IWasmSedDocument, index: number, type: ESedSimulationType) {
+  constructor(cppDocumentId: number, wasmSedDocument: WasmSedDocument, index: number, type: SedSimulationType) {
     super(cppDocumentId, wasmSedDocument, index, type);
 
     if (wasmVersion()) {
-      this._wasmSedUniformTimeCourse = wasmSedDocument.simulation(index) as IWasmSedUniformTimeCourse;
+      this._wasmSedUniformTimeCourse = wasmSedDocument.simulation(index) as WasmSedUniformTimeCourse;
     }
   }
 
@@ -480,7 +480,7 @@ export class SedUniformTimeCourse extends SedSimulation {
         const wasmOdeSolver = this._wasmSedUniformTimeCourse.odeSolver;
 
         if (wasmOdeSolver instanceof _wasmLocApi.SolverCvode) {
-          this._cvode = new SolverCvode(this._cppDocumentId, wasmOdeSolver as IWasmSolverCvode, this._index);
+          this._cvode = new SolverCvode(this._cppDocumentId, wasmOdeSolver as WasmSolverCvode, this._index);
         } else {
           wasmOdeSolver?.delete();
 
@@ -495,9 +495,9 @@ export class SedUniformTimeCourse extends SedSimulation {
 
 export class SolverCvode extends SedIndex {
   private _cppDocumentId: number;
-  private _wasmSolverCvode: IWasmSolverCvode = {} as IWasmSolverCvode;
+  private _wasmSolverCvode: WasmSolverCvode = {} as WasmSolverCvode;
 
-  constructor(cppDocumentId: number, wasmSolverCvode: IWasmSolverCvode | null, index: number) {
+  constructor(cppDocumentId: number, wasmSolverCvode: WasmSolverCvode | null, index: number) {
     super(index);
 
     this._cppDocumentId = cppDocumentId;
@@ -530,7 +530,7 @@ export class SolverCvode extends SedIndex {
   }
 }
 
-export enum ESedInstanceStatus {
+export enum SedInstanceStatus {
   IDLE,
   RUNNING,
   PAUSED
@@ -538,15 +538,15 @@ export enum ESedInstanceStatus {
 
 export class SedInstance {
   private _cppInstanceId: number = -1;
-  private _wasmSedInstance: IWasmSedInstance = {} as IWasmSedInstance;
+  private _wasmSedInstance: WasmSedInstance = {} as WasmSedInstance;
   private _tasks: SedInstanceTask[] = [];
   private _released = false;
 
-  constructor(cppDocumentId: number, wasmSedDocument: IWasmSedDocument) {
+  constructor(cppDocumentId: number, wasmSedDocument: WasmSedDocument) {
     if (cppVersion()) {
       this._cppInstanceId = _cppLocApi.sedDocumentInstantiate(cppDocumentId);
     } else {
-      this._wasmSedInstance = vue.markRaw(wasmSedDocument.instantiate() as IWasmSedInstance);
+      this._wasmSedInstance = vue.markRaw(wasmSedDocument.instantiate() as WasmSedInstance);
     }
   }
 
@@ -554,7 +554,7 @@ export class SedInstance {
     return cppVersion() ? _cppLocApi.sedInstanceHasIssues(this._cppInstanceId) : this._wasmSedInstance.hasIssues;
   }
 
-  issues(): IIssue[] {
+  issues(): Issue[] {
     return cppVersion()
       ? _cppLocApi.sedInstanceIssues(this._cppInstanceId)
       : wasmIssuesToIssues(this._wasmSedInstance.issues);
@@ -568,7 +568,7 @@ export class SedInstance {
     return task;
   }
 
-  status(): ESedInstanceStatus {
+  status(): SedInstanceStatus {
     return cppVersion() ? _cppLocApi.sedInstanceStatus(this._cppInstanceId) : this._wasmSedInstance.status.value;
   }
 
@@ -646,7 +646,7 @@ export class SedInstance {
     //       would otherwise leak them (we are now considered released, so we won't get another chance).
 
     try {
-      if (this.status() !== ESedInstanceStatus.IDLE) {
+      if (this.status() !== SedInstanceStatus.IDLE) {
         this.stopRun();
       }
     } catch (error: unknown) {
@@ -679,10 +679,10 @@ const sliceValues = (values: Float64Array, start?: number, end?: number): Float6
 
 export class SedInstanceTask extends SedIndex {
   private _cppInstanceId: number;
-  private _wasmSedInstanceTask: IWasmSedInstanceTask = {} as IWasmSedInstanceTask;
+  private _wasmSedInstanceTask: WasmSedInstanceTask = {} as WasmSedInstanceTask;
   private _hasWasmSedInstanceTask = false;
 
-  constructor(cppInstanceId: number, index: number, wasmSedInstance: IWasmSedInstance) {
+  constructor(cppInstanceId: number, index: number, wasmSedInstance: WasmSedInstance) {
     super(index);
 
     this._cppInstanceId = cppInstanceId;
@@ -694,7 +694,7 @@ export class SedInstanceTask extends SedIndex {
       const wasmSedInstanceTask = wasmSedInstance.task(index);
 
       if (wasmSedInstanceTask) {
-        this._wasmSedInstanceTask = wasmSedInstanceTask as IWasmSedInstanceTask;
+        this._wasmSedInstanceTask = wasmSedInstanceTask as WasmSedInstanceTask;
         this._hasWasmSedInstanceTask = true;
       }
     }

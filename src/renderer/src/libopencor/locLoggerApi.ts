@@ -1,15 +1,15 @@
-import type { IssuePtrs as IWasmIssues } from '@opencor/libopencor-types';
+import type { IssuePtrs as WasmIssues } from '@opencor/libopencor-types';
 
 // Logger API.
 
-export enum EIssueType {
+export enum IssueType {
   ERROR,
   WARNING,
   INFORMATION
 }
 
-export interface IIssue {
-  type: EIssueType;
+export interface Issue {
+  type: IssueType;
   description: string;
 }
 
@@ -18,8 +18,8 @@ export interface IIssue {
 //       once converted since every access to a WASM vector (and to its elements) yields a new handle that must be
 //       deleted.
 
-export const wasmIssuesToIssues = (wasmIssues: IWasmIssues): IIssue[] => {
-  const res: IIssue[] = [];
+export const wasmIssuesToIssues = (wasmIssues: WasmIssues): Issue[] => {
+  const res: Issue[] = [];
 
   for (const wasmIssue of wasmIssues) {
     if (!wasmIssue) {

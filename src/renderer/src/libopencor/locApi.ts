@@ -1,9 +1,9 @@
-import type { MainModule as IWasmLocApi } from '@opencor/libopencor-types';
+import type { MainModule as WasmLocApi } from '@opencor/libopencor-types';
 
-import type { EFileType } from './locFileApi';
-import type { IIssue } from './locLoggerApi';
+import type { FileType } from './locFileApi';
+import type { Issue } from './locLoggerApi';
 
-export interface ICppLocApi {
+export interface CppLocApi {
   // FileManager API.
 
   fileManagerCanonicalPath: (path: string) => string;
@@ -14,8 +14,8 @@ export interface ICppLocApi {
 
   fileContents: (path: string) => Uint8Array;
   fileCreate: (path: string, contents?: Uint8Array) => void;
-  fileIssues: (path: string) => IIssue[];
-  fileType: (path: string) => EFileType;
+  fileIssues: (path: string) => Issue[];
+  fileType: (path: string) => FileType;
   fileUiJson: (path: string) => Uint8Array | undefined;
 
   // SedDocument API.
@@ -23,7 +23,7 @@ export interface ICppLocApi {
   sedDocumentCreate: (path: string) => number;
   sedDocumentInstantiate: (documentId: number) => number;
   sedDocumentRelease: (documentId: number) => void;
-  sedDocumentIssues: (documentId: number) => IIssue[];
+  sedDocumentIssues: (documentId: number) => Issue[];
   sedDocumentModelCount: (documentId: number) => number;
   sedDocumentSimulationCount: (documentId: number) => number;
   sedDocumentSimulationType: (documentId: number, index: number) => number;
@@ -66,7 +66,7 @@ export interface ICppLocApi {
   // SedInstance API.
 
   sedInstanceHasIssues: (instanceId: number) => boolean;
-  sedInstanceIssues: (instanceId: number) => IIssue[];
+  sedInstanceIssues: (instanceId: number) => Issue[];
   sedInstanceStatus: (instanceId: number) => number;
   sedInstanceDelay: (instanceId: number) => number;
   sedInstanceSetDelay: (instanceId: number, delay: number) => void;
@@ -141,29 +141,29 @@ export interface ICppLocApi {
 
 // The C++ or WASM version of libOpenCOR that is to be used.
 
-export let _cppLocApi = {} as ICppLocApi;
-export let _wasmLocApi = {} as IWasmLocApi;
+export let _cppLocApi = {} as CppLocApi;
+export let _wasmLocApi = {} as WasmLocApi;
 
-export const setCppLocApi = (api: ICppLocApi): void => {
+export const setCppLocApi = (api: CppLocApi): void => {
   _cppLocApi = api;
 };
 
-export const setWasmLocApi = (api: IWasmLocApi): void => {
+export const setWasmLocApi = (api: WasmLocApi): void => {
   _wasmLocApi = api;
 };
 
 // Logger API.
 
-export { EIssueType, type IIssue, wasmIssuesToIssues } from './locLoggerApi';
+export { IssueType, type Issue, wasmIssuesToIssues } from './locLoggerApi';
 
 // File API.
 
-export { EFileType, File, fileManager } from './locFileApi';
+export { FileType, File, fileManager } from './locFileApi';
 
 // SED-ML API.
 
 export {
-  ESedSimulationType,
+  SedSimulationType,
   MAXIMUM_NUMBER_OF_STEPS,
   SedDocument,
   SedInstance,
@@ -174,18 +174,18 @@ export {
 // UI JSON API.
 
 export {
-  type IUiJson,
-  type IUiJsonDiscreteInput,
-  type IUiJsonDiscreteInputPossibleValue,
-  type IUiJsonInput,
-  type IUiJsonOutput,
-  type IUiJsonOutputData,
-  type IUiJsonOutputExternalData,
-  type IUiJsonOutputExternalDataSeries,
-  type IUiJsonOutputPlot,
-  type IUiJsonOutputPlotAdditionalTrace,
-  type IUiJsonParameter,
-  type IUiJsonScalarInput,
+  type UiJson,
+  type UiJsonDiscreteInput,
+  type UiJsonDiscreteInputPossibleValue,
+  type UiJsonInput,
+  type UiJsonOutput,
+  type UiJsonOutputData,
+  type UiJsonOutputExternalData,
+  type UiJsonOutputExternalDataSeries,
+  type UiJsonOutputPlot,
+  type UiJsonOutputPlotAdditionalTrace,
+  type UiJsonParameter,
+  type UiJsonScalarInput,
   cleanUiJson,
   cloneUiJson,
   isScalarInput,

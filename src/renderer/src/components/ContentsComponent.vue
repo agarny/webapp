@@ -141,13 +141,13 @@
 import type { MenuItem } from 'primevue/menuitem';
 import * as vue from 'vue';
 
-import type { IOpenCORExternalDataEvent, IOpenCORSimulationDataEvent } from '../../index';
+import type { OpenCORExternalDataEvent, OpenCORSimulationDataEvent } from '../../index';
 
 import * as common from '../common/common';
 import { electronApi } from '../common/electronApi';
 import { vHint } from '../common/hint';
 import * as locCommon from '../common/locCommon';
-import { type IFileEditor, useViewRegistry, ViewCategory } from '../common/viewRegistry';
+import { type FileEditor, useViewRegistry, ViewCategory } from '../common/viewRegistry';
 import * as vueCommon from '../common/vueCommon';
 import * as locApi from '../libopencor/locApi';
 
@@ -156,9 +156,9 @@ import UnsupportedFileTypeView from './views/UnsupportedFileTypeView.vue';
 import ContextMenuWidget from './widgets/ContextMenuWidget.vue';
 import { useOpenCORContext, useOpenCORKeyStroke } from './OpenCORContext';
 
-interface IFileTab {
+interface FileTab {
   file: locApi.File;
-  uiJson?: locApi.IUiJson;
+  uiJson?: locApi.UiJson;
   activeViewId: string;
   fileHandle?: FileSystemFileHandle; // Only used in OpenCOR's Web app, to save a file where it is (see saveFile()).
 }
@@ -190,7 +190,7 @@ const viewRegistry = useViewRegistry();
 const simulationExperimentInteractiveViewRef = vue.ref<InstanceType<typeof SimulationExperimentInteractiveView> | null>(
   null
 );
-const fileTabs = vue.ref<IFileTab[]>([]) as vue.Ref<IFileTab[]>;
+const fileTabs = vue.ref<FileTab[]>([]) as vue.Ref<FileTab[]>;
 // Note: we cast our ref since Vue's ref type would otherwise unwrap our file tabs' locApi.File instances, which would
 //       lose their private members and therefore not be considered locApi.File instances anymore.
 const fileTabRefs: Record<string, HTMLElement | null> = {};
@@ -206,23 +206,23 @@ const filePaths = vue.computed<string[]>(() => {
   return res;
 });
 
-interface IDragState {
+interface DragState {
   filePath: string;
   dropPosition: 'before' | 'after' | null;
   dropTarget: string | null;
 }
 
-const dragState = vue.ref<IDragState | null>(null);
+const dragState = vue.ref<DragState | null>(null);
 const fileTabBarRef = vue.shallowRef<HTMLElement | null>(null);
 const dropIndicatorLeft = vue.ref<number | null>(null);
 
 // Icon of a file tab, based on the type of its file.
 
-const fileTabIcon = (fileTab: IFileTab): string => {
+const fileTabIcon = (fileTab: FileTab): string => {
   switch (fileTab.file.type()) {
-    case locApi.EFileType.COMBINE_ARCHIVE:
+    case locApi.FileType.COMBINE_ARCHIVE:
       return 'pi pi-box';
-    case locApi.EFileType.SEDML_FILE:
+    case locApi.FileType.SEDML_FILE:
       return 'pi pi-list';
     default:
       return 'pi pi-file';
@@ -235,12 +235,12 @@ const captureSimulationExperimentInteractiveViewRef = (element: unknown): void =
   > | null;
 };
 
-interface IView {
+interface View {
   component: vue.Component | null;
   props: Record<string, unknown>;
 }
 
-const view = (fileTab: IFileTab): IView => {
+const view = (fileTab: FileTab): View => {
   // Resolve the view to show for a file, along with the props to pass to it.
   // Note: if the view does not support the file's type, then we show a view saying so.
 
@@ -306,7 +306,7 @@ const view = (fileTab: IFileTab): IView => {
 //       our file tabs, of our view switchers, and of our Unsupported file type view may still get activated while our
 //       UI is not enabled, in which case we ignore them (as for our keyboard shortcuts, see useOpenCORKeyStroke()).
 
-const onSelectView = (fileTab: IFileTab, viewId: string): void => {
+const onSelectView = (fileTab: FileTab, viewId: string): void => {
   if (!uiEnabled.value) {
     return;
   }
@@ -314,7 +314,7 @@ const onSelectView = (fileTab: IFileTab, viewId: string): void => {
   fileTab.activeViewId = viewId;
 };
 
-const findFileTab = (filePath: string): IFileTab | undefined => {
+const findFileTab = (filePath: string): FileTab | undefined => {
   // Retrieve the file tab for the given file path.
   // Note: a file may be referred to using different paths (e.g., through a symbolic link), hence we also compare
   //       canonical paths, but only if needed since it is more costly.
@@ -489,7 +489,7 @@ const openFile = async (file: locApi.File, wait: boolean = false, fileHandle?: F
 const closeFile = async (
   filePath: string,
   force: boolean = false,
-  save: (fileTab: IFileTab) => Promise<SaveOutcome> = saveFile
+  save: (fileTab: FileTab) => Promise<SaveOutcome> = saveFile
 ): Promise<boolean> => {
   // Close the given file and return whether it was closed (or had no file tab), i.e. whether the user didn't cancel its
   // closing.
@@ -810,12 +810,12 @@ const onQuestionVisibilityUpdated = (visible: boolean): void => {
 //          only in Chromium-based Web browsers). Any other file (e.g., a remote file or a file opened using a data URL)
 //          gets saved using File|Save As instead.
 
-interface IFileSystemFileHandleWithPermission {
+interface FileSystemFileHandleWithPermission {
   queryPermission?: (descriptor: { mode: 'readwrite' }) => Promise<PermissionState>;
   requestPermission?: (descriptor: { mode: 'readwrite' }) => Promise<PermissionState>;
 }
 
-const fileEditor = (fileTab: IFileTab): IFileEditor | undefined => {
+const fileEditor = (fileTab: FileTab): FileEditor | undefined => {
   return viewRegistry.fileEditor(fileTab.file);
 };
 
@@ -823,7 +823,7 @@ const fileEditor = (fileTab: IFileTab): IFileEditor | undefined => {
 // Note: a file that has unsaved contents (see doSaveFileAs()) may not have an editor (yet), e.g., its views may not
 //       have been created yet or its active view may not be one that can edit it, in which case it is still modified.
 
-const isModified = (fileTab: IFileTab): boolean => {
+const isModified = (fileTab: FileTab): boolean => {
   const editor = fileEditor(fileTab);
 
   return editor ? editor.modified() : viewRegistry.hasUnsavedContents(fileTab.file);
@@ -833,7 +833,7 @@ const isModified = (fileTab: IFileTab): boolean => {
 // Note: if the file had no editor when its contents were retrieved, then they are the contents of the file itself,
 //       which may be unsaved contents (see doSaveFileAs()), but no longer are.
 
-const markSaved = (file: locApi.File, editor: IFileEditor | undefined, contents: Uint8Array): void => {
+const markSaved = (file: locApi.File, editor: FileEditor | undefined, contents: Uint8Array): void => {
   if (editor) {
     editor.markSaved(contents);
   } else {
@@ -855,8 +855,8 @@ const sameContents = (contents: Uint8Array, otherContents: Uint8Array): boolean 
 // opened with (e.g., a remote file cannot be edited, but it can still be saved as a local file).
 
 const fileContents = async (
-  fileTab: IFileTab,
-  editor: IFileEditor | undefined = fileEditor(fileTab)
+  fileTab: FileTab,
+  editor: FileEditor | undefined = fileEditor(fileTab)
 ): Promise<Uint8Array> => {
   return editor ? editor.contents() : fileTab.file.contents();
 };
@@ -865,7 +865,7 @@ const fileContents = async (
 // Note: a remote file is named after the last part of its URL, which may include a query and/or a fragment, while a
 //       COMBINE archive opened using a data URL is named "OMEX #<n>" (see common.OMEX_PREFIX), i.e. without extension.
 
-const suggestedFileName = (fileTab: IFileTab): string => {
+const suggestedFileName = (fileTab: FileTab): string => {
   const filePath = fileTab.file.canonicalPath();
 
   if (common.isUrl(filePath)) {
@@ -888,7 +888,7 @@ const isLocalFilePath = (filePath: string): boolean => {
   );
 };
 
-const canBeSavedInPlace = async (fileTab: IFileTab): Promise<boolean> => {
+const canBeSavedInPlace = async (fileTab: FileTab): Promise<boolean> => {
   const filePath = fileTab.file.path();
 
   return electronApi ? isLocalFilePath(filePath) && (await electronApi.canSaveFile(filePath)) : !!fileTab.fileHandle;
@@ -900,7 +900,7 @@ const canBeSavedInPlace = async (fileTab: IFileTab): Promise<boolean> => {
 //       local file is only known by its name, so it is only the same file if we have a handle to both files and they
 //       are the same entry (e.g., two files with the same name may be in different folders).
 
-const isSameFile = async (fileTab: IFileTab, fileHandle: FileSystemFileHandle | undefined): Promise<boolean> => {
+const isSameFile = async (fileTab: FileTab, fileHandle: FileSystemFileHandle | undefined): Promise<boolean> => {
   if (electronApi) {
     return true;
   }
@@ -923,7 +923,7 @@ const isSameFile = async (fileTab: IFileTab, fileHandle: FileSystemFileHandle | 
 //          in which case we assume that we can write to the file and let writeFile() fail if we cannot.
 
 const canWriteFile = async (fileHandle: FileSystemFileHandle): Promise<boolean> => {
-  const fileHandleWithPermission = fileHandle as unknown as IFileSystemFileHandleWithPermission;
+  const fileHandleWithPermission = fileHandle as unknown as FileSystemFileHandleWithPermission;
 
   if (!fileHandleWithPermission.queryPermission || !fileHandleWithPermission.requestPermission) {
     return true;
@@ -956,14 +956,14 @@ const writeFile = async (
   }
 };
 
-const reportSaveIssue = (fileTab: IFileTab, error: unknown): void => {
+const reportSaveIssue = (fileTab: FileTab, error: unknown): void => {
   emit(
     'error',
     `${common.fileName(fileTab.file.canonicalPath())} could not be saved (${common.formatMessage(common.formatError(error), false)}).`
   );
 };
 
-const reportRenameIssue = (fileTab: IFileTab, newFilePath: string, error: unknown): void => {
+const reportRenameIssue = (fileTab: FileTab, newFilePath: string, error: unknown): void => {
   emit(
     'error',
     `${common.fileName(fileTab.file.canonicalPath())} was saved as ${common.fileName(newFilePath)}, but its file tab could not be renamed (${common.formatMessage(common.formatError(error), false)}).`
@@ -989,11 +989,11 @@ type SaveOutcome = 'saved' | 'downloaded' | 'notSaved';
 //          otherwise only get saved once our file has been saved, i.e. never.
 
 let lastSaveOperation: Promise<unknown> = Promise.resolve();
-let runningSaveOperation: { fileTab: IFileTab; operation: Promise<unknown> } | null = null;
+let runningSaveOperation: { fileTab: FileTab; operation: Promise<unknown> } | null = null;
 
 const enqueueSaveOperation = (
-  fileTab: IFileTab,
-  operation: (fileTab: IFileTab) => Promise<SaveOutcome>
+  fileTab: FileTab,
+  operation: (fileTab: FileTab) => Promise<SaveOutcome>
 ): Promise<SaveOutcome> => {
   const res = lastSaveOperation.then(() => {
     if (!fileTabs.value.includes(fileTab)) {
@@ -1022,21 +1022,21 @@ const enqueueSaveOperation = (
 
 // Wait for the given file to be saved, if it is being saved.
 
-const fileSaved = async (fileTab: IFileTab): Promise<void> => {
+const fileSaved = async (fileTab: FileTab): Promise<void> => {
   if (runningSaveOperation?.fileTab === vue.toRaw(fileTab)) {
     await runningSaveOperation.operation.catch(() => undefined);
   }
 };
 
-const saveFile = (fileTab: IFileTab): Promise<SaveOutcome> => {
+const saveFile = (fileTab: FileTab): Promise<SaveOutcome> => {
   return enqueueSaveOperation(fileTab, doSaveFile);
 };
 
-const saveFileAs = (fileTab: IFileTab): Promise<SaveOutcome> => {
+const saveFileAs = (fileTab: FileTab): Promise<SaveOutcome> => {
   return enqueueSaveOperation(fileTab, doSaveFileAs);
 };
 
-const doSaveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
+const doSaveFile = async (fileTab: FileTab): Promise<SaveOutcome> => {
   // Save the given file, if possible, and return the outcome.
 
   const file = fileTab.file;
@@ -1077,7 +1077,7 @@ const doSaveFile = async (fileTab: IFileTab): Promise<SaveOutcome> => {
   return 'saved';
 };
 
-const doSaveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
+const doSaveFileAs = async (fileTab: FileTab): Promise<SaveOutcome> => {
   // Save the given file under a name of the user's choosing and return the outcome.
 
   // Let the user choose where to save the file.
@@ -1102,7 +1102,7 @@ const doSaveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
       return 'notSaved';
     }
   } else {
-    const showSaveFilePicker = (window as unknown as common.IWindowWithSaveFilePicker).showSaveFilePicker;
+    const showSaveFilePicker = (window as unknown as common.WindowWithSaveFilePicker).showSaveFilePicker;
 
     if (showSaveFilePicker) {
       try {
@@ -1152,7 +1152,7 @@ const doSaveFileAs = async (fileTab: IFileTab): Promise<SaveOutcome> => {
 };
 
 const saveFileTo = async (
-  fileTab: IFileTab,
+  fileTab: FileTab,
   newFilePath: string,
   newFileHandle: FileSystemFileHandle | undefined
 ): Promise<SaveOutcome> => {
@@ -1269,7 +1269,7 @@ const saveFileTo = async (
   //          await anything until our file has been replaced, so that it cannot be edited in the meantime. Also, our
   //          file may have got an editor since we retrieved the contents that we saved (see isModified()), so we always
   //          use its current editor. Such an editor doesn't know about the contents that we saved, so it considers them
-  //          possibly not the latest ones (see IFileEditor), which is why we compare them with the latest contents
+  //          possibly not the latest ones (see FileEditor), which is why we compare them with the latest contents
   //          rather than check whether they are the same object.
   // Note #3: the old file gets closed and the new file gets opened, as far as people are concerned (and, in the case of
   //          Electron, the old file gets added to our list of recent files).
@@ -1359,7 +1359,7 @@ const saveFileTo = async (
   return 'saved';
 };
 
-const activeFileTab = (): IFileTab | undefined => {
+const activeFileTab = (): FileTab | undefined => {
   return fileTabs.value.find((fileTab) => fileTab.file.path() === activeFile.value);
 };
 
@@ -1394,9 +1394,9 @@ const saveCurrentFileAs = async (): Promise<void> => {
 type SaveDecision = 'saved' | 'leftUnsaved';
 
 const askToSaveFile = async (
-  fileTab: IFileTab,
+  fileTab: FileTab,
   title: string,
-  save: (fileTab: IFileTab) => Promise<SaveOutcome> = saveFile
+  save: (fileTab: FileTab) => Promise<SaveOutcome> = saveFile
 ): Promise<SaveDecision | null> => {
   const fileName = common.escapeHtml(common.fileName(fileTab.file.canonicalPath()));
   let question = `${fileName} has been modified. Do you want to save it?`;
@@ -1631,7 +1631,7 @@ const onDrop = (event: DragEvent): void => {
 
   // Remove the dragged item.
 
-  const [draggedItem] = fileTabs.value.splice(draggedIndex, 1) as [IFileTab];
+  const [draggedItem] = fileTabs.value.splice(draggedIndex, 1) as [FileTab];
 
   // Recalculate the target index after the removal.
 
@@ -1665,7 +1665,7 @@ const addExternalData = async (
   csv: string,
   voiExpression: string | undefined,
   modelParameters: string[]
-): Promise<IOpenCORExternalDataEvent> => {
+): Promise<OpenCORExternalDataEvent> => {
   const simulationExperimentInteractiveView = simulationExperimentInteractiveViewRef.value;
 
   if (!simulationExperimentInteractiveView) {
@@ -1689,7 +1689,7 @@ const addExternalData = async (
 
 // Retrieve some simulation data from the current simulation experiment view.
 
-const simulationData = (modelParameters: string[]): Promise<IOpenCORSimulationDataEvent> => {
+const simulationData = (modelParameters: string[]): Promise<OpenCORSimulationDataEvent> => {
   if (!simulationOnly.value) {
     return Promise.resolve({
       type: 'issue',

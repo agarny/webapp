@@ -168,9 +168,9 @@ import * as vueCommon from '../../common/vueCommon';
 
 import { useOpenCORMessage } from '../OpenCORMessage';
 import ContextMenuWidget from './ContextMenuWidget.vue';
-import GraphPanelLivePointsWidget, { type IGraphPanelLivePoint } from './GraphPanelLivePointsWidget.vue';
+import GraphPanelLivePointsWidget, { type GraphPanelLivePoint } from './GraphPanelLivePointsWidget.vue';
 
-export interface IGraphPanelPlotTrace {
+export interface GraphPanelPlotTrace {
   name: string;
   traceId?: string;
   xValue: string;
@@ -182,24 +182,24 @@ export interface IGraphPanelPlotTrace {
   runLabel?: string;
 }
 
-export interface IGraphPanelData {
+export interface GraphPanelData {
   xAxisTitle?: string;
   yAxisTitle?: string;
   xAxisRange?: [number, number];
   yAxisRange?: [number, number];
-  traces: IGraphPanelPlotTrace[];
+  traces: GraphPanelPlotTrace[];
 }
 
-export interface IGraphPanelMargins {
+export interface GraphPanelMargins {
   left: number;
   right: number;
 }
 
 const props = withDefaults(
   defineProps<{
-    data: IGraphPanelData;
+    data: GraphPanelData;
     showMarker?: boolean;
-    margins?: IGraphPanelMargins;
+    margins?: GraphPanelMargins;
     showLegend?: boolean;
     live?: boolean;
   }>(),
@@ -211,7 +211,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  marginsUpdated: [newMargins: IGraphPanelMargins];
+  marginsUpdated: [newMargins: GraphPanelMargins];
 }>();
 
 // Some constants (in CSS pixels, where relevant).
@@ -323,7 +323,7 @@ let isUnmounted = false;
 let stopTrackingContainerSize: (() => void) | undefined;
 let stopTrackingLegendSize: (() => void) | undefined;
 let marginsUpdatePending = false;
-let trackedMargins: IGraphPanelMargins | undefined;
+let trackedMargins: GraphPanelMargins | undefined;
 
 // Whether our axes are logarithmic, which can be changed using our context menu (see contextMenuItems and Logarithmic
 // axes below).
@@ -337,7 +337,7 @@ const logAxes = vue.ref<Record<AxisKey, boolean>>({ x: false, y: false });
 //       variables get updated as soon as our theme changes (see useTheme() in vueCommon.ts). We also resolve them for
 //       our exports (see svgDocument()) since our CSS variables are not available to them.
 
-interface IThemeColors {
+interface ThemeColors {
   background: string;
   text: string;
   tickLabel: string;
@@ -349,7 +349,7 @@ interface IThemeColors {
   hoverGuide: string;
 }
 
-const themeColors = vue.computed<IThemeColors>(() => {
+const themeColors = vue.computed<ThemeColors>(() => {
   const useLightMode = theme.useLightMode();
 
   return {
@@ -368,7 +368,7 @@ const themeColors = vue.computed<IThemeColors>(() => {
 // Our traces' visibility, which we keep track of across data updates (e.g., while a simulation is running or when runs
 // get tracked in interactive mode).
 
-const traceVisibilityKey = (trace: IGraphPanelPlotTrace): string | undefined => {
+const traceVisibilityKey = (trace: GraphPanelPlotTrace): string | undefined => {
   // Return a key that identifies the given trace across data updates, if possible.
 
   if (trace.traceId) {
@@ -455,12 +455,12 @@ const onLegendFocus = (event: FocusEvent, index: number): void => {
 
 vue.watch(
   () => props.data.traces,
-  (traces: IGraphPanelPlotTrace[], oldTraces: IGraphPanelPlotTrace[] | undefined) => {
+  (traces: GraphPanelPlotTrace[], oldTraces: GraphPanelPlotTrace[] | undefined) => {
     // Keep the visibility of the traces that we already know about and make any new trace visible.
 
     const previousVisibilityByKey = new Map<string, boolean>();
 
-    (oldTraces ?? []).forEach((trace: IGraphPanelPlotTrace, index: number) => {
+    (oldTraces ?? []).forEach((trace: GraphPanelPlotTrace, index: number) => {
       const key = traceVisibilityKey(trace);
 
       if (key) {
@@ -468,7 +468,7 @@ vue.watch(
       }
     });
 
-    traceVisibilities.value = traces.map((trace: IGraphPanelPlotTrace) => {
+    traceVisibilities.value = traces.map((trace: GraphPanelPlotTrace) => {
       const key = traceVisibilityKey(trace);
 
       return key ? (previousVisibilityByKey.get(key) ?? true) : true;
@@ -487,7 +487,7 @@ vue.watch(
 // Note: our legend lists our traces by increasing legend rank (and then in the order in which they are given), while
 //       our traces are drawn in the order in which they are given.
 
-interface ILegendItem {
+interface LegendItem {
   index: number;
   color: string;
   name: string;
@@ -496,11 +496,11 @@ interface ILegendItem {
   legendRank: number;
 }
 
-const legendItems = vue.computed<ILegendItem[]>(() => {
+const legendItems = vue.computed<LegendItem[]>(() => {
   const visibilities = traceVisibilities.value;
 
   return props.data.traces
-    .map((trace: IGraphPanelPlotTrace, index: number) => ({
+    .map((trace: GraphPanelPlotTrace, index: number) => ({
       index,
       color: trace.color,
       name: trace.name,
@@ -508,20 +508,20 @@ const legendItems = vue.computed<ILegendItem[]>(() => {
       markers: hasMarkers(trace.x, trace.y),
       legendRank: trace.legendRank ?? DEFAULT_LEGEND_RANK
     }))
-    .sort((item1: ILegendItem, item2: ILegendItem) => item1.legendRank - item2.legendRank || item1.index - item2.index);
+    .sort((item1: LegendItem, item2: LegendItem) => item1.legendRank - item2.legendRank || item1.index - item2.index);
 });
 
 // Our plotting area, which we use to position our axis titles, axis draggers, zoom box, hover guide line, hover points,
 // hover tooltip, and legend.
 
-interface IPlotRect {
+interface PlotRect {
   left: number;
   top: number;
   width: number;
   height: number;
 }
 
-const plotRect = vue.shallowRef<IPlotRect | undefined>();
+const plotRect = vue.shallowRef<PlotRect | undefined>();
 
 const updatePlotRect = (u: uPlot): void => {
   // Keep track of our plotting area (in CSS pixels, relative to our container).
@@ -650,12 +650,12 @@ const setTraceVisibilities = (visibilities: boolean[]): void => {
   }
 };
 
-interface ILegendToggle {
+interface LegendToggle {
   index: number;
   previousVisibility: boolean;
 }
 
-let lastLegendToggle: ILegendToggle | undefined;
+let lastLegendToggle: LegendToggle | undefined;
 
 const onLegendClick = (event: MouseEvent, index: number): void => {
   // Toggle the visibility of the clicked trace, unless this is the second click of a double-click (see
@@ -896,11 +896,11 @@ const onContextMenuHide = (): void => {
 type ImageFormat = 'jpeg' | 'png' | 'svg' | 'webp';
 type RasterImageFormat = Exclude<ImageFormat, 'svg'>;
 
-interface ISvgPath extends IPath {
+interface SvgPath extends Path {
   data: string[];
 }
 
-interface ISvgDocument {
+interface SvgDocument {
   svg: string;
   width: number;
   height: number;
@@ -920,7 +920,7 @@ const escapeXml = (text: string): string => {
   return text.replace(/[&<>"']/g, (character: string) => `&#${character.charCodeAt(0)};`);
 };
 
-const svgPath = (): ISvgPath => {
+const svgPath = (): SvgPath => {
   // Return a path that builds some SVG path data.
 
   const data: string[] = [];
@@ -946,7 +946,7 @@ const svgPath = (): ISvgPath => {
   };
 };
 
-const svgPathElement = (path: ISvgPath, attributes: string): string => {
+const svgPathElement = (path: SvgPath, attributes: string): string => {
   // Return an SVG path element for the given path, if it isn't empty.
 
   return path.data.length ? `<path d="${path.data.join('')}" ${attributes}/>` : '';
@@ -1114,7 +1114,7 @@ const svgLegend = (origin: DOMRect, scale: number): string => {
   return res.join('');
 };
 
-const svgDocument = (scale: number = 1): ISvgDocument => {
+const svgDocument = (scale: number = 1): SvgDocument => {
   // Return our SVG document, which is the size of our container times the given scale.
 
   // Make sure that we have a plot to export.
@@ -1133,7 +1133,7 @@ const svgDocument = (scale: number = 1): ISvgDocument => {
   //       them (e.g., our grid lines are aligned to the same pixels).
 
   const factor = scale / canvasArea.pxRatio;
-  const area: IPathArea = {
+  const area: PathArea = {
     ...canvasArea,
     left: factor * canvasArea.left,
     top: factor * canvasArea.top,
@@ -1157,7 +1157,7 @@ const svgDocument = (scale: number = 1): ISvgDocument => {
   // Note: uPlot draws all our grid lines, including one that is at the right (or bottom) edge of our plotting area,
   //       i.e. that is just outside of it once aligned (if our line width is an odd number of pixels).
 
-  const [xAxis, yAxis] = u.axes as unknown as IAxisInternals[];
+  const [xAxis, yAxis] = u.axes as unknown as AxisInternals[];
   const xSplits = xAxis?._splits ?? [];
   const ySplits = yAxis?._splits ?? [];
 
@@ -1211,7 +1211,7 @@ const svgDocument = (scale: number = 1): ISvgDocument => {
   // Our tick labels (see tickLabels()).
 
   const svgTickLabels = tickLabels(u, area).map(
-    (tickLabel: ITickLabel) =>
+    (tickLabel: TickLabel) =>
       `<text x="${svgNumber(tickLabel.x / scale)}" y="${svgNumber(tickLabel.y / scale)}" text-anchor="${tickLabel.align === 'center' ? 'middle' : 'end'}">${escapeXml(tickLabel.text)}</text>`
   );
 
@@ -1394,7 +1394,7 @@ const exportToCsv = async (): Promise<void> => {
     //          rather than in the order in which they are drawn (e.g., the live run last, so that it is drawn on top of
     //          the other runs).
 
-    const groups: { trace: IGraphPanelPlotTrace; traces: IGraphPanelPlotTrace[] }[] = [];
+    const groups: { trace: GraphPanelPlotTrace; traces: GraphPanelPlotTrace[] }[] = [];
 
     for (const legendItem of legendItems.value) {
       const trace = props.data.traces[legendItem.index];
@@ -1565,7 +1565,7 @@ const finiteDataRange = (u: uPlot, axisKey: AxisKey, seriesIndex?: number): Rang
   return min <= max ? [min, max] : undefined;
 };
 
-interface IExtremum {
+interface Extremum {
   value: number;
   padding: number; // In CSS pixels.
 }
@@ -1590,8 +1590,8 @@ const autoRange = (u: uPlot, axisKey: AxisKey, min: number, max: number): Range 
   const length = (axisKey === 'x' ? u.bbox.width : u.bbox.height) / (dependencies._uPlot.pxRatio as number);
   const padding = axisKey === 'y' ? AUTORANGE_PADDING * length : 0;
   const markersPadding = AUTORANGE_PADDING * length + MARKER_PADDING;
-  const minExtrema: IExtremum[] = [{ value: min, padding }];
-  const maxExtrema: IExtremum[] = [{ value: max, padding }];
+  const minExtrema: Extremum[] = [{ value: min, padding }];
+  const maxExtrema: Extremum[] = [{ value: max, padding }];
 
   for (let i = 1; i < u.series.length; ++i) {
     if (u.series[i]?.show && seriesHasMarkers(u, i)) {
@@ -1775,7 +1775,7 @@ const setScales = (ranges: Partial<Record<AxisKey, Range | null>>): void => {
 //          than jump to it once we are done animating.
 // Note #3: we don't animate if the user prefers reduced motion.
 
-interface IRangeAnimation {
+interface RangeAnimation {
   from: Partial<Record<AxisKey, Range>>;
   to: Partial<Record<AxisKey, Range>>;
   final: Partial<Record<AxisKey, Range | null>>;
@@ -1784,7 +1784,7 @@ interface IRangeAnimation {
   duration: number;
 }
 
-let rangeAnimation: IRangeAnimation | undefined;
+let rangeAnimation: RangeAnimation | undefined;
 let rangeAnimationRafId: number | undefined;
 let animatedRanges: Partial<Record<AxisKey, Range>> = {};
 
@@ -2084,7 +2084,7 @@ const toggleLogAxis = (axisKey: AxisKey): void => {
 
 type DragType = 'nsew' | 'ew' | 'w' | 'e' | 'ns' | 'n' | 's' | 'sw' | 'se';
 
-interface IDragger {
+interface Dragger {
   type: DragType;
   left: number;
   top: number;
@@ -2092,7 +2092,7 @@ interface IDragger {
   height: number;
 }
 
-const draggers = vue.computed<IDragger[]>(() => {
+const draggers = vue.computed<Dragger[]>(() => {
   // Our axis (and corner) draggers, which are positioned around our plotting area.
 
   const rect = plotRect.value;
@@ -2137,7 +2137,7 @@ const draggedAxes = (type: DragType): AxisKey[] => {
 
 type ZoomMode = '' | 'x' | 'y' | 'xy';
 
-interface IZoomBox {
+interface ZoomBox {
   x: number;
   y: number;
   width: number;
@@ -2145,28 +2145,28 @@ interface IZoomBox {
   strokeWidth: number;
 }
 
-interface IBox {
+interface Box {
   left: number;
   right: number;
   top: number;
   bottom: number;
 }
 
-interface IPinchPointer {
+interface PinchPointer {
   startX: number;
   startY: number;
   x: number;
   y: number;
 }
 
-interface IPinch {
-  pointers: Map<number, IPinchPointer>;
+interface Pinch {
+  pointers: Map<number, PinchPointer>;
   axisKeys: AxisKey[];
   xRange: Range;
   yRange: Range;
 }
 
-interface IDrag {
+interface Drag {
   type: DragType;
   pointerId: number;
   pointerType: string;
@@ -2181,30 +2181,30 @@ interface IDrag {
   yRange: Range;
   zoomMode: ZoomMode;
   zoomRanges: Partial<Record<AxisKey, Range>>;
-  box: IBox;
-  pinch: IPinch | undefined;
+  box: Box;
+  pinch: Pinch | undefined;
 }
 
-interface IWheelZoom {
+interface WheelZoom {
   factor: number;
   axisKeys: AxisKey[];
   centerFractions: Record<AxisKey, number>;
 }
 
-const zoomBox = vue.shallowRef<IZoomBox | null>(null);
+const zoomBox = vue.shallowRef<ZoomBox | null>(null);
 const dragCursor = vue.shallowRef<string | null>(null);
 // Note: while dragging, we cover the whole window with an element that uses the cursor of our drag (see our template),
 //       like Plotly does. This means that our cursor doesn't change while dragging (e.g., when moving over one of our
 //       axis draggers or over another part of the window), which would otherwise give the impression that another
 //       action could be started. We also prevent the page from scrolling if the mouse wheel is used over that element.
-let drag: IDrag | undefined;
+let drag: Drag | undefined;
 let dragRafId: number | undefined;
-let pendingWheelZoom: IWheelZoom | undefined;
+let pendingWheelZoom: WheelZoom | undefined;
 let wheelRafId: number | undefined;
 
 const plotPosition = (
   event: MouseEvent,
-  rect: IPlotRect
+  rect: PlotRect
 ): {
   x: number;
   y: number;
@@ -2226,7 +2226,7 @@ const dZoom = (fraction: number): number => {
   return 1 - (fraction >= 0 ? Math.min(fraction, 0.9) : 1 / (1 / Math.max(fraction, -0.3) + 3.222));
 };
 
-const applyDrag = (currentDrag: IDrag): void => {
+const applyDrag = (currentDrag: Drag): void => {
   // Make sure that our plot has been laid out and that we are not dragging our plotting area (see onDragMove()).
 
   const rect = plotRect.value;
@@ -2693,7 +2693,7 @@ const onPressMouseDown = (event: MouseEvent): void => {
 // Note: we scale our ranges by how much closer to (or further from) each other our fingers have moved, and we pan them,
 //       so that what was originally between our fingers remains between them.
 
-const startPinch = (currentDrag: IDrag, event: PointerEvent): void => {
+const startPinch = (currentDrag: Drag, event: PointerEvent): void => {
   // Make sure that our plot has been laid out.
 
   const rect = plotRect.value;
@@ -2730,7 +2730,7 @@ const startPinch = (currentDrag: IDrag, event: PointerEvent): void => {
   dragCursor.value = null;
 };
 
-const movePinch = (pinch: IPinch, event: PointerEvent, rect: IPlotRect): void => {
+const movePinch = (pinch: Pinch, event: PointerEvent, rect: PlotRect): void => {
   // Make sure that it is one of our fingers that has moved.
 
   const pointer = pinch.pointers.get(event.pointerId);
@@ -2768,7 +2768,7 @@ const pinchedRange = (range: Range, startFraction: number, fraction: number, fac
   return [min, min + length];
 };
 
-const applyPinch = (pinch: IPinch): void => {
+const applyPinch = (pinch: Pinch): void => {
   // Make sure that our plot has been laid out and that we have two fingers that are far enough from each other for us
   // to know how much closer to (or further from) each other they have moved.
 
@@ -2829,7 +2829,7 @@ const onDoubleClick = (type: DragType): void => {
 
 type AxisEnd = 'w' | 'e' | 'n' | 's';
 
-interface IRangeEditor {
+interface RangeEditor {
   axisKey: AxisKey;
   end: 0 | 1;
   text: string;
@@ -2838,7 +2838,7 @@ interface IRangeEditor {
   transform: string | undefined;
 }
 
-const rangeEditor = vue.shallowRef<IRangeEditor | null>(null);
+const rangeEditor = vue.shallowRef<RangeEditor | null>(null);
 
 const isAxisEnd = (type: DragType): type is AxisEnd => {
   // Return whether the given drag type is one end of an axis.
@@ -2876,7 +2876,7 @@ const rangeEndValue = (text: string): number | undefined => {
 const openRangeEditor = (type: AxisEnd): void => {
   // Make sure that we have a dragger for the given axis end and a range for its axis.
 
-  const dragger = draggers.value.find((someDragger: IDragger) => someDragger.type === type);
+  const dragger = draggers.value.find((someDragger: Dragger) => someDragger.type === type);
   const axisKey: AxisKey = type === 'w' || type === 'e' ? 'x' : 'y';
   const range = currentRange(axisKey);
 
@@ -3253,12 +3253,12 @@ const separateThousands = (text: string): string => {
   return decimalPart === undefined ? res : `${res}.${decimalPart}`;
 };
 
-interface INumberFormat {
+interface NumberFormat {
   tickRound: number; // Number of digits after the decimal point.
   exponent: number; // Common exponent (of an SI prefix), if any.
 }
 
-const numberFormat = (dtick: number, maxEnd: number): INumberFormat => {
+const numberFormat = (dtick: number, maxEnd: number): NumberFormat => {
   // Determine the format of our tick labels from our tick spacing and from the end of our axis that is the furthest
   // away from zero.
 
@@ -3275,7 +3275,7 @@ const numberFormat = (dtick: number, maxEnd: number): INumberFormat => {
   };
 };
 
-const formatNumber = (value: number, format: INumberFormat): string => {
+const formatNumber = (value: number, format: NumberFormat): string => {
   // The value is not finite, so we just return it as a string (e.g., 'NaN' or 'Infinity').
 
   if (!Number.isFinite(value)) {
@@ -3344,11 +3344,11 @@ const formatNumber = (value: number, format: INumberFormat): string => {
 // instead and lets its Y tick labels overlap), and we don't have minor ticks (and therefore minor grid lines), so that
 // our grid is lighter.
 
-interface IAxisTicks {
+interface AxisTicks {
   label: (split: number) => string;
 }
 
-const axisTicks: Partial<Record<AxisKey, IAxisTicks>> = {};
+const axisTicks: Partial<Record<AxisKey, AxisTicks>> = {};
 
 const roundDTick = (roughDTick: number): number => {
   // Round the given rough tick spacing up to the next "nice" value, i.e. 2, 5, or 10 times a power of ten.
@@ -3541,7 +3541,7 @@ const axisValues = (axisKey: AxisKey): uPlot.Axis.Values => {
 // Our tick labels, which we draw ourselves since uPlot positions them using their em box (e.g., it vertically centres a
 // Y tick label's em box, rather than its digits, on its tick), which makes them look slightly off compared to Plotly's.
 
-interface IAxisInternals {
+interface AxisInternals {
   _splits?: number[];
 }
 
@@ -3550,14 +3550,14 @@ const tickValues: Record<AxisKey, string[]> = {
   y: []
 };
 
-interface ITickLabel {
+interface TickLabel {
   text: string;
   x: number;
   y: number;
   align: 'center' | 'right';
 }
 
-const tickLabels = (u: uPlot, area: IPathArea): ITickLabel[] => {
+const tickLabels = (u: uPlot, area: PathArea): TickLabel[] => {
   // Return our tick labels and where to draw them (in pixels of the given area), i.e. like Plotly, with their
   // alphabetic baseline X_TICK_LABEL_BASELINE pixels below our plotting area for our X axis and, for our Y axis,
   // Y_TICK_LABEL_GAP pixels to the left of our plotting area and with their alphabetic baseline Y_TICK_LABEL_BASELINE
@@ -3566,10 +3566,10 @@ const tickLabels = (u: uPlot, area: IPathArea): ITickLabel[] => {
 
   const { left, top, width, height, xMin, xMax, yMin, yMax, pxRatio } = area;
   const bottom = top + height;
-  const [xAxis, yAxis] = u.axes as unknown as IAxisInternals[];
+  const [xAxis, yAxis] = u.axes as unknown as AxisInternals[];
   const xLabelY = Math.round(bottom + X_TICK_LABEL_BASELINE * pxRatio);
   const yLabelX = Math.round(left) - Math.round(Y_TICK_LABEL_GAP * pxRatio);
-  const res: ITickLabel[] = [];
+  const res: TickLabel[] = [];
 
   xAxis?._splits?.forEach((split: number, index: number) => {
     const text = tickValues.x[index];
@@ -3743,8 +3743,8 @@ const rightMargin = (): number => {
 //          more room than our shared right margin has a narrower plotting area than its sibling panels.
 
 const sameMargins = (
-  firstMargins: IGraphPanelMargins | undefined,
-  secondMargins: IGraphPanelMargins | undefined
+  firstMargins: GraphPanelMargins | undefined,
+  secondMargins: GraphPanelMargins | undefined
 ): boolean => {
   return (
     firstMargins !== undefined &&
@@ -3793,13 +3793,13 @@ const updateMarginsAsync = (): void => {
 
 // Paths, which we build both for uPlot (in canvas pixels) and for our exports (in scaled pixels, see svgDocument()).
 
-interface IPath {
+interface Path {
   moveTo: (x: number, y: number) => void;
   lineTo: (x: number, y: number) => void;
   arc: (x: number, y: number, radius: number, startAngle: number, endAngle: number) => void;
 }
 
-interface IPathArea extends IPlotRect {
+interface PathArea extends PlotRect {
   xMin: number;
   xMax: number;
   yMin: number;
@@ -3807,7 +3807,7 @@ interface IPathArea extends IPlotRect {
   pxRatio: number;
 }
 
-const pathArea = (u: uPlot): IPathArea | undefined => {
+const pathArea = (u: uPlot): PathArea | undefined => {
   // Make sure that we have a plotting area and that our axes have ranges, so that we can build paths in it.
 
   const xMin = u.scales.x?.min;
@@ -3842,10 +3842,10 @@ const lineWidth = (pxRatio: number): number => {
 };
 
 const linesPath = (
-  path: IPath,
+  path: Path,
   xValues: number[],
   yValues: number[],
-  area: IPathArea,
+  area: PathArea,
   withinPlottingArea: boolean = true
 ): void => {
   // Add crisp, one (CSS) pixel wide lines across our plotting area to the given path, i.e. vertical lines at the given
@@ -3920,12 +3920,12 @@ const drawZeroLines = (u: uPlot): void => {
 // Traces and markers.
 
 const linearPath = (
-  path: IPath,
+  path: Path,
   xValues: math.FloatArray,
   yValues: math.FloatArray,
   index0: number,
   index1: number,
-  area: IPathArea
+  area: PathArea
 ): void => {
   // uPlot doesn't support unsorted X values (e.g., phase plots) and draws each (canvas) pixel column of a dense trace
   // as a vertical line, which makes the steep parts of a trace look jagged. So, we use our own linear path builder
@@ -4147,7 +4147,7 @@ const linearPaths: uPlot.Series.PathBuilder = (u: uPlot, seriesIndex: number, in
   return { stroke, fill: null, clip: null, flags: 0 };
 };
 
-const markerPath = (path: IPath, xValues: math.FloatArray, yValues: math.FloatArray, area: IPathArea): void => {
+const markerPath = (path: Path, xValues: math.FloatArray, yValues: math.FloatArray, area: PathArea): void => {
   // Like Plotly, draw a marker for each point of our trace that has finite X and Y values.
 
   const { left, top, width, height, xMin, xMax, yMin, yMax } = area;
@@ -4209,7 +4209,7 @@ const updateLivePoints = (u?: uPlot | null): void => {
     return;
   }
 
-  const newLivePoints: IGraphPanelLivePoint[] = [];
+  const newLivePoints: GraphPanelLivePoint[] = [];
 
   for (let seriesIndex = 1; seriesIndex < u.series.length; ++seriesIndex) {
     // Make sure that our trace is visible and that it has some data.
@@ -4266,32 +4266,32 @@ const setPlotSize = (u: uPlot, width: number, height: number): void => {
 // Note: a trace which X values are not sorted (e.g., a phase plot) doesn't have one value per X value, so we use its
 //       point that is closest to the mouse pointer instead (like Plotly's 'closest' hover mode).
 
-interface IHoverPoint {
+interface HoverPoint {
   seriesIndex: number;
   x: number;
   y: number;
   color: string;
 }
 
-interface IHoverRow {
+interface HoverRow {
   seriesIndex: number;
   name: string;
   value: string;
   color: string;
 }
 
-interface IHover {
+interface Hover {
   clientX: number;
   clientY: number;
   guideX: number;
   guideWidth: number;
-  points: IHoverPoint[];
+  points: HoverPoint[];
   x: string;
-  rows: IHoverRow[];
+  rows: HoverRow[];
   otherRows: number;
 }
 
-const hover = vue.shallowRef<IHover | null>(null);
+const hover = vue.shallowRef<Hover | null>(null);
 let hoverRafId: number | undefined;
 let sortedXValues: boolean[] = [];
 
@@ -4335,7 +4335,7 @@ const hoveredIndex = (
   left: number,
   top: number,
   radius: number,
-  area: IPathArea
+  area: PathArea
 ): number => {
   // Return the index of the point of the given trace that gets hovered, if any, i.e. the point which X value is the
   // closest to the mouse pointer (within HOVER_DISTANCE pixels) if its X values are sorted, or its point that is the
@@ -4429,7 +4429,7 @@ const updateHover = (): void => {
   // closest to the mouse pointer (horizontally), which is the X value that we show in our hover tooltip.
   // Note: we use our plotting area in CSS pixels (since the position of the mouse pointer is in CSS pixels).
 
-  const cssArea: IPathArea = { ...area, ...rect, pxRatio: 1 };
+  const cssArea: PathArea = { ...area, ...rect, pxRatio: 1 };
   const xFactor = cssArea.width / (cssArea.xMax - cssArea.xMin);
   const yFactor = cssArea.height / (cssArea.yMax - cssArea.yMin);
   const hoveredIndices = new Map<number, number>();
@@ -4474,8 +4474,8 @@ const updateHover = (): void => {
   // Build our hover tooltip, listing our traces in the order of our legend, and highlight the hovered points that are
   // within our plotting area.
 
-  const points: IHoverPoint[] = [];
-  const rows: IHoverRow[] = [];
+  const points: HoverPoint[] = [];
+  const rows: HoverRow[] = [];
 
   for (const legendItem of legendItems.value) {
     const seriesIndex = legendItem.index + 1;
@@ -4634,7 +4634,7 @@ const plotData = (): uPlot.AlignedData => {
   // Note #2: uPlot needs at least one series, hence we use an empty one if we have no traces.
 
   const traces = props.data.traces;
-  const data = traces.map((trace: IGraphPanelPlotTrace) => [plotValues('x', trace.x), plotValues('y', trace.y)]);
+  const data = traces.map((trace: GraphPanelPlotTrace) => [plotValues('x', trace.x), plotValues('y', trace.y)]);
 
   sortedXValues = data.map(([xValues]) => isSorted(xValues as math.FloatArray));
 
@@ -5011,7 +5011,7 @@ vue.watch(
 
 vue.watch(
   () => props.margins,
-  (newMargins: IGraphPanelMargins | undefined, oldMargins: IGraphPanelMargins | undefined) => {
+  (newMargins: GraphPanelMargins | undefined, oldMargins: GraphPanelMargins | undefined) => {
     // Nothing to do if our margins haven't actually changed (e.g., if we were given a new object with the same values).
 
     if (sameMargins(newMargins, oldMargins)) {

@@ -1,20 +1,20 @@
-import type { IOpenCORSimulationDataValue, OpenCORSimulationData, OpenCORTheme } from '../../index';
+import type { OpenCORSimulationDataValue, OpenCORSimulationData, OpenCORTheme } from '../../index';
 
 import * as dependencies from './dependencies';
 import { electronApi } from './electronApi';
 
 // Some interfaces.
 
-export interface ISettingsGeneral {
+export interface SettingsGeneral {
   checkForUpdatesAtStartup: boolean;
   theme: OpenCORTheme;
 }
 
-export interface ISettings {
-  general: ISettingsGeneral;
+export interface Settings {
+  general: SettingsGeneral;
 }
 
-export interface ISystemDetails {
+export interface SystemDetails {
   cpuModel: string;
   logicalCoreCount: number;
   totalMemory: number;
@@ -395,12 +395,12 @@ export const isDivisible = (a: number, b: number): boolean => {
 // A method to determine whether the Web browser has a save file picker, i.e. whether it supports the File System Access
 // API (only Chromium-based Web browsers do). If it doesn't, then a file can only be saved by downloading it.
 
-export interface IWindowWithSaveFilePicker {
+export interface WindowWithSaveFilePicker {
   showSaveFilePicker?: (options?: { suggestedName?: string }) => Promise<FileSystemFileHandle>;
 }
 
 export const hasSaveFilePicker = (): boolean => {
-  return typeof window !== 'undefined' && !!(window as unknown as IWindowWithSaveFilePicker).showSaveFilePicker;
+  return typeof window !== 'undefined' && !!(window as unknown as WindowWithSaveFilePicker).showSaveFilePicker;
 };
 
 // A method to trigger a browser download for a file.
@@ -601,7 +601,7 @@ export const EMPTY_FLOAT64_ARRAY = Object.freeze(new Float64Array(0));
 export const UNDEFINED_SIMULATION_DATA_VALUE = Object.freeze({
   data: EMPTY_FLOAT64_ARRAY,
   unit: ''
-}) as Readonly<IOpenCORSimulationDataValue>;
+}) as Readonly<OpenCORSimulationDataValue>;
 
 // A method to get an object with an empty simulation data values for a list of model parameters.
 

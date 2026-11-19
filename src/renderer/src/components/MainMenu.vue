@@ -277,14 +277,14 @@ const items = vue.computed(() => [
 // Some of the internal state of PrimeVue's Menubar component, which we need to handle some keys ourselves (see
 // onRootListKeyDown() below).
 
-interface IMenubarProcessedItem {
+interface MenubarProcessedItem {
   index: number;
   level: number;
   parentKey: string;
 }
 
-interface IMenubarInternals {
-  activeItemPath: IMenubarProcessedItem[];
+interface MenubarInternals {
+  activeItemPath: MenubarProcessedItem[];
   focusedItemInfo: { index: number; level?: number; parentKey: string };
 }
 
@@ -339,7 +339,7 @@ vue.onMounted(() => {
 
     const rootListElement = menuBarElement.querySelector<HTMLElement>('.p-menubar-root-list');
 
-    const closeInnermostSubmenu = (menubar: IMenubarInternals): void => {
+    const closeInnermostSubmenu = (menubar: MenubarInternals): void => {
       const parentItem = menubar.activeItemPath[menubar.activeItemPath.length - 1];
 
       if (!parentItem) {
@@ -351,7 +351,7 @@ vue.onMounted(() => {
     };
 
     const onRootListKeyDown = (event: KeyboardEvent) => {
-      const menubar = menuBarRef.value as unknown as IMenubarInternals | null;
+      const menubar = menuBarRef.value as unknown as MenubarInternals | null;
 
       if (!menubar || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;

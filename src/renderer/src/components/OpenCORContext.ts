@@ -8,7 +8,7 @@ import * as common from '../common/common';
 // Note: this uses Vue's provide()/inject() methods to ensure that each OpenCOR instance has its own context and that we
 //       don't have to pass that information down from component to component using props.
 
-export interface IOpenCORContext {
+export interface OpenCORContext {
   isActiveApp: vue.ComputedRef<boolean>;
   uiEnabled: vue.ComputedRef<boolean>;
   simulationOnly: vue.ComputedRef<boolean>;
@@ -17,12 +17,12 @@ export interface IOpenCORContext {
 
 const OpenCORContextKey = Symbol('OpenCORContext');
 
-export const provideOpenCORContext = (context: IOpenCORContext): void => {
+export const provideOpenCORContext = (context: OpenCORContext): void => {
   vue.provide(OpenCORContextKey, context);
 };
 
-export const useOpenCORContext = (): IOpenCORContext => {
-  const context = vue.inject<IOpenCORContext | undefined>(OpenCORContextKey, undefined);
+export const useOpenCORContext = (): OpenCORContext => {
+  const context = vue.inject<OpenCORContext | undefined>(OpenCORContextKey, undefined);
 
   if (!context) {
     throw new Error(

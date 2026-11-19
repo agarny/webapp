@@ -170,15 +170,15 @@ export const trackElementHeight = (
 //       container and its window scroll listener once no component uses it anymore (e.g., once its OpenCOR instance has
 //       been unmounted).
 
-interface IOverlayContainer {
+interface OverlayContainer {
   element: HTMLElement;
   users: number;
   remove: () => void;
 }
 
-const overlayContainers = new WeakMap<Element, IOverlayContainer>();
+const overlayContainers = new WeakMap<Element, OverlayContainer>();
 
-const overlayContainer = (opencor: Element, containerClass: string): IOverlayContainer => {
+const overlayContainer = (opencor: Element, containerClass: string): OverlayContainer => {
   let res = overlayContainers.get(opencor);
 
   if (res) {
@@ -248,7 +248,7 @@ const overlayContainer = (opencor: Element, containerClass: string): IOverlayCon
 export const useAppendTarget = (ancestorRef: vue.Ref<HTMLElement | null>) => {
   const appendTarget = vue.shallowRef<HTMLElement | undefined>(undefined);
   const containerClass = 'opencor-overlay-container';
-  let usedOverlayContainer: IOverlayContainer | null = null;
+  let usedOverlayContainer: OverlayContainer | null = null;
 
   vue.onMounted(() => {
     const opencor = ancestorRef.value?.closest('.opencor');
@@ -282,7 +282,7 @@ export const useAppendTarget = (ancestorRef: vue.Ref<HTMLElement | null>) => {
 //          elsewhere (e.g., "⌘O" or "Ctrl+O" in our main menu), in which case a separate prop would be needed for
 //          aria-keyshortcuts (or our shortcut would need to be converted).
 
-export interface IToolbarButtonProps {
+export interface ToolbarButtonProps {
   icon: string;
   label?: string;
   shortcut?: string;
@@ -294,7 +294,7 @@ export interface IToolbarButtonProps {
   keepFocus?: boolean;
 }
 
-export interface IWheelProps {
+export interface WheelProps {
   ariaLabel: string;
   ariaValueText?: string;
   disabled?: boolean;
@@ -347,7 +347,7 @@ export const useCopyToClipboard = () => {
   // Note: our feedback (i.e. "Copied" or "Could not copy") is shown in the tooltip of our button, which must therefore
   //       be shown even though our button has just been pressed (see ToolbarButtonWidget.vue).
 
-  const buttonProps = (label: string): Pick<IToolbarButtonProps, 'icon' | 'label' | 'accent' | 'feedback'> => {
+  const buttonProps = (label: string): Pick<ToolbarButtonProps, 'icon' | 'label' | 'accent' | 'feedback'> => {
     if (status.value === 'copied') {
       return { icon: 'pi pi-check', label: 'Copied', accent: 'primary', feedback: true };
     }
@@ -434,7 +434,7 @@ export const populateParameters = (
 export const waitWhileRunning = (
   instance: locSedApi.SedInstance,
   onProgress?: (progress: number) => void,
-  onStatusChange?: (status: locSedApi.ESedInstanceStatus) => void,
+  onStatusChange?: (status: locSedApi.SedInstanceStatus) => void,
   runAbortedRef?: vue.Ref<boolean>
 ): { promise: Promise<void>; cancel: () => void } => {
   let lastStatus: number | undefined;
@@ -469,13 +469,13 @@ export const waitWhileRunning = (
         return;
       }
 
-      let status: locSedApi.ESedInstanceStatus;
+      let status: locSedApi.SedInstanceStatus;
       let progress = 0;
 
       try {
         status = instance.status();
 
-        if (status === locSedApi.ESedInstanceStatus.RUNNING) {
+        if (status === locSedApi.SedInstanceStatus.RUNNING) {
           progress = instance.progress();
         }
       } catch (error: unknown) {
@@ -496,17 +496,17 @@ export const waitWhileRunning = (
       // simulation is idle.
 
       switch (status) {
-        case locSedApi.ESedInstanceStatus.RUNNING:
+        case locSedApi.SedInstanceStatus.RUNNING:
           callSafely(() => onProgress?.(100 * progress));
 
           setTimeout(poll, VERY_SHORT_DELAY);
 
           break;
-        case locSedApi.ESedInstanceStatus.PAUSED:
+        case locSedApi.SedInstanceStatus.PAUSED:
           setTimeout(poll, VERY_SHORT_DELAY);
 
           break;
-        default: // locSedApi.ESedInstanceStatus.IDLE.
+        default: // locSedApi.SedInstanceStatus.IDLE.
           if (onProgress && !runAbortedRef?.value) {
             callSafely(() => onProgress(100));
 

@@ -11,9 +11,9 @@
           -->
           <div ref="toolbarStartRef" class="flex flex-wrap gap-1">
             <ToolbarButtonWidget ref="runPauseButtonRef"
-              :icon="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'pi pi-play-circle' : 'pi pi-pause-circle'"
-              :accent="simulationStatus !== locSedApi.ESedInstanceStatus.RUNNING ? 'primary' : 'warning'"
-              :label="(simulationStatus === locSedApi.ESedInstanceStatus.IDLE ? 'Run' : simulationStatus === locSedApi.ESedInstanceStatus.RUNNING ? 'Pause' : 'Resume') + ' simulation'"
+              :icon="simulationStatus !== locSedApi.SedInstanceStatus.RUNNING ? 'pi pi-play-circle' : 'pi pi-pause-circle'"
+              :accent="simulationStatus !== locSedApi.SedInstanceStatus.RUNNING ? 'primary' : 'warning'"
+              :label="(simulationStatus === locSedApi.SedInstanceStatus.IDLE ? 'Run' : simulationStatus === locSedApi.SedInstanceStatus.RUNNING ? 'Pause' : 'Resume') + ' simulation'"
               shortcut="F9"
               :disabled="isFinishing"
               @click="onRunPause"
@@ -22,7 +22,7 @@
               icon="pi pi-stop-circle"
               accent="danger"
               label="Stop simulation"
-              :disabled="isFinishing || simulationStatus === locSedApi.ESedInstanceStatus.IDLE"
+              :disabled="isFinishing || simulationStatus === locSedApi.SedInstanceStatus.IDLE"
               @click="onStop"
             />
             <span class="toolbar-separator" role="separator" aria-orientation="vertical"></span>
@@ -36,7 +36,7 @@
             <ToolbarButtonWidget
               icon="pi pi-eraser"
               label="Clear simulation data"
-              :disabled="isFinishing || simulationStatus !== locSedApi.ESedInstanceStatus.IDLE || !hasSimulationData"
+              :disabled="isFinishing || simulationStatus !== locSedApi.SedInstanceStatus.IDLE || !hasSimulationData"
               @click="onClearSimulationData"
             />
             <span class="toolbar-separator" :class="{ invisible: delayWrapped }" role="separator" aria-orientation="vertical"></span>
@@ -178,7 +178,7 @@ import * as locApi from '../../libopencor/locApi';
 import * as locSedApi from '../../libopencor/locSedApi';
 
 import { useOpenCORContext, useOpenCORKeyStroke } from '../OpenCORContext';
-import type { IGraphPanelData } from '../widgets/GraphPanelWidget.vue';
+import type { GraphPanelData } from '../widgets/GraphPanelWidget.vue';
 
 import './simulation-experiment-view.css';
 
@@ -208,7 +208,7 @@ const parameters = vue.ref<string[]>([]);
 const xParameter = vue.ref(instanceTask ? instanceTask.voiName() : '');
 const yParameter = vue.ref(instanceTask ? instanceTask.stateName(0) : '');
 
-const data = vue.ref<IGraphPanelData>({
+const data = vue.ref<GraphPanelData>({
   xAxisTitle: instanceTask ? common.escapeHtml(xParameter.value) : undefined,
   yAxisTitle: instanceTask ? common.escapeHtml(yParameter.value) : undefined,
   traces: []
@@ -217,7 +217,7 @@ const data = vue.ref<IGraphPanelData>({
 const initialConsoleContents = `<b>${common.escapeHtml(props.file.path())}</b>`;
 const consoleContents = vue.ref<string>(initialConsoleContents);
 const progress = vue.ref<number>(0);
-const simulationStatus = vue.ref<locSedApi.ESedInstanceStatus>(instance?.status() ?? locSedApi.ESedInstanceStatus.IDLE);
+const simulationStatus = vue.ref<locSedApi.SedInstanceStatus>(instance?.status() ?? locSedApi.SedInstanceStatus.IDLE);
 
 // Whether we use a narrow layout, i.e. whether our side panel is stacked above our plot (see our template).
 
@@ -225,13 +225,13 @@ const narrowLayout = vueCommon.useNarrowLayout(rootRef);
 
 // The outcome of our last simulation run, if any, and the status of our simulation, which we show in our toolbar.
 
-interface ILastRun {
+interface LastRun {
   outcome: 'completed' | 'issues' | 'stopped' | 'failed';
   time?: number;
   delayed?: boolean; // Whether a delay was used at some point during the run (see runDelayed).
 }
 
-const lastRun = vue.ref<ILastRun | null>(null);
+const lastRun = vue.ref<LastRun | null>(null);
 
 // Whether our simulation run is finishing, i.e. whether its run is over, but its results have yet to be plotted and our
 // UI to be painted with them (or, if it failed, while we try to stop our instance, for up to STOP_RUN_TIMEOUT, see
@@ -249,7 +249,7 @@ let stopButtonHadFocus = false;
 vue.watch(
   simulationStatus,
   (status) => {
-    if (status === locSedApi.ESedInstanceStatus.IDLE && stopButtonRef.value?.$el === window.document.activeElement) {
+    if (status === locSedApi.SedInstanceStatus.IDLE && stopButtonRef.value?.$el === window.document.activeElement) {
       stopButtonHadFocus = true;
     }
   },
@@ -321,11 +321,11 @@ const seeConsole = vue.computed<string>(() => {
 const runStatus = vue.computed<{ type: string; icon: string; label: string } | null>(() => {
   const percentage = Math.round(progress.value);
 
-  if (simulationStatus.value === locSedApi.ESedInstanceStatus.RUNNING || isFinishing.value) {
+  if (simulationStatus.value === locSedApi.SedInstanceStatus.RUNNING || isFinishing.value) {
     return { type: 'running', icon: 'pi pi-hourglass', label: `Running... ${percentage}%` };
   }
 
-  if (simulationStatus.value === locSedApi.ESedInstanceStatus.PAUSED) {
+  if (simulationStatus.value === locSedApi.SedInstanceStatus.PAUSED) {
     return { type: 'paused', icon: 'pi pi-pause', label: `Paused at ${percentage}%` };
   }
 
@@ -409,7 +409,7 @@ vue.watch(
 );
 
 const simulationSettingsDisabled = vue.computed<boolean>(() => {
-  return simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE;
+  return simulationStatus.value !== locSedApi.SedInstanceStatus.IDLE;
 });
 
 // Our simulation settings, as they were when we were created, so that they can be reset (see
@@ -417,14 +417,14 @@ const simulationSettingsDisabled = vue.computed<boolean>(() => {
 // Note: our simulation settings are edited by SimulationPropertyEditor, which reads them when it gets created, so we
 //       recreate it (by changing its key) when we reset them.
 
-interface ISimulationSettings {
+interface SimulationSettings {
   initialTime: number;
   outputStartTime: number;
   outputEndTime: number;
   numberOfSteps: number;
 }
 
-const currentSimulationSettings = (timeCourse: locApi.SedUniformTimeCourse): ISimulationSettings => {
+const currentSimulationSettings = (timeCourse: locApi.SedUniformTimeCourse): SimulationSettings => {
   return {
     initialTime: timeCourse.initialTime(),
     outputStartTime: timeCourse.outputStartTime(),
@@ -444,7 +444,7 @@ const onSimulationSettingsUpdated = (): void => {
 
   const settings = currentSimulationSettings(uniformTimeCourse);
 
-  simulationSettingsChanged.value = (Object.keys(settings) as (keyof ISimulationSettings)[]).some(
+  simulationSettingsChanged.value = (Object.keys(settings) as (keyof SimulationSettings)[]).some(
     (key) => settings[key] !== initialSimulationSettings[key]
   );
 };
@@ -510,7 +510,7 @@ let runDelayed = false;
 vue.watch(delay, (newDelay: number) => {
   instance?.setDelay(newDelay / 1000);
 
-  if (newDelay !== 0 && simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE) {
+  if (newDelay !== 0 && simulationStatus.value !== locSedApi.SedInstanceStatus.IDLE) {
     runDelayed = true;
   }
 });
@@ -537,7 +537,7 @@ vueusecore.useResizeObserver(toolbarStartRef, () => {
 const hasSimulationData = vue.ref<boolean>(false);
 
 const onClearSimulationData = (): void => {
-  if (isFinishing.value || simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE) {
+  if (isFinishing.value || simulationStatus.value !== locSedApi.SedInstanceStatus.IDLE) {
     return;
   }
 
@@ -560,11 +560,11 @@ if (instanceTask) {
 
 const simulationDataInfo = locCommon.simulationDataInfoLookup();
 
-const xInfo = vue.computed<locCommon.ISimulationDataInfo>(() => {
+const xInfo = vue.computed<locCommon.SimulationDataInfo>(() => {
   return instanceTask ? simulationDataInfo(instanceTask, xParameter.value) : locCommon.NoSimulationDataInfo;
 });
 
-const yInfo = vue.computed<locCommon.ISimulationDataInfo>(() => {
+const yInfo = vue.computed<locCommon.SimulationDataInfo>(() => {
   return instanceTask ? simulationDataInfo(instanceTask, yParameter.value) : locCommon.NoSimulationDataInfo;
 });
 
@@ -575,18 +575,18 @@ const yInfo = vue.computed<locCommon.ISimulationDataInfo>(() => {
 //       counts a step as completed just before storing its results, so the last point that we retrieved may not have
 //       been stored at the time, which is why we always retrieve it again.
 
-interface ILiveData {
+interface LiveData {
   task: locSedApi.SedInstanceTask;
-  xInfo: locCommon.ISimulationDataInfo;
-  yInfo: locCommon.ISimulationDataInfo;
+  xInfo: locCommon.SimulationDataInfo;
+  yInfo: locCommon.SimulationDataInfo;
   x: Float64Array;
   y: Float64Array;
   size: number;
 }
 
-let liveData: ILiveData | null = null;
+let liveData: LiveData | null = null;
 
-const retrieveLiveData = (task: locSedApi.SedInstanceTask, dataSize: number): ILiveData => {
+const retrieveLiveData = (task: locSedApi.SedInstanceTask, dataSize: number): LiveData => {
   // (Re)create our buffers if needed (e.g., at the start of a simulation run or if the X or Y parameter has changed) or
   // grow them if they are too small.
 
@@ -644,12 +644,12 @@ const updatePlot = (dataSize: number = 0): void => {
   // so that GraphPanelWidget can automatically determine the range based on the data.
 
   const xAxisRange: [number, number] | undefined =
-    uniformTimeCourse && xInfo.value.type === locCommon.ESimulationDataInfoType.VOI
+    uniformTimeCourse && xInfo.value.type === locCommon.SimulationDataInfoType.VOI
       ? [uniformTimeCourse.outputStartTime(), uniformTimeCourse.outputEndTime()]
       : undefined;
 
   const yAxisRange: [number, number] | undefined =
-    uniformTimeCourse && yInfo.value.type === locCommon.ESimulationDataInfoType.VOI
+    uniformTimeCourse && yInfo.value.type === locCommon.SimulationDataInfoType.VOI
       ? [uniformTimeCourse.outputStartTime(), uniformTimeCourse.outputEndTime()]
       : undefined;
 
@@ -710,7 +710,7 @@ const updatePlot = (dataSize: number = 0): void => {
 //          idle.
 
 const onParameterChange = (): void => {
-  if (instance && simulationStatus.value !== locSedApi.ESedInstanceStatus.IDLE) {
+  if (instance && simulationStatus.value !== locSedApi.SedInstanceStatus.IDLE) {
     let progress: number | undefined;
 
     try {
@@ -767,7 +767,7 @@ const releaseResources = async (): Promise<void> => {
 
   try {
     if (instance) {
-      if (instance.status() !== locSedApi.ESedInstanceStatus.IDLE && !(await stopRunAndWait(instance))) {
+      if (instance.status() !== locSedApi.SedInstanceStatus.IDLE && !(await stopRunAndWait(instance))) {
         console.error('OpenCOR: a simulation instance could not be stopped, so it could not be released.');
 
         return;
@@ -830,16 +830,16 @@ const addConsoleError = (error: unknown): void => {
 
 // A helper function to report the given issues (of our instance) in our console.
 
-const addConsoleIssues = (issues: locApi.IIssue[]): void => {
-  issues.forEach((issue: locApi.IIssue) => {
+const addConsoleIssues = (issues: locApi.Issue[]): void => {
+  issues.forEach((issue: locApi.Issue) => {
     const color =
-      issue.type === locApi.EIssueType.ERROR
+      issue.type === locApi.IssueType.ERROR
         ? colors.REVERTED_PALETTE.Red
-        : issue.type === locApi.EIssueType.WARNING
+        : issue.type === locApi.IssueType.WARNING
           ? colors.REVERTED_PALETTE.Orange
           : colors.REVERTED_PALETTE.Blue;
     const issueType =
-      issue.type === locApi.EIssueType.ERROR ? 'Error' : issue.type === locApi.EIssueType.WARNING ? 'Warning' : 'Info';
+      issue.type === locApi.IssueType.ERROR ? 'Error' : issue.type === locApi.IssueType.WARNING ? 'Warning' : 'Info';
     const issueDescription = common.sanitiseHtml(issue.description.replace('Task | ', ''));
 
     consoleContents.value += `<br />&nbsp;&nbsp;<span style="color: ${color};"><strong>${issueType}:</strong> ${issueDescription}</span>`;
@@ -862,7 +862,7 @@ const onRunPause = async (): Promise<void> => {
   // Note: this may fail (e.g., if libOpenCOR throws an exception, see the handling of a run error below), in which case
   //       we report the error rather than let it go unnoticed.
 
-  let status: locSedApi.ESedInstanceStatus;
+  let status: locSedApi.SedInstanceStatus;
 
   try {
     status = instance.status();
@@ -879,7 +879,7 @@ const onRunPause = async (): Promise<void> => {
   // Note: as for a run error, we consider our run as finishing while we wait for our simulation to be idle (see Note #3
   //       of the handling of a run error below), and we let people know if it still cannot be stopped.
 
-  if (status !== locSedApi.ESedInstanceStatus.IDLE && !isWaitingOnRun) {
+  if (status !== locSedApi.SedInstanceStatus.IDLE && !isWaitingOnRun) {
     const runPauseButtonHadFocus = runPauseButtonRef.value?.$el === window.document.activeElement;
     let simulationStopped = false;
 
@@ -915,28 +915,28 @@ const onRunPause = async (): Promise<void> => {
       return;
     }
 
-    status = locSedApi.ESedInstanceStatus.IDLE;
+    status = locSedApi.SedInstanceStatus.IDLE;
   }
 
   switch (status) {
-    case locSedApi.ESedInstanceStatus.RUNNING:
+    case locSedApi.SedInstanceStatus.RUNNING:
       // Pause the simulation.
 
       instance.pauseRun();
 
-      simulationStatus.value = locSedApi.ESedInstanceStatus.PAUSED;
+      simulationStatus.value = locSedApi.SedInstanceStatus.PAUSED;
 
       break;
-    case locSedApi.ESedInstanceStatus.PAUSED:
+    case locSedApi.SedInstanceStatus.PAUSED:
       // Resume the simulation.
 
       instance.resumeRun();
 
-      simulationStatus.value = locSedApi.ESedInstanceStatus.RUNNING;
+      simulationStatus.value = locSedApi.SedInstanceStatus.RUNNING;
 
       break;
     default: {
-      // locSedApi.ESedInstanceStatus.IDLE.
+      // locSedApi.SedInstanceStatus.IDLE.
 
       // Make sure that we are not still waiting on our previous run, if any.
       // Note: our instance may be idle before waitWhileRunning() has noticed it (it polls our instance), in which case
@@ -1003,7 +1003,7 @@ const onRunPause = async (): Promise<void> => {
         if (!instance.startRun()) {
           const instanceIssues = instance.hasIssues() ? instance.issues() : [];
 
-          simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
+          simulationStatus.value = locSedApi.SedInstanceStatus.IDLE;
 
           markRunAsFailed();
 
@@ -1018,7 +1018,7 @@ const onRunPause = async (): Promise<void> => {
           return;
         }
       } catch (error: unknown) {
-        simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
+        simulationStatus.value = locSedApi.SedInstanceStatus.IDLE;
 
         markRunAsFailed();
 
@@ -1041,7 +1041,7 @@ const onRunPause = async (): Promise<void> => {
       try {
         simulationStatus.value = instance.status();
       } catch {
-        simulationStatus.value = locSedApi.ESedInstanceStatus.RUNNING;
+        simulationStatus.value = locSedApi.SedInstanceStatus.RUNNING;
       }
 
       // Wait for the simulation to finish, handling pause/resume cycles asynchronously so that the UI remains
@@ -1166,7 +1166,7 @@ const onRunPause = async (): Promise<void> => {
         }
 
         isFinishing.value = false;
-        simulationStatus.value = locSedApi.ESedInstanceStatus.IDLE;
+        simulationStatus.value = locSedApi.SedInstanceStatus.IDLE;
         progress.value = 0;
         liveData = null;
         lastRun.value = { outcome: 'failed' };
@@ -1222,7 +1222,7 @@ const onRunPause = async (): Promise<void> => {
           const instanceIssues = instance.issues();
 
           lastRun.value = {
-            outcome: instanceIssues.some((issue: locApi.IIssue) => issue.type === locApi.EIssueType.ERROR)
+            outcome: instanceIssues.some((issue: locApi.Issue) => issue.type === locApi.IssueType.ERROR)
               ? 'failed'
               : runAborted.value
                 ? 'stopped'

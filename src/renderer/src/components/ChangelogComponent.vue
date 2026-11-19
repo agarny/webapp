@@ -19,13 +19,13 @@
 </template>
 
 <script setup lang="ts">
-import type { IOpenCORChangelogEntry, OpenCORChangelogChangeType } from '../../index';
+import type { OpenCORChangelogEntry, OpenCORChangelogChangeType } from '../../index';
 
 import { vHint } from '../common/hint';
 import { currentVersion } from '../common/version';
 
 defineProps<{
-  entries: IOpenCORChangelogEntry[];
+  entries: OpenCORChangelogEntry[];
 }>();
 
 const CHANGE_TYPE_LABELS: Record<OpenCORChangelogChangeType, string> = {

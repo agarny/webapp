@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import type { IViewDescriptor, ViewCategory } from '../../common/viewRegistry';
+import type { ViewDescriptor, ViewCategory } from '../../common/viewRegistry';
 
 // A view that is shown instead of the view that was chosen for a file when that view doesn't support the file, and
 // which lets the user switch to a view that does support it, if any.
@@ -40,7 +40,7 @@ import type { IViewDescriptor, ViewCategory } from '../../common/viewRegistry';
 defineProps<{
   viewName: string;
   viewCategory: ViewCategory;
-  supportingViews: IViewDescriptor[];
+  supportingViews: ViewDescriptor[];
 }>();
 
 const emit = defineEmits<{

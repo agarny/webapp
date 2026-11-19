@@ -7,7 +7,7 @@
     <h3 class="opencor-section-title opencor-section-title-small">{{ name }}</h3>
     <div class="side-panel-fields">
       <InputScientificNumberWidget v-for="(property, index) in properties" :key="property.property"
-        :ref="(element: unknown) => (fieldRefs[index] = element as IInputScientificNumberWidget | null)"
+        :ref="(element: unknown) => (fieldRefs[index] = element as InputScientificNumberWidgetInstance | null)"
         :modelValue="property.value"
         :label="common.labelWithUnit(property.property, hasUnits ? property.unit : undefined)"
         :disabled="disabled"
@@ -48,11 +48,11 @@ const emit = defineEmits<{
 //       ask it to show the current value of its property again, which it does without losing the keyboard focus (so
 //       that, for instance, the user can keep spinning its value).
 
-interface IInputScientificNumberWidget {
+interface InputScientificNumberWidgetInstance {
   discardEdit: () => void;
 }
 
-const fieldRefs: (IInputScientificNumberWidget | null)[] = [];
+const fieldRefs: (InputScientificNumberWidgetInstance | null)[] = [];
 
 const onValueUpdated = (index: number, newValue: number | undefined): void => {
   // Ignore an invalid new value for the property, i.e. keep its current value. A new value is invalid if it is not a

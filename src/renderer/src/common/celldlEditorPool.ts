@@ -20,7 +20,7 @@ import * as common from './common';
 //          pointer press in its CellDL Editor, so that it is the one that handles keyboard events. When no CellDL
 //          Editor view is visible, we do the same with a spare CellDL Editor, which has nothing to edit.
 
-export interface ICellDLEditorClient {
+export interface CellDLEditorClient {
   container: HTMLElement | null;
   active: boolean;
   activation: number;
@@ -29,14 +29,14 @@ export interface ICellDLEditorClient {
   onFileEdited: () => void;
 }
 
-export interface ICellDLEditor {
+export interface CellDLEditor {
   open: (data: string, name: string) => Promise<void>;
   data: () => Promise<string>;
 }
 
-export interface IPooledCellDLEditor extends ICellDLEditor {
+export interface PooledCellDLEditor extends CellDLEditor {
   id: number;
-  client: ICellDLEditorClient | null;
+  client: CellDLEditorClient | null;
   command: CellDLEditorCommand | undefined;
   root: HTMLElement | null;
   close: () => void;
@@ -49,7 +49,7 @@ export interface IPooledCellDLEditor extends ICellDLEditor {
 const DATA_REQUEST_TIMEOUT = 3 * 1000; // 3 seconds.
 
 export const useCellDLEditorPool = vueusecore.createGlobalState(() => {
-  const editors = vue.shallowReactive<IPooledCellDLEditor[]>([]);
+  const editors = vue.shallowReactive<PooledCellDLEditor[]>([]);
   let failure: string | null = null;
   let anyReady = false;
   const readyRejecters = new Set<(error: Error) => void>();
@@ -58,7 +58,7 @@ export const useCellDLEditorPool = vueusecore.createGlobalState(() => {
 
   let editorNumber = 0;
 
-  const createEditor = (): IPooledCellDLEditor => {
+  const createEditor = (): PooledCellDLEditor => {
     // Run our operations one after the other since CellDL Editor can only handle one command at a time.
 
     let lastOperation: Promise<unknown> = Promise.resolve();
@@ -143,9 +143,9 @@ export const useCellDLEditorPool = vueusecore.createGlobalState(() => {
     //       CellDL Editor nor to the client that has acquired it since. So, we forget about our opened client as soon
     //       as our CellDL Editor gets released (see close()).
 
-    let openedClient: ICellDLEditorClient | null = null;
+    let openedClient: CellDLEditorClient | null = null;
 
-    const editor: IPooledCellDLEditor = vue.shallowReactive({
+    const editor: PooledCellDLEditor = vue.shallowReactive({
       id: ++editorNumber,
       client: null,
       command: undefined,
@@ -262,11 +262,11 @@ export const useCellDLEditorPool = vueusecore.createGlobalState(() => {
   // Acquire a CellDL Editor for the given client, making sure that we still have a spare CellDL Editor afterwards (see
   // above).
 
-  const spareEditor = (): IPooledCellDLEditor | undefined => {
+  const spareEditor = (): PooledCellDLEditor | undefined => {
     return editors.find((editor) => !editor.client);
   };
 
-  const acquire = (client: ICellDLEditorClient, appContext: vue.AppContext | null): ICellDLEditor => {
+  const acquire = (client: CellDLEditorClient, appContext: vue.AppContext | null): CellDLEditor => {
     mount(appContext);
 
     const res = spareEditor() ?? createEditor();
@@ -286,7 +286,7 @@ export const useCellDLEditorPool = vueusecore.createGlobalState(() => {
 
   // Release the given CellDL Editor and close its diagram, so that it can be reused.
 
-  const release = (editor: ICellDLEditor): void => {
+  const release = (editor: CellDLEditor): void => {
     const pooledEditor = editors.find((pooledEditor) => pooledEditor === editor);
 
     if (pooledEditor) {
@@ -321,8 +321,8 @@ export const useCellDLEditorPool = vueusecore.createGlobalState(() => {
   // Note: several clients may be active at the same time (e.g., if several OpenCOR instances each show a CellDL file),
   //       in which case we use the client that was activated last (see activate()).
 
-  const targetClient = vue.computed<ICellDLEditorClient | null>(() => {
-    let res: ICellDLEditorClient | null = null;
+  const targetClient = vue.computed<CellDLEditorClient | null>(() => {
+    let res: CellDLEditorClient | null = null;
 
     for (const editor of editors) {
       const client = editor.client;
@@ -339,7 +339,7 @@ export const useCellDLEditorPool = vueusecore.createGlobalState(() => {
 
   let activationNumber = 0;
 
-  const activate = (client: ICellDLEditorClient): void => {
+  const activate = (client: CellDLEditorClient): void => {
     client.activation = ++activationNumber;
   };
 

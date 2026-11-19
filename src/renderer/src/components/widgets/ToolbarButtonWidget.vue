@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
-import type { IToolbarButtonProps } from '../../common/vueCommon';
+import type { ToolbarButtonProps } from '../../common/vueCommon';
 
 // A toolbar button, which shows an icon and, when hovered or focused using the keyboard, a tooltip with the button's
 // label and, if any, keyboard shortcut.
@@ -67,7 +67,7 @@ import type { IToolbarButtonProps } from '../../common/vueCommon';
 const TOOLTIP_OFFSET = 6; // Distance between our button and our tooltip (see .toolbar-button-tooltip below).
 const TOOLTIP_MARGIN = 4; // Minimum distance between our tooltip and the edges of the window.
 
-const props = defineProps<IToolbarButtonProps>();
+const props = defineProps<ToolbarButtonProps>();
 
 const buttonRef = vue.useTemplateRef<HTMLButtonElement>('buttonRef');
 const tooltipSuppressed = vue.ref<boolean>(false);

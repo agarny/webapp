@@ -644,11 +644,11 @@ import * as vueCommon from '../../common/vueCommon';
 import * as locApi from '../../libopencor/locApi';
 import * as locUiJsonApi from '../../libopencor/locUiJsonApi';
 import { validateUiJson } from '../../libopencor/locUiJsonApi';
-import { EIssueType } from '../../libopencor/locLoggerApi';
+import { IssueType } from '../../libopencor/locLoggerApi';
 
 import { useOpenCORToast } from '../OpenCORToast';
 
-export interface ISimulationExperimentInteractiveViewSettingsDialog {
+export interface SimulationExperimentInteractiveViewSettings {
   simulation: {
     initialPoint: number;
     startingPoint: number;
@@ -659,12 +659,12 @@ export interface ISimulationExperimentInteractiveViewSettingsDialog {
     cvodeMaximumStep: number;
   };
   interactive: {
-    uiJson: locUiJsonApi.IUiJson;
+    uiJson: locUiJsonApi.UiJson;
   };
 }
 
 const props = defineProps<{
-  settings: ISimulationExperimentInteractiveViewSettingsDialog;
+  settings: SimulationExperimentInteractiveViewSettings;
   voiId: string;
   voiName: string;
   voiUnit: string;
@@ -675,15 +675,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
-  ok: [settings: ISimulationExperimentInteractiveViewSettingsDialog];
+  ok: [settings: SimulationExperimentInteractiveViewSettings];
 }>();
 
 const DEFAULT_TAB = 'interactive';
 const DEFAULT_INTERACTIVE_TAB = 'simulationInputs';
 
 function deepCloneSettings(
-  settings: ISimulationExperimentInteractiveViewSettingsDialog
-): ISimulationExperimentInteractiveViewSettingsDialog {
+  settings: SimulationExperimentInteractiveViewSettings
+): SimulationExperimentInteractiveViewSettings {
   // Perform a deep clone of our settings.
   // Note: our external data values (i.e. Float64Arrays) are shared rather than copied (see cloneUiJson()), which is
   //       fine since we never modify them in place.
@@ -706,7 +706,7 @@ function deepCloneSettings(
 }
 
 const addToast = useOpenCORToast();
-const localSettings = vue.ref<ISimulationExperimentInteractiveViewSettingsDialog>(deepCloneSettings(props.settings));
+const localSettings = vue.ref<SimulationExperimentInteractiveViewSettings>(deepCloneSettings(props.settings));
 // Note: we need to do a deep copy here to make sure that any changes made to nested objects in our local settings are
 //       not reflected in the original settings while preserving any typed arrays in the UI JSON.
 
@@ -744,13 +744,13 @@ const isExternalDataUrlValid = vue.computed<boolean>(() => {
   }
 });
 
-const externalDataSeries = (externalData: locApi.IUiJsonOutputExternalData): string[] => {
+const externalDataSeries = (externalData: locApi.UiJsonOutputExternalData): string[] => {
   return externalData.dataSeries.map((dataSerie) => {
     return dataSerie.name;
   });
 };
 
-const externalDataEntries = (externalData: locApi.IUiJsonOutputExternalData): locApi.IUiJsonOutputData[] => {
+const externalDataEntries = (externalData: locApi.UiJsonOutputExternalData): locApi.UiJsonOutputData[] => {
   return externalData.data;
 };
 
@@ -779,28 +779,28 @@ const numberOfDataPoints = vue.computed<string>(() => {
 
   return res;
 });
-const simulationSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
+const simulationSettingsIssues = vue.computed<locApi.Issue[]>(() => {
   // Validate our simulation settings and return any issues.
 
-  const res: locApi.IIssue[] = [];
+  const res: locApi.Issue[] = [];
 
   if (localSettings.value.simulation.initialPoint == null) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: 'The initial point must be specified.'
     });
   }
 
   if (localSettings.value.simulation.startingPoint == null) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: 'The starting point must be specified.'
     });
   }
 
   if (localSettings.value.simulation.endingPoint == null) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: 'The ending point must be specified.'
     });
   }
@@ -811,7 +811,7 @@ const simulationSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
     localSettings.value.simulation.startingPoint < localSettings.value.simulation.initialPoint
   ) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: 'The starting point must be greater or equal to the initial point.'
     });
   }
@@ -822,14 +822,14 @@ const simulationSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
     localSettings.value.simulation.endingPoint <= localSettings.value.simulation.startingPoint
   ) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: 'The ending point must be greater than the starting point.'
     });
   }
 
   if (localSettings.value.simulation.pointInterval == null) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: 'The point interval must be specified.'
     });
   }
@@ -843,14 +843,14 @@ const simulationSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
     !Number.isFinite(localSettings.value.simulation.pointInterval)
   ) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: 'The point interval must be a finite number.'
     });
   }
 
   if (localSettings.value.simulation.pointInterval !== null && localSettings.value.simulation.pointInterval <= 0) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: 'The point interval must be a positive number.'
     });
   }
@@ -863,7 +863,7 @@ const simulationSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
 
     if (!(Math.round((endingPoint - startingPoint) / pointInterval) <= locApi.MAXIMUM_NUMBER_OF_STEPS)) {
       res.push({
-        type: EIssueType.WARNING,
+        type: IssueType.WARNING,
         description: `The point interval is too small (the number of steps must not exceed ${common.formatCount(locApi.MAXIMUM_NUMBER_OF_STEPS)}).`
       });
     }
@@ -871,28 +871,28 @@ const simulationSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
 
   return res;
 });
-const solversSettingsIssues = vue.computed<locApi.IIssue[]>(() => {
+const solversSettingsIssues = vue.computed<locApi.Issue[]>(() => {
   // Validate our solvers settings and return any issues.
 
-  const res: locApi.IIssue[] = [];
+  const res: locApi.Issue[] = [];
 
   if (localSettings.value.solvers.cvodeMaximumStep === null) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: "CVODE's maximum step must be specified."
     });
   }
 
   if (localSettings.value.solvers.cvodeMaximumStep !== null && localSettings.value.solvers.cvodeMaximumStep < 0) {
     res.push({
-      type: EIssueType.WARNING,
+      type: IssueType.WARNING,
       description: "CVODE's maximum step must be a non-negative number."
     });
   }
 
   return res;
 });
-const uiJsonIssues = vue.computed<locApi.IIssue[]>(() => {
+const uiJsonIssues = vue.computed<locApi.Issue[]>(() => {
   // Validate our local UI JSON and return any issues.
 
   return validateUiJson(localSettings.value.interactive.uiJson, {
@@ -904,7 +904,7 @@ const uiJsonIssues = vue.computed<locApi.IIssue[]>(() => {
 // The issues of the active section, i.e. of our simulation, solvers, or interactive settings, along with a label for
 // them.
 
-const activeIssues = vue.computed<locApi.IIssue[]>(() => {
+const activeIssues = vue.computed<locApi.Issue[]>(() => {
   if (activeTab.value === 'simulation') {
     return simulationSettingsIssues.value;
   }
@@ -936,7 +936,7 @@ vue.watch(
 // Note: our interactive settings are validated as a whole, so we can only let people know that the group of interactive
 //       sections has issues, not which section(s) in particular.
 
-interface INavItem {
+interface NavItem {
   tab: string;
   interactiveTab?: string;
   label: string;
@@ -945,13 +945,13 @@ interface INavItem {
   hasIssues?: boolean;
 }
 
-interface INavGroup {
+interface NavGroup {
   label: string;
   hasIssues: boolean;
-  items: INavItem[];
+  items: NavItem[];
 }
 
-const navGroups = vue.computed<INavGroup[]>(() => {
+const navGroups = vue.computed<NavGroup[]>(() => {
   const uiJson = localSettings.value.interactive.uiJson;
 
   return [
@@ -1017,14 +1017,14 @@ const navGroups = vue.computed<INavGroup[]>(() => {
   ];
 });
 
-const isActiveSection = (navItem: INavItem): boolean => {
+const isActiveSection = (navItem: NavItem): boolean => {
   return (
     navItem.tab === activeTab.value &&
     (navItem.interactiveTab === undefined || navItem.interactiveTab === activeInteractiveTab.value)
   );
 };
 
-const selectSection = (navItem: INavItem): void => {
+const selectSection = (navItem: NavItem): void => {
   // Hide the issues popover since it may be about the issues of another section.
 
   issuesPopoverRef.value?.hide();
@@ -1036,11 +1036,11 @@ const selectSection = (navItem: INavItem): void => {
   }
 };
 
-const plotTraceCount = (plot: locApi.IUiJsonOutputPlot): number => {
+const plotTraceCount = (plot: locApi.UiJsonOutputPlot): number => {
   return 1 + (plot.additionalTraces?.length ?? 0);
 };
 
-const plotTraces = (plot: locApi.IUiJsonOutputPlot): locApi.IUiJsonOutputPlotAdditionalTrace[] => {
+const plotTraces = (plot: locApi.UiJsonOutputPlot): locApi.UiJsonOutputPlotAdditionalTrace[] => {
   // The traces of a plot, i.e. its main trace (i.e. the plot itself) followed by its additional traces, if any.
 
   return [plot, ...(plot.additionalTraces ?? [])];
@@ -1088,7 +1088,7 @@ const parameterValueTooltip = (): string => {
   return xyParameterValueTooltip('model parameter', 'model input', 'model_input');
 };
 
-const traceName = (plot: locApi.IUiJsonOutputPlot, traceIndex: number): string => {
+const traceName = (plot: locApi.UiJsonOutputPlot, traceIndex: number): string => {
   const trace = traceIndex === -1 ? plot : plot.additionalTraces?.[traceIndex];
 
   return vueCommon.traceName(trace?.name, trace?.xValue, trace?.yValue);
@@ -1171,7 +1171,7 @@ const addSimulationData = () => {
   });
 };
 
-const externalDataDescription = (externalData: locApi.IUiJsonOutputExternalData, externalDataIndex: number): string => {
+const externalDataDescription = (externalData: locApi.UiJsonOutputExternalData, externalDataIndex: number): string => {
   return externalData.description?.trim() || `External data #${externalDataIndex + 1}`;
 };
 
@@ -1187,8 +1187,8 @@ const sourceDescription = (source: string): string => {
   }
 };
 
-const createExternalDataFromCsv = (source: string, externalCsvData: externalData.IExternalCsvData): void => {
-  const dataSeries: locApi.IUiJsonOutputExternalDataSeries[] = [];
+const createExternalDataFromCsv = (source: string, externalCsvData: externalData.ExternalCsvData): void => {
+  const dataSeries: locApi.UiJsonOutputExternalDataSeries[] = [];
 
   for (let columnIndex = 1; columnIndex < externalCsvData.headers.length; ++columnIndex) {
     const header = externalCsvData.headers[columnIndex];
@@ -1403,7 +1403,7 @@ const removeTrace = (plotIndex: number, traceIndex: number) => {
     // additional traces, just clear the main trace.
 
     if (plot.additionalTraces && plot.additionalTraces.length > 0) {
-      const firstAdditionalTrace = plot.additionalTraces.shift() as locApi.IUiJsonOutputPlot;
+      const firstAdditionalTrace = plot.additionalTraces.shift() as locApi.UiJsonOutputPlot;
 
       plot.name = firstAdditionalTrace.name || undefined;
       plot.xValue = firstAdditionalTrace.xValue;

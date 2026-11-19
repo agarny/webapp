@@ -57,11 +57,11 @@ import * as vueusecore from '@vueuse/core';
 import * as vue from 'vue';
 
 import * as celldl from '../../common/celldl';
-import { type ICellDLEditor, type ICellDLEditorClient, useCellDLEditorPool } from '../../common/celldlEditorPool';
+import { type CellDLEditor, type CellDLEditorClient, useCellDLEditorPool } from '../../common/celldlEditorPool';
 import { loadCellDLRuntime } from '../../common/celldlRuntime';
 import * as common from '../../common/common';
 import { LONG_DELAY } from '../../common/constants';
-import { type IFileEditor, useViewRegistry } from '../../common/viewRegistry';
+import { type FileEditor, useViewRegistry } from '../../common/viewRegistry';
 import * as locApi from '../../libopencor/locApi';
 
 import { useOpenCORContext } from '../OpenCORContext';
@@ -91,9 +91,9 @@ const LIMITATIONS = [
 
 const opencorMessage = useOpenCORMessage();
 const containerRef = vue.shallowRef<HTMLElement | null>(null);
-const issues = vue.ref<locApi.IIssue[]>([]);
+const issues = vue.ref<locApi.Issue[]>([]);
 const editCount = vue.ref<number>(0);
-const exportIssues = vue.ref<locApi.IIssue[]>([]);
+const exportIssues = vue.ref<locApi.Issue[]>([]);
 const exportIssuesKind = vue.ref<string>(EXPORT_KIND_DOWNLOAD);
 const exportIssuesTitle = vue.computed<string>(() => {
   return exportIssuesKind.value === EXPORT_KIND_SIMULATE ? 'Standard Simulation' : 'Export COMBINE Archive';
@@ -133,7 +133,7 @@ const client = vue.reactive({
     client.loaded = false;
 
     issues.value.push({
-      type: locApi.EIssueType.ERROR,
+      type: locApi.IssueType.ERROR,
       description: message
     });
   },
@@ -142,8 +142,8 @@ const client = vue.reactive({
       ++editCount.value;
     }
   }
-}) as ICellDLEditorClient;
-let editor: ICellDLEditor | null = null;
+}) as CellDLEditorClient;
+let editor: CellDLEditor | null = null;
 
 // Return our (possibly edited) diagram.
 // Note: if CellDL Editor couldn't open our diagram, then it doesn't (properly) hold it, so we return the contents of
@@ -179,7 +179,7 @@ vueusecore.useEventListener(window, 'keydown', (event: KeyboardEvent) => {
 // Note: our diagram may get edited while it is being saved (e.g., while our file is being written), in which case it
 //       must still be considered modified once saved, hence we keep track of the number of edits that had been made
 //       when we asked for some contents, for each contents that we provide (since several of them may be being saved at
-//       once, see IFileEditor). We do so before asking for them since an edit made while they are being retrieved may
+//       once, see FileEditor). We do so before asking for them since an edit made while they are being retrieved may
 //       or may not be part of them, in which case we would rather consider our diagram modified when it isn't than the
 //       other way round. Also, our file may have unsaved contents (see viewRegistry.markUnsavedContents()), in which
 //       case our diagram is modified until it gets saved, i.e. our initial number of saved edits must not match any
@@ -188,7 +188,7 @@ vueusecore.useEventListener(window, 'keydown', (event: KeyboardEvent) => {
 const viewRegistry = useViewRegistry();
 const savedEditCount = vue.ref<number>(viewRegistry.hasUnsavedContents(props.file) ? -1 : 0);
 const contentsEditCounts = new WeakMap<Uint8Array, number>();
-const fileEditor: IFileEditor = {
+const fileEditor: FileEditor = {
   modified: () => editCount.value !== savedEditCount.value,
   contents: async () => {
     const crtEditCount = editCount.value;
@@ -244,7 +244,7 @@ vue.onMounted(async () => {
     await loadCellDLRuntime();
   } catch (error: unknown) {
     issues.value.push({
-      type: locApi.EIssueType.ERROR,
+      type: locApi.IssueType.ERROR,
       description: common.formatError(error)
     });
 
@@ -307,7 +307,7 @@ const onExportCombineArchive = async (kind: string): Promise<void> => {
     if (!res.cellml) {
       exportIssues.value = res.issues.map((issue) => {
         return {
-          type: locApi.EIssueType.ERROR,
+          type: locApi.IssueType.ERROR,
           description: issue
         };
       });

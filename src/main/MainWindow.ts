@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { OpenCORTheme } from '../renderer/index';
-import { formatError, isDataUrlFileName, type ISettings, isUrl, sleep } from '../renderer/src/common/common';
+import { formatError, isDataUrlFileName, type Settings, isUrl, sleep } from '../renderer/src/common/common';
 import { FULL_URI_SCHEME, LONG_DELAY, MAX_RECENT_FILES } from '../renderer/src/common/constants';
 import { appImagePath, isMacOs, isPackaged, isWindows } from '../renderer/src/common/electron';
 /* TODO: enable once our GitHub integration is fully ready.
@@ -14,7 +14,7 @@ import { deleteGitHubAccessToken } from '../renderer/src/common/gitHubIntegratio
 
 import icon from './assets/icon.png?asset';
 import { ApplicationWindow, backgroundColor } from './ApplicationWindow';
-import { electronConf, type IElectronConfState, takeElectronConfBackupFileName } from './index';
+import { electronConf, type ElectronConfState, takeElectronConfBackupFileName } from './index';
 import {
   enableDisableFileCloseAndCloseAllMenuItems,
   enableDisableFileSaveAndSaveAsMenuItems,
@@ -202,11 +202,11 @@ const resendUpdateState = (): void => {
   }
 };
 
-export const loadSettings = (): ISettings => {
+export const loadSettings = (): Settings => {
   return electronConf.get('settings');
 };
 
-export const saveSettings = (settings: ISettings): void => {
+export const saveSettings = (settings: Settings): void => {
   electronConf.set('settings', settings);
 };
 
@@ -650,12 +650,12 @@ export const saveFileAs = (defaultFilePath: string): Promise<string | null> => {
 //       isDataUrlFileName()), so it cannot be reopened. Hence, we don't reopen such a file and, if it is the selected
 //       file, we select the first file that is to be reopened instead.
 
-interface IFilesToReopen {
+interface FilesToReopen {
   opened: string[];
   selected: string;
 }
 
-const currentFilesToReopen = (): IFilesToReopen => {
+const currentFilesToReopen = (): FilesToReopen => {
   const opened = openedFilePaths.filter((filePath) => !isDataUrlFileName(filePath));
   const selected = selectedFilePath && !isDataUrlFileName(selectedFilePath) ? selectedFilePath : (opened[0] ?? '');
 
@@ -759,7 +759,7 @@ export class MainWindow extends ApplicationWindow {
   private _openDialogShown = false;
   private _pendingArguments: string[] = [];
   private _recentFilePathsToCanonicalise: string[] = [];
-  private _filesToReopen: IFilesToReopen | null = null;
+  private _filesToReopen: FilesToReopen | null = null;
   private _openedFilePaths: string[] = [];
   private _openedFilePathIndex = 0;
   private _reopeningFilePath: string | null = null;
@@ -770,7 +770,7 @@ export class MainWindow extends ApplicationWindow {
   constructor(commandLine: string[], splashScreenWindow: SplashScreenWindow, rendererUrl: string) {
     // Initialise ourselves.
 
-    const state: IElectronConfState = electronConf.get('app.state');
+    const state: ElectronConfState = electronConf.get('app.state');
 
     super({
       x: state.x,
@@ -1377,7 +1377,7 @@ export class MainWindow extends ApplicationWindow {
   //       those that we have yet to reopen. Similarly, our renderer selects each file that it opens, so the file that
   //       it has told us is selected is not necessarily the one that we have yet to select.
 
-  private filesToReopen(): IFilesToReopen {
+  private filesToReopen(): FilesToReopen {
     const res = currentFilesToReopen();
 
     if (this._reopeningFilePath === null) {

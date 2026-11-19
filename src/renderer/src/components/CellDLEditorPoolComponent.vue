@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import * as vue from 'vue';
 
-import { type IPooledCellDLEditor, useCellDLEditorPool } from '../common/celldlEditorPool';
+import { type PooledCellDLEditor, useCellDLEditorPool } from '../common/celldlEditorPool';
 import { loadCellDLRuntime } from '../common/celldlRuntime';
 import { useTheme } from '../common/vueCommon';
 
@@ -35,7 +35,7 @@ const { editors, setFailed } = useCellDLEditorPool();
 const { theme } = useTheme();
 const instances = new Map<number, vue.ComponentPublicInstance>();
 
-const setInstance = (editor: IPooledCellDLEditor, instance: unknown): void => {
+const setInstance = (editor: PooledCellDLEditor, instance: unknown): void => {
   if (instance) {
     instances.set(editor.id, instance as vue.ComponentPublicInstance);
   } else {
@@ -45,7 +45,7 @@ const setInstance = (editor: IPooledCellDLEditor, instance: unknown): void => {
 
 // Let a CellDL Editor know when it is ready, providing it with its root element.
 
-const onEditorReady = (editor: IPooledCellDLEditor): void => {
+const onEditorReady = (editor: PooledCellDLEditor): void => {
   editor.onEditorReady(instances.get(editor.id)?.$el ?? null);
 };
 
